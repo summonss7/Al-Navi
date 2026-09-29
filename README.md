@@ -3,7 +3,11 @@
 Современный двухпанельный файловый менеджер с управлением в духе FAR Manager.
 Кроссплатформенный: Windows + Linux. Стек: **Tauri 2 (Rust) + Svelte 5 + TypeScript + CodeMirror 6**.
 
-Бренд: лайм `#8EE53F`, оранж `#F97316`, серый `#9E9E9E`, duotone-иконки (Phosphor), шрифт Inter.
+Репозиторий: <https://github.com/summonss7/Al-Navi>
+
+Бренд (по `images/design.jpg`, `images/logo.jpg`, `images/icon.jpg`): лайм `#8EE53F` (идентичность),
+оранж `#F97316` (выделение/активность), серый `#9E9E9E`, светлый интерфейс — тёплый серый фон
+`#EDECEA`, белые скруглённые карточки с мягкими тенями, duotone-иконки (Phosphor), шрифт Nunito.
 
 ---
 
@@ -40,6 +44,9 @@ npm run tauri dev
 PATH="/c/Users/CUSTOM/msys64/ucrt64/bin:$PATH" \
   cargo +stable-x86_64-pc-windows-gnu run   # из src-tauri, при запущенном `npm run dev`
 
+# Превью интерфейса в обычном браузере (без файловых данных, только вёрстка/темы):
+npm run dev            # затем откройте http://localhost:1420
+
 # Проверки
 npm run check        # svelte-check (типы)
 cargo check          # из src-tauri
@@ -57,6 +64,23 @@ npm run release
 синхронно обновите `version` в `src-tauri/tauri.conf.json`). Время сборки вшивается
 автоматически (`build.rs` → `AL_NAVI_BUILD_TIME`) и показывается в тайтлбаре
 программы рядом с версией, а также в меню F9.
+
+---
+
+## Резервное копирование
+
+Двойной клик по **`backup.bat`** (обёртка; вся логика в `backup.ps1`):
+
+- ZIP-архив `backups/Al-Navi-backup-<дата-время>.zip` со всеми исходниками,
+  конфигами и дизайн-референсами (`images/`);
+- не кладутся: `.git`, `node_modules`, `dist/`, `builds/`, `backups/`,
+  `src-tauri/target`, `src-tauri/gen/schemas`;
+- после создания архив проверяется на читаемость;
+- ротация: хранятся последние **8** архивов, старые удаляются;
+- восстановление: распаковать ZIP в папку проекта.
+
+Бэкап дополняет git: забирайте изменения в репозиторий после каждого этапа работы
+(`git add -A && git commit && git push`).
 
 ---
 

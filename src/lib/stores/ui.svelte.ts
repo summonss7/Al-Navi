@@ -43,6 +43,13 @@ class UIStore {
 
   openDialog(id: Exclude<DialogId, null>) {
     this.dialog = id;
+    // a modal takes the keyboard: the command line gives up the caret (the
+    // App effect hands it back after close). Progress stays transparent so
+    // commands can keep being typed while an operation runs in background.
+    if (id !== "progress" && this.cmdLineFocused) {
+      this.cmdLineFocused = false;
+      cmdline.blurInput();
+    }
   }
 
   closeDialog() {

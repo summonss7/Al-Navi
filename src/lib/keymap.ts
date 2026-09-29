@@ -169,6 +169,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     "Shift+F4": "editor.newFile",
     F7: "editor.search",
     F8: "editor.deleteLine",
+    "Ctrl+Y": "editor.deleteLine",
     "Ctrl+G": "editor.gotoLine",
     F1: "ui.help",
     Esc: "editor.close",

@@ -225,6 +225,23 @@ const en: Record<string, string> = {
   "help.tips.watch": "Panels refresh automatically when files change on disk; folder sizes show as ≈ and are cached for 10 minutes.",
   "help.tips.trash": "F8 moves to the Recycle Bin, Shift+Del deletes permanently.",
   "help.tips.version": "The version and build time are shown in the title bar.",
+
+  "hint.hidePanels": "hide panels",
+  "hint.showPanels": "show panels",
+  "hint.swap": "swap",
+  "hint.refresh": "refresh",
+  "hint.hidden": "hidden files",
+  "hint.up": "parent dir",
+  "hint.root": "drive root",
+  "hint.copyName": "copy name",
+  "hint.copyPath": "copy path",
+  "hint.sortName": "sort: name",
+  "hint.sortDate": "sort: date",
+  "hint.sortSize": "sort: size",
+  "hint.ring": "windows",
+  "hint.cmdHist": "cmd history",
+  "hint.newTab": "new tab",
+  "hint.closeTab": "close tab",
 };
 
 const ru: Record<string, string> = {
@@ -443,6 +460,23 @@ const ru: Record<string, string> = {
   "help.tips.watch": "Панели обновляются сами при изменениях на диске; размеры папок показываются как ≈ и кэшируются 10 минут.",
   "help.tips.trash": "F8 удаляет в корзину, Shift+Del — безвозвратно.",
   "help.tips.version": "Версия и время сборки показаны в заголовке окна.",
+
+  "hint.hidePanels": "скрыть панели",
+  "hint.showPanels": "показать панели",
+  "hint.swap": "обмен",
+  "hint.refresh": "обновить",
+  "hint.hidden": "скрытые файлы",
+  "hint.up": "наверх",
+  "hint.root": "корень диска",
+  "hint.copyName": "копировать имя",
+  "hint.copyPath": "копировать путь",
+  "hint.sortName": "сортировка: имя",
+  "hint.sortDate": "сортировка: дата",
+  "hint.sortSize": "сортировка: размер",
+  "hint.ring": "окна",
+  "hint.cmdHist": "история команд",
+  "hint.newTab": "новая вкладка",
+  "hint.closeTab": "закрыть вкладку",
 };
 
 const uk: Record<string, string> = {

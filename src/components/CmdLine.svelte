@@ -22,7 +22,8 @@
   function onKey(e: KeyboardEvent) {
     // only Enter is handled here: the global capture handler routes everything
     // else (panel navigation, bound chords) before the event reaches the input,
-    // and plain typing arrives natively
+    // and plain typing arrives natively. No stopPropagation — keys must keep
+    // bubbling so dialog key handlers (drive list, histories) still see them.
     if (e.key === "Enter") {
       const cmd = cmdline.currentCommand;
       if (cmd) {
@@ -31,7 +32,6 @@
       }
       e.preventDefault();
     }
-    e.stopPropagation();
   }
 </script>
 

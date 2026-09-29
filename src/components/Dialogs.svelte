@@ -137,6 +137,18 @@
     }
   });
 
+  // visible items in the dialog list, measured live (for block jumps)
+  function listPageStep(): number {
+    const item =
+      document.querySelector<HTMLElement>(".drive.kbd") ??
+      document.querySelector<HTMLElement>(".li.kbd") ??
+      document.querySelector<HTMLElement>(".dlg-body .drive") ??
+      document.querySelector<HTMLElement>(".dlg-body .li");
+    const body = item?.closest<HTMLElement>(".dlg-body");
+    if (!item || !body || !item.offsetHeight) return 8;
+    return Math.max(1, Math.floor(body.clientHeight / item.offsetHeight) - 1);
+  }
+
   function onListKey(e: KeyboardEvent) {
     if (!LIST_DIALOGS.has(ui.dialog ?? "")) return;
     const n = listCount();
@@ -144,13 +156,22 @@
     let handled = true;
     switch (e.key) {
       case "ArrowDown":
-      case "ArrowRight":
         listIdx = listIdx < 0 ? 0 : (listIdx + 1) % n;
         break;
       case "ArrowUp":
-      case "ArrowLeft":
         listIdx = listIdx < 0 ? 0 : (listIdx - 1 + n) % n;
         break;
+      // block walking: jump by a visible page, clamped (no wrap)
+      case "ArrowRight": {
+        const s = listPageStep();
+        listIdx = listIdx < 0 ? 0 : Math.min(n - 1, listIdx + s);
+        break;
+      }
+      case "ArrowLeft": {
+        const s = listPageStep();
+        listIdx = listIdx < 0 ? 0 : Math.max(0, listIdx - s);
+        break;
+      }
       case "Home":
         listIdx = 0;
         break;

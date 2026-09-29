@@ -13,6 +13,20 @@
 
   const OVERSCAN = 6;
 
+  // track the real viewport height (was hardcoded 400 — stale for tall panels)
+  // and expose the visible row count for FAR-style page jumps (Left/Right)
+  $effect(() => {
+    if (!container) return;
+    const ro = new ResizeObserver((es) => {
+      for (const e of es) viewportH = e.contentRect.height;
+    });
+    ro.observe(container);
+    return () => ro.disconnect();
+  });
+  $effect(() => {
+    panel.viewportRows = Math.max(2, Math.floor(viewportH / rowHeight) - 1);
+  });
+
   // react to selection/encoding changes that alter row text
   $effect(() => {
     void i18n.locale;

@@ -36,6 +36,8 @@ export class PanelState {
   quickFilter = $state<string | null>(null);
   /** selected entry names — raw state replaced with a new Set on every change */
   selected = $state.raw<Set<string>>(new Set());
+  /** visible rows in the panel viewport (kept in sync by VirtualList) */
+  viewportRows = 25;
 
   private raw: FileEntry[] = [];
   private loadSeq = 0;

@@ -70,13 +70,15 @@
     const rows = p.view.length;
     if (!rows) return null;
     switch (e.key) {
-      // FAR semantics: Right = row down, Left = row up (with wrap-around)
       case "ArrowDown":
-      case "ArrowRight":
         return () => (p.cursor = (p.cursor + 1) % rows);
       case "ArrowUp":
-      case "ArrowLeft":
         return () => (p.cursor = (p.cursor - 1 + rows) % rows);
+      // FAR-style block walking: Right/Left jump by a visible page
+      case "ArrowRight":
+        return () => p.pageMove(1, p.viewportRows);
+      case "ArrowLeft":
+        return () => p.pageMove(-1, p.viewportRows);
       case "PageDown": return () => p.pageMove(1, 25);
       case "PageUp": return () => p.pageMove(-1, 25);
       case "Home": return () => (p.cursor = 0);

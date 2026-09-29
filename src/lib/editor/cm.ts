@@ -18,6 +18,7 @@ import { tags as t } from "@lezer/highlight";
 import { basicSetup } from "codemirror";
 import { extOf } from "$lib/format";
 import { settings } from "$lib/stores/settings.svelte";
+import { transformCase, type CaseMode } from "$lib/plugins";
 
 // language packs
 import { javascript } from "@codemirror/lang-javascript";
@@ -202,6 +203,23 @@ export { SearchQuery };
 
 export function deleteLineCmd() {
   if (view) cmDeleteLine(view);
+}
+
+/** F11 change-case plugin: transform every non-empty selection range.
+ *  Returns the number of ranges changed (0 = nothing selected). */
+export function changeCaseCmd(mode: CaseMode): number {
+  if (!view) return 0;
+  const changes: { from: number; to: number; insert: string }[] = [];
+  for (const r of view.state.selection.ranges) {
+    if (r.empty) continue;
+    changes.push({
+      from: r.from,
+      to: r.to,
+      insert: transformCase(view.state.sliceDoc(r.from, r.to), mode),
+    });
+  }
+  if (changes.length) view.dispatch({ changes });
+  return changes.length;
 }
 
 export function gotoLineCmd(line: number) {

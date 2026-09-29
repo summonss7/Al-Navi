@@ -10,6 +10,7 @@
   import { editor } from "$lib/stores/editor.svelte";
   import { cmdline } from "$lib/stores/cmdline.svelte";
   import { fileColors } from "$lib/stores/fileColors.svelte";
+  import { ftpSites } from "$lib/stores/ftpSites.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
 
   import TitleBar from "$comp/TitleBar.svelte";
@@ -140,6 +141,9 @@
 
     void settings.init()
       .then(async () => {
+        // FTP sites must load first: panels reconnect to saved servers
+        // when the restored session points into ftp://
+        void ftpSites.init();
         await panels.init();
         ops.init();
         void cmdline.init();

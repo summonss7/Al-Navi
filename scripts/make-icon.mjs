@@ -1,7 +1,8 @@
 // Generates the Al-Navi brand icon per images/icon.jpg as a 1024px PNG:
-// cream rounded-square, broken lime ring (gaps at cardinals + NE), 8-point
-// compass star (west half lime / east half orange, long NE needle crossing
-// the ring), orange hub. Pure JS: polygon rasterizer + PNG encoder.
+// dark rounded-square (like the dark-theme window), broken lime ring (gaps
+// at cardinals + NE), 8-point compass star (west half lime / east half
+// orange, long NE needle crossing the ring), orange hub. Pure JS: polygon
+// rasterizer + PNG encoder.
 import { deflateSync } from "node:zlib";
 import { writeFileSync, mkdirSync } from "node:fs";
 
@@ -9,6 +10,7 @@ const W = 1024, H = 1024;
 const LIME = [0x8e, 0xe5, 0x3f, 255];
 const ORANGE = [0xf9, 0x73, 0x16, 255];
 const CREAM = [0xf0, 0xee, 0xe6, 255];
+const DARK = [0x14, 0x16, 0x19, 255]; // alnaviDark window bg
 
 const px = new Uint8Array(W * H * 4);
 
@@ -86,8 +88,8 @@ function roundedRect(x0, y0, x1, y1, r, color) {
 
 const CX = 512, CY = 512;
 
-// 1) cream rounded-square background
-roundedRect(32, 32, W - 32, H - 32, 230, CREAM);
+// 1) dark rounded-square background (lime/orange compass reads best on it)
+roundedRect(32, 32, W - 32, H - 32, 230, DARK);
 
 // 2) broken lime ring: gaps at the four cardinals (star points reach it)
 //    plus a wider gap at NE where the orange needle crosses it

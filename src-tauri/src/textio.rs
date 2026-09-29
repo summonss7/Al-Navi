@@ -18,7 +18,7 @@ pub struct TextContent {
     pub truncated: bool,
 }
 
-fn lookup_encoding(label: &str) -> Option<&'static Encoding> {
+pub(crate) fn lookup_encoding(label: &str) -> Option<&'static Encoding> {
     match label.to_ascii_lowercase().as_str() {
         "utf-8" => Some(encoding_rs::UTF_8),
         "utf-16le" => Some(encoding_rs::UTF_16LE),
@@ -31,7 +31,7 @@ fn lookup_encoding(label: &str) -> Option<&'static Encoding> {
     }
 }
 
-fn detect_eol(s: &str) -> &'static str {
+pub(crate) fn detect_eol(s: &str) -> &'static str {
     let mut crlf = 0usize;
     let mut lf = 0usize;
     let mut cr = 0usize;
@@ -65,7 +65,7 @@ fn detect_eol(s: &str) -> &'static str {
 /// 2. Strict UTF-8 over the whole (loaded) prefix
 /// 3. Heuristic: many NUL bytes → UTF-16 without BOM
 /// 4. Fallback single-byte encoding (default windows-1251, configurable from UI)
-fn decode_auto(bytes: &[u8], fallback: &str) -> (String, &'static str, bool) {
+pub(crate) fn decode_auto(bytes: &[u8], fallback: &str) -> (String, &'static str, bool) {
     if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
         let (cow, _, _) = encoding_rs::UTF_8.decode(&bytes[3..]);
         return (cow.into_owned(), "utf-8", true);
@@ -117,32 +117,66 @@ pub async fn read_text(
         limited
             .read_to_end(&mut buf)
             .map_err(|e| format!("{}: {}", path, e))?;
-        let (text, enc, bom) = match encoding.as_deref() {
-            Some(label) if !label.eq_ignore_ascii_case("auto") => {
-                let e = lookup_encoding(label)
-                    .ok_or_else(|| format!("unknown encoding: {}", label))?;
-                if label.eq_ignore_ascii_case("utf-8") && buf.starts_with(&[0xEF, 0xBB, 0xBF]) {
-                    let (cow, _, _) = e.decode(&buf[3..]);
-                    (cow.into_owned(), "utf-8", true)
-                } else {
-                    let (cow, _, _) = e.decode(&buf);
-                    (cow.into_owned(), e.name(), false)
-                }
-            }
-            _ => decode_auto(&buf, fallback.as_deref().unwrap_or("windows-1251")),
-        };
-        let eol = detect_eol(&text);
-        Ok(TextContent {
-            text,
-            encoding: enc.to_string(),
-            bom,
-            eol: eol.to_string(),
-            size,
-            truncated,
-        })
+        decode_content(&buf, size, encoding.as_deref(), fallback.as_deref().unwrap_or("windows-1251"))
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// Shared decode step of read_text (also used by the FTP reader).
+pub(crate) fn decode_content(
+    buf: &[u8],
+    size: u64,
+    encoding: Option<&str>,
+    fallback: &str,
+) -> Result<TextContent, String> {
+    let truncated = size > MAX_TEXT_BYTES;
+    let (text, enc, bom) = match encoding {
+        Some(label) if !label.eq_ignore_ascii_case("auto") => {
+            let e = lookup_encoding(label).ok_or_else(|| format!("unknown encoding: {}", label))?;
+            if label.eq_ignore_ascii_case("utf-8") && buf.starts_with(&[0xEF, 0xBB, 0xBF]) {
+                let (cow, _, _) = e.decode(&buf[3..]);
+                (cow.into_owned(), "utf-8", true)
+            } else {
+                let (cow, _, _) = e.decode(buf);
+                (cow.into_owned(), e.name(), false)
+            }
+        }
+        _ => decode_auto(buf, fallback),
+    };
+    let eol = detect_eol(&text);
+    Ok(TextContent {
+        text,
+        encoding: enc.to_string(),
+        bom,
+        eol: eol.to_string(),
+        size,
+        truncated,
+    })
+}
+
+/// Shared encode step of write_text (also used by the FTP writer).
+pub(crate) fn encode_text(content: String, encoding: &str, eol: &str) -> Result<Vec<u8>, String> {
+    let text = if eol == "keep" {
+        content
+    } else {
+        let mut s = content.replace("\r\n", "\n").replace('\r', "\n");
+        if eol == "crlf" {
+            s = s.replace('\n', "\r\n");
+        } else if eol == "cr" {
+            s = s.replace('\n', "\r");
+        }
+        s
+    };
+    let enc = lookup_encoding(encoding).ok_or_else(|| format!("unknown encoding: {}", encoding))?;
+    let bytes = if enc == encoding_rs::UTF_8 {
+        // no BOM by default on save (FAR-like)
+        text.as_bytes().to_vec()
+    } else {
+        let (cow, _, _) = enc.encode(&text);
+        cow.into_owned()
+    };
+    Ok(bytes)
 }
 
 #[tauri::command]
@@ -153,26 +187,7 @@ pub async fn write_text(
     eol: String, // "crlf" | "lf" | "cr" | "keep"
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let text = if eol == "keep" {
-            content
-        } else {
-            let mut s = content.replace("\r\n", "\n").replace('\r', "\n");
-            if eol == "crlf" {
-                s = s.replace('\n', "\r\n");
-            } else if eol == "cr" {
-                s = s.replace('\n', "\r");
-            }
-            s
-        };
-        let enc = lookup_encoding(&encoding)
-            .ok_or_else(|| format!("unknown encoding: {}", encoding))?;
-        let bytes = if enc == encoding_rs::UTF_8 {
-            // no BOM by default on save (FAR-like)
-            text.as_bytes().to_vec()
-        } else {
-            let (cow, _, _) = enc.encode(&text);
-            cow.into_owned()
-        };
+        let bytes = encode_text(content, &encoding, &eol)?;
         let p = PathBuf::from(&path);
         if let Some(dir) = p.parent() {
             let _ = fs::create_dir_all(dir);

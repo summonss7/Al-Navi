@@ -49,6 +49,18 @@ export const resolveConflict = (id: number, action: string) =>
 export const drivesList = () => invoke<DriveInfo[]>("drives_list");
 export const watchSet = (paths: string[]) => invoke<void>("watch_set", { paths });
 
+// ---- FTP ----
+export const ftpConnect = (host: string, port: number, user: string, password: string) =>
+  invoke<string>("ftp_connect", { host, port, user, password });
+export const ftpList = (path: string) => invoke<DirListing>("ftp_list", { path });
+export const ftpReadText = (path: string, encoding?: string, fallback?: string) =>
+  invoke<TextContent>("ftp_read_text", { path, encoding: encoding ?? null, fallback: fallback ?? null });
+export const ftpWriteText = (path: string, content: string, encoding: string, eol: string) =>
+  invoke<void>("ftp_write_text", { path, content, encoding, eol });
+export const ftpReadHex = (path: string, offset: number, len: number) =>
+  invoke<{ data: number[]; fileSize: number }>("ftp_read_hex", { path, offset, len });
+export const ftpMkdir = (path: string) => invoke<void>("ftp_mkdir", { path });
+
 // ---- Config persistence ----
 export const loadJson = <T>(name: string) => invoke<T | null>("load_json", { name });
 export const saveJson = (name: string, data: unknown) =>

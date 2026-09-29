@@ -1,10 +1,13 @@
-import { listDir, watchSet, onWatchChanged, onDirSize, computeDirSizes, loadJson, saveJson, homePath, openPath } from "$lib/api";
+import { listDir, ftpList, ftpConnect, watchSet, onWatchChanged, onDirSize, computeDirSizes, loadJson, saveJson, homePath, openPath } from "$lib/api";
 import type { FileEntry, SortMode } from "$lib/types";
 import { extOf, joinPath, parentOf } from "$lib/format";
+import { ftpAuthority, ftpRootOf, isFtpPath } from "$lib/ftp";
 import { cyrillicOfLatin } from "$lib/keymap";
 import { i18n } from "./i18n.svelte";
 import { settings } from "./settings.svelte";
 import { dirSizeCache } from "./dirSizes.svelte";
+import { editor } from "./editor.svelte";
+import { ftpSites } from "./ftpSites.svelte";
 
 export interface TabState {
   id: number;
@@ -87,7 +90,20 @@ export class PanelState {
     this.loading = true;
     this.error = null;
     try {
-      const res = await listDir(path);
+      let res: Awaited<ReturnType<typeof listDir>>;
+      if (isFtpPath(path)) {
+        res = await ftpList(path).catch(async (e: unknown) => {
+          // stale session after an app restart: reconnect from a saved site
+          // with the same address, then retry the listing
+          const auth = ftpAuthority(path);
+          const site = ftpSites.sites.find((s) => ftpRootOf(s) === auth);
+          if (!site) throw e;
+          await ftpConnect(site.host, site.port || 21, site.user, site.password);
+          return ftpList(path);
+        });
+      } else {
+        res = await listDir(path);
+      }
       if (seq !== this.loadSeq) return; // stale
       this.raw = res.entries;
       this.free = res.freeBytes;
@@ -179,6 +195,11 @@ export class PanelState {
    * Results arrive via `dirsize` events and land in applyDirSize().
    */
   private requestDirSizes(force: boolean) {
+    // FTP: no cheap recursive sizes — skip (dirs show no size, like FAR)
+    if (isFtpPath(this.path)) {
+      this.dirSizes = new Map();
+      return;
+    }
     const names = this.raw.filter((e) => e.isDir).map((e) => e.name);
     const next = new Map<string, number>();
     const stale: string[] = [];
@@ -221,6 +242,9 @@ export class PanelState {
       await this.up();
     } else if (cur.isDir) {
       await this.chdir(joinPath(this.path, cur.name));
+    } else if (isFtpPath(this.path)) {
+      // files on FTP can't go to the OS shell — open the built-in viewer
+      void editor.view(joinPath(this.path, cur.name));
     } else {
       // open with the OS handler
       await panels.openExternally(joinPath(this.path, cur.name));
@@ -235,6 +259,7 @@ export class PanelState {
   /** Shift+Enter: always hand the entry to the OS shell — folders (and "..")
    *  open in Explorer, files run/open in their own window */
   async enterExternal() {
+    if (isFtpPath(this.path)) return; // no local shell for remote paths
     const cur = this.current;
     if (!cur) return;
     if (cur.name === UP_NAME) {
@@ -248,6 +273,10 @@ export class PanelState {
   async root() {
     // drive root on Windows ("/" of the drive) or filesystem root
     const path = this.path;
+    if (isFtpPath(path)) {
+      await this.chdir(ftpAuthority(path));
+      return;
+    }
     const m = /^([A-Za-z]:)(?:[\\/].*)?$/.exec(path);
     if (m) await this.chdir(m[1] + "\\");
     else if (path.startsWith("/")) await this.chdir("/");
@@ -556,7 +585,8 @@ class PanelsStore {
   notifyWatch() {
     if (this.watchTimer) clearTimeout(this.watchTimer);
     this.watchTimer = setTimeout(() => {
-      const paths = [this.left.path, this.right.path].filter(Boolean);
+      // the OS watcher is local-only — FTP paths are refreshed via Ctrl+R
+      const paths = [this.left.path, this.right.path].filter((p) => p && !isFtpPath(p));
       if (paths.length) watchSet(paths).catch(() => {});
     }, 400);
   }

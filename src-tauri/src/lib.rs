@@ -1,6 +1,7 @@
 mod config;
 mod drives;
 mod fs;
+mod ftp;
 mod meta;
 mod ops;
 mod textio;
@@ -83,6 +84,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(ops::OpManager::new())
         .manage(watch::WatchState::new())
+        .manage(ftp::FtpState::new())
         .setup(|app| {
             // Windows/WebView2: without this the webview lacks keyboard focus
             // on startup, so arrow keys/F-keys do nothing until first click
@@ -112,6 +114,12 @@ pub fn run() {
             ops::resolve_conflict,
             drives::drives_list,
             watch::watch_set,
+            ftp::ftp_connect,
+            ftp::ftp_list,
+            ftp::ftp_read_text,
+            ftp::ftp_write_text,
+            ftp::ftp_read_hex,
+            ftp::ftp_mkdir,
             config::load_json,
             config::save_json,
             meta::app_info,

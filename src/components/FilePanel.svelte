@@ -5,6 +5,7 @@
   import { cyrillicOfLatin } from "$lib/keymap";
   import { i18n } from "$lib/stores/i18n.svelte";
   import { formatSize, formatCount, basename, sortArrow } from "$lib/format";
+  import { ftpAuthority, isFtpPath } from "$lib/ftp";
   import VirtualList from "./VirtualList.svelte";
 
   let { panel }: { panel: PanelState } = $props();
@@ -32,7 +33,16 @@
     void panel.path;
     const p = panel.path;
     const out: { label: string; path: string }[] = [];
-    if (/^[a-zA-Z]:[\\/]/.test(p) || /^[a-zA-Z]:$/.test(p)) {
+    if (isFtpPath(p)) {
+      // "ftp://user@host:port" crumb + one crumb per remote folder
+      const auth = ftpAuthority(p);
+      out.push({ label: auth.slice("ftp://".length), path: auth });
+      let acc = auth;
+      for (const part of p.slice(auth.length).split("/").filter(Boolean)) {
+        acc += "/" + part;
+        out.push({ label: part, path: acc });
+      }
+    } else if (/^[a-zA-Z]:[\\/]/.test(p) || /^[a-zA-Z]:$/.test(p)) {
       const parts = p.split(/[\\/]+/).filter(Boolean);
       out.push({ label: parts[0], path: parts[0] + "\\" });
       for (let i = 1; i < parts.length; i++) {

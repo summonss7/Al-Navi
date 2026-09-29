@@ -142,6 +142,13 @@ const en: Record<string, string> = {
   "misc.feature.userMenu": "User menu",
   "misc.feature.viewHistory": "View history",
   "misc.feature.plugins": "Plug-ins",
+  "plug.case": "Change case",
+  "plug.case.sentence": "Sentence case — first letter and after a period",
+  "plug.case.lower": "all lowercase",
+  "plug.case.upper": "ALL UPPERCASE",
+  "plug.case.title": "Every Word With A Capital Letter",
+  "plug.noSel": "No selection — select text first",
+  "plug.back": "Back",
 
   "menu.view": "View",
   "menu.dirsFirst": "Folders on top when sorting",
@@ -152,6 +159,24 @@ const en: Record<string, string> = {
   "fc.add": "Add rule",
   "fc.reset": "Reset",
   "fc.remove": "Remove rule",
+  "fc.bold": "Bold name",
+
+  "ftp.title": "FTP",
+  "ftp.none": "No saved sites — add one or use quick connect",
+  "ftp.quick": "Quick connect…",
+  "ftp.add": "Add",
+  "ftp.edit": "Edit",
+  "ftp.delete": "Delete",
+  "ftp.connect": "Connect",
+  "ftp.saveConnect": "Save & connect",
+  "ftp.name": "Name",
+  "ftp.host": "Host",
+  "ftp.port": "Port",
+  "ftp.user": "User",
+  "ftp.password": "Password",
+  "ftp.hint": "Passwords are stored as plain text in ftp-sites.json",
+  "ftp.hostMissing": "Enter the server host first",
+  "ftp.opsUnsupported": "File operations with FTP (copy/move/delete/rename) are coming in the next version — viewing (F3) and editing (F4) work",
 
   "help.nav": "Panels: navigation",
   "help.nav.cursor": "Move the cursor one row",
@@ -377,6 +402,13 @@ const ru: Record<string, string> = {
   "misc.feature.userMenu": "Пользовательское меню",
   "misc.feature.viewHistory": "История просмотра",
   "misc.feature.plugins": "Плагины",
+  "plug.case": "Смена регистра",
+  "plug.case.sentence": "Как в предложении — первая буква и после точки",
+  "plug.case.lower": "все строчные",
+  "plug.case.upper": "ВСЕ ЗАГЛАВНЫЕ",
+  "plug.case.title": "Каждое Слово С Заглавной Буквы",
+  "plug.noSel": "Нет выделения — сначала выделите текст",
+  "plug.back": "Назад",
 
   "menu.view": "Вид",
   "menu.dirsFirst": "Папки вверху при сортировке",
@@ -387,6 +419,24 @@ const ru: Record<string, string> = {
   "fc.add": "Добавить правило",
   "fc.reset": "Сбросить",
   "fc.remove": "Удалить правило",
+  "fc.bold": "Жирное имя",
+
+  "ftp.title": "FTP",
+  "ftp.none": "Нет сохранённых сайтов — добавьте или используйте быстрое соединение",
+  "ftp.quick": "Быстрое соединение…",
+  "ftp.add": "Добавить",
+  "ftp.edit": "Изменить",
+  "ftp.delete": "Удалить",
+  "ftp.connect": "Подключиться",
+  "ftp.saveConnect": "Сохранить и подключиться",
+  "ftp.name": "Название",
+  "ftp.host": "Сервер",
+  "ftp.port": "Порт",
+  "ftp.user": "Пользователь",
+  "ftp.password": "Пароль",
+  "ftp.hint": "Пароли хранятся открытым текстом в ftp-sites.json",
+  "ftp.hostMissing": "Сначала укажите адрес сервера",
+  "ftp.opsUnsupported": "Файловые операции с FTP (копирование/перенос/удаление/переименование) появятся в следующей версии — просмотр (F3) и правка (F4) работают",
 
   "help.nav": "Панели: навигация",
   "help.nav.cursor": "Сдвинуть курсор на строку",
@@ -612,6 +662,13 @@ const uk: Record<string, string> = {
   "misc.feature.userMenu": "Користувацьке меню",
   "misc.feature.viewHistory": "Історія перегляду",
   "misc.feature.plugins": "Плагіни",
+  "plug.case": "Зміна регістру",
+  "plug.case.sentence": "Як у реченні — перша літера і після крапки",
+  "plug.case.lower": "усі рядкові",
+  "plug.case.upper": "УСІ ВЕЛИКІ",
+  "plug.case.title": "Кожне Слово З Великої Літери",
+  "plug.noSel": "Немає виділення — спочатку виділіть текст",
+  "plug.back": "Назад",
 };
 
 const ro: Record<string, string> = {
@@ -747,6 +804,13 @@ const ro: Record<string, string> = {
   "misc.feature.userMenu": "Meniu utilizator",
   "misc.feature.viewHistory": "Istoric vizualizare",
   "misc.feature.plugins": "Plugin-uri",
+  "plug.case": "Schimbarea registrului",
+  "plug.case.sentence": "Ca în propoziție — prima literă și după punct",
+  "plug.case.lower": "toate minuscule",
+  "plug.case.upper": "TOATE MAJUSCULE",
+  "plug.case.title": "Fiecare Cuvânt Cu Majusculă",
+  "plug.noSel": "Nicio selecție — selectați mai întâi textul",
+  "plug.back": "Înapoi",
 };
 
 const sk: Record<string, string> = {
@@ -882,6 +946,13 @@ const sk: Record<string, string> = {
   "misc.feature.userMenu": "Používateľské menu",
   "misc.feature.viewHistory": "História zobrazení",
   "misc.feature.plugins": "Zásuvné moduly",
+  "plug.case": "Zmena veľkosti písmen",
+  "plug.case.sentence": "Ako vo vete — prvé písmeno a po bodke",
+  "plug.case.lower": "všetky malé",
+  "plug.case.upper": "VŠETKÉ VELKÉ",
+  "plug.case.title": "Každé Slovo S Veľkým Písmenom",
+  "plug.noSel": "Žiadny výber — najprv vyberte text",
+  "plug.back": "Späť",
 };
 
 const ar: Record<string, string> = {
@@ -1017,6 +1088,13 @@ const ar: Record<string, string> = {
   "misc.feature.userMenu": "قائمة المستخدم",
   "misc.feature.viewHistory": "سجل العرض",
   "misc.feature.plugins": "إضافات",
+  "plug.case": "تغيير حالة النص",
+  "plug.case.sentence": "أسلوب الجملة — أول حرف وبعد النقطة",
+  "plug.case.lower": "كل الأحرف صغيرة",
+  "plug.case.upper": "كل الأحرف كبيرة",
+  "plug.case.title": "كل كلمة تبدأ بحرف كبير",
+  "plug.noSel": "لا يوجد تحديد — حدد النص أولاً",
+  "plug.back": "رجوع",
 };
 
 export const dictionaries: Record<Locale, Record<string, string>> = {

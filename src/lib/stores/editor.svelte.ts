@@ -1,5 +1,6 @@
-import { readText, writeText } from "$lib/api";
+import { readText, writeText, ftpReadText, ftpWriteText } from "$lib/api";
 import { basename } from "$lib/format";
+import { isFtpPath } from "$lib/ftp";
 import { ui } from "./ui.svelte";
 import { i18n } from "./i18n.svelte";
 import { settings } from "./settings.svelte";
@@ -29,6 +30,13 @@ export interface ViewerDoc {
 
 let seq = 1;
 
+/** local or FTP read with the same auto-detect settings */
+function readTextAny(path: string) {
+  return isFtpPath(path)
+    ? ftpReadText(path, "auto", settings.s.fallbackEncoding)
+    : readText(path, "auto", settings.s.fallbackEncoding);
+}
+
 class EditorStore {
   docs = $state<EditorDoc[]>([]);
   activeId = $state<number | null>(null);
@@ -53,7 +61,7 @@ class EditorStore {
     }
     this.loading = true;
     try {
-      const c = await readText(path, "auto", settings.s.fallbackEncoding);
+      const c = await readTextAny(path);
       const doc: EditorDoc = {
         id: seq++,
         path,
@@ -145,7 +153,11 @@ class EditorStore {
     if (!d) return false;
     if (!d.path) return this.saveAs(id);
     try {
-      await writeText(d.path, d.text, d.encoding, d.eol);
+      if (isFtpPath(d.path)) {
+        await ftpWriteText(d.path, d.text, d.encoding, d.eol);
+      } else {
+        await writeText(d.path, d.text, d.encoding, d.eol);
+      }
       d.dirty = false;
       return true;
     } catch (e) {
@@ -198,7 +210,9 @@ class EditorStore {
     }
     this.loading = true;
     try {
-      const isImage = /\.(png|jpe?g|gif|bmp|webp|svg|ico|avif)$/i.test(path);
+      // images render through the local asset protocol — FTP paths can't use
+      // it, so they fall through to the text/hex heuristics below
+      const isImage = !isFtpPath(path) && /\.(png|jpe?g|gif|bmp|webp|svg|ico|avif)$/i.test(path);
       let doc: ViewerDoc;
       if (isImage) {
         doc = {
@@ -212,7 +226,7 @@ class EditorStore {
           text: "",
         };
       } else {
-        const c = await readText(path, "auto", settings.s.fallbackEncoding);
+        const c = await readTextAny(path);
         // binary heuristics: many replacement chars or NULs -> hex
         const bin = /[\u0000\u0001\u0002]/.test(c.text.slice(0, 4096));
         doc = {
@@ -241,7 +255,7 @@ class EditorStore {
     if (!d) return;
     d.mode = d.mode === "hex" ? "text" : "hex";
     if (d.mode === "text" && !d.text) {
-      readText(d.path, "auto", settings.s.fallbackEncoding).then((c) => {
+      readTextAny(d.path).then((c) => {
         d.text = c.text;
         d.encoding = c.encoding;
       });

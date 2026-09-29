@@ -1,3 +1,5 @@
+import { ftpAuthority } from "$lib/ftp";
+
 export function formatSize(bytes: number, opts?: { binary?: boolean }): string {
   if (bytes < 0) return "?";
   if (bytes < 1024) return `${bytes} B`;
@@ -52,6 +54,14 @@ export function joinPath(dir: string, name: string): string {
 }
 
 export function parentOf(p: string): string | null {
+  // FTP: "ftp://user@host:port/a/b" -> "ftp://user@host:port/a", root -> null
+  if (p.startsWith("ftp://")) {
+    const auth = ftpAuthority(p);
+    const rest = p.slice(auth.length).replace(/\/+$/, "");
+    if (!rest || rest === "/") return null;
+    const idx = rest.lastIndexOf("/");
+    return auth + rest.slice(0, idx);
+  }
   // Normalize windows paths like D:\ and unix roots
   const norm = p.replace(/[\\/]+$/, "");
   if (!norm) return null;

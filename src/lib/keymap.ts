@@ -33,7 +33,12 @@ export function chordOf(e: KeyboardEvent): string | null {
   if (key === "Escape") key = "Esc";
   else if (key === " ") key = "Space";
   else if (key.startsWith("Arrow")) key = key.slice(5); // Left/Right/Up/Down
-  else if (key.length === 1) key = key.toUpperCase();
+  else if (key.length === 1) {
+    // with Ctrl/Alt/Cmd held, match the PHYSICAL key so chords like Ctrl+Y
+    // work in any layout (Russian ЙЦУКЕН types "Н" on the Y key)
+    const phys = e.ctrlKey || e.altKey || e.metaKey ? latinKeyOf(e) : null;
+    key = (phys ?? key).toUpperCase();
+  }
 
   if (key === "") return null;
 
@@ -169,6 +174,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     "Shift+F4": "editor.newFile",
     F7: "editor.search",
     F8: "editor.deleteLine",
+    F11: "ui.plugins",
     "Ctrl+Y": "editor.deleteLine",
     "Ctrl+G": "editor.gotoLine",
     F1: "ui.help",

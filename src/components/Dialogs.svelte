@@ -7,11 +7,14 @@
   import { cmdline } from "$lib/stores/cmdline.svelte";
   import { settings, THEMES, type ThemeId } from "$lib/stores/settings.svelte";
   import { LOCALES, type Locale } from "$lib/stores/i18n.svelte";
-  import { drivesList, appInfo, type AppInfo } from "$lib/api";
+  import { drivesList, appInfo, ftpConnect, type AppInfo } from "$lib/api";
   import { latinKeyOf } from "$lib/keymap";
   import { formatSize } from "$lib/format";
   import { HELP_SECTIONS } from "$lib/help";
   import { fileColors } from "$lib/stores/fileColors.svelte";
+  import { ftpSites } from "$lib/stores/ftpSites.svelte";
+  import { newFtpSite, type FtpSite } from "$lib/ftp";
+  import { EDITOR_PLUGINS, type CaseMode } from "$lib/plugins";
   import type { DriveInfo } from "$lib/types";
 
   let appVer = $state<AppInfo | null>(null);
@@ -39,11 +42,18 @@
   let drives = $state<DriveInfo[]>([]);
   $effect(() => {
     if (ui.dialog === "drives") {
-      drivesList().then((d) => (drives = d)).catch(console.error);
+      // the FTP entry rides at the end of the drive list (jump key: F)
+      drivesList()
+        .then((d) => (drives = [...d, { name: "FTP", mountPoint: "ftp://", kind: "ftp", totalBytes: 0, freeBytes: 0 }]))
+        .catch(console.error);
     }
   });
 
   async function pickDrive(d: DriveInfo) {
+    if (d.kind === "ftp") {
+      ui.openDialog("ftp");
+      return;
+    }
     const panel = ui.drivesFor === "left" ? panels.left : panels.right;
     panels.activeSide = ui.drivesFor;
     await panel.chdir(d.mountPoint);
@@ -58,14 +68,87 @@
       case "network": return "ph-hard-drives";
       case "home": return "ph-house";
       case "root": return "ph-drives";
+      case "ftp": return "ph-globe-hemisphere-west";
       default: return "ph-hard-drive";
     }
   }
 
+  // ---- FTP sites (drive menu → FTP) ----
+  let ftpForm = $state<FtpSite>(newFtpSite());
+  /** which flavor of the site form is open */
+  let ftpFormMode = $state<"quick" | "add" | "edit">("add");
+
+  async function ftpConnectSite(site: FtpSite, save: boolean) {
+    if (!site.host.trim()) {
+      ui.showToast(i18n.t("ftp.hostMissing"));
+      return;
+    }
+    if (save) {
+      ftpSites.upsert({ ...site, name: site.name.trim() || site.host.trim() });
+    }
+    try {
+      const root = await ftpConnect(site.host, site.port || 21, site.user, site.password);
+      const panel = ui.drivesFor === "left" ? panels.left : panels.right;
+      panels.activeSide = ui.drivesFor;
+      await panel.chdir(root);
+      panels.pushDirHistory(root);
+      ui.closeDialog();
+    } catch (e) {
+      ui.showError(String(e));
+    }
+  }
+
+  function ftpQuick() {
+    ftpForm = newFtpSite();
+    ftpFormMode = "quick";
+    ui.openDialog("ftpSite");
+  }
+
+  function ftpAdd() {
+    ftpForm = newFtpSite();
+    ftpFormMode = "add";
+    ui.openDialog("ftpSite");
+  }
+
+  function ftpEdit() {
+    const s = ftpSites.sites[listIdx];
+    if (!s) return;
+    ftpForm = { ...s };
+    ftpFormMode = "edit";
+    ui.openDialog("ftpSite");
+  }
+
+  function ftpDelete() {
+    const s = ftpSites.sites[listIdx];
+    if (s) ftpSites.remove(s.id);
+  }
+
+  function submitFtpForm() {
+    void ftpConnectSite(ftpForm, ftpFormMode !== "quick");
+  }
+
   // ---- keyboard navigation for list dialogs (drives, F12 windows, histories)
   // FAR semantics: Left/Right also move the cursor (up/down) for fast walking
-  const LIST_DIALOGS = new Set(["drives", "windowList", "dirHistory", "cmdHistory"]);
+  const LIST_DIALOGS = new Set(["drives", "windowList", "dirHistory", "cmdHistory", "plugins", "ftp"]);
   let listIdx = $state(-1);
+
+  // ---- plugins (F11): plugin list -> mode list of the chosen plugin ----
+  let pluginSel = $state<string | null>(null);
+  $effect(() => {
+    if (ui.dialog !== "plugins") pluginSel = null;
+  });
+
+  function pluginModes() {
+    return EDITOR_PLUGINS.find((p) => p.id === pluginSel)?.modes ?? [];
+  }
+
+  async function applyCaseMode(mode: CaseMode) {
+    ui.closeDialog();
+    pluginSel = null;
+    const { changeCaseCmd } = await import("$lib/editor/cm");
+    const n = changeCaseCmd(mode);
+    if (!n) ui.showToast(i18n.t("plug.noSel"));
+  }
 
   function listCount(): number {
     switch (ui.dialog) {
@@ -73,6 +156,8 @@
       case "windowList": return 1 + editor.docs.length + editor.viewDocs.length;
       case "dirHistory": return panels.dirHistory.length;
       case "cmdHistory": return cmdline.history.length;
+      case "plugins": return pluginSel ? pluginModes().length : EDITOR_PLUGINS.length;
+      case "ftp": return ftpSites.sites.length;
       default: return 0;
     }
   }
@@ -112,6 +197,24 @@
           cmdline.setText(c);
           ui.closeDialog();
         }
+        break;
+      }
+      case "plugins": {
+        if (pluginSel === null) {
+          const p = EDITOR_PLUGINS[i];
+          if (p) {
+            pluginSel = p.id;
+            listIdx = 0;
+          }
+        } else {
+          const m = pluginModes()[i];
+          if (m) void applyCaseMode(m.id as CaseMode);
+        }
+        break;
+      }
+      case "ftp": {
+        const s = ftpSites.sites[i];
+        if (s) void ftpConnectSite(s, false);
         break;
       }
     }
@@ -381,6 +484,70 @@
   </div>
 {/if}
 
+{#if ui.dialog === "ftp"}
+  <div class="overlay">
+    <div class="dlg">
+      <div class="dlg-title"><i class="ph-duotone ph-globe-hemisphere-west"></i>{i18n.t("ftp.title")}</div>
+      <div class="dlg-body list">
+        {#each ftpSites.sites as s, i (s.id)}
+          <button class="li" class:kbd={listIdx === i} onclick={() => void ftpConnectSite(s, false)}>
+            <i class="ph-duotone ph-globe-hemisphere-west"></i>
+            <span class="ftp-name">{s.name || s.host}</span>
+            <span class="ftp-addr mono">{s.user || "anonymous"}@{s.host}:{s.port || 21}</span>
+          </button>
+        {:else}
+          <div class="none">{i18n.t("ftp.none")}</div>
+        {/each}
+      </div>
+      <div class="dlg-actions wrap">
+        <button class="btn" onclick={ftpQuick}><i class="ph ph-bolt"></i>{i18n.t("ftp.quick")}</button>
+        <button class="btn" onclick={ftpAdd}><i class="ph ph-plus"></i>{i18n.t("ftp.add")}</button>
+        <button class="btn" onclick={ftpEdit} disabled={!ftpSites.sites.length}>{i18n.t("ftp.edit")}</button>
+        <button class="btn" onclick={ftpDelete} disabled={!ftpSites.sites.length}>{i18n.t("ftp.delete")}</button>
+        <button class="btn primary" onclick={() => ui.closeDialog()}>{i18n.t("common.close")}</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if ui.dialog === "ftpSite"}
+  <div class="overlay">
+    <div class="dlg">
+      <div class="dlg-title">
+        <i class="ph-duotone ph-globe-hemisphere-west"></i>
+        {ftpFormMode === "quick" ? i18n.t("ftp.quick") : ftpFormMode === "add" ? i18n.t("ftp.add") : i18n.t("ftp.edit")}
+      </div>
+      <form class="dlg-body ftp-form" id="ftp-site-form" onsubmit={(e) => { e.preventDefault(); submitFtpForm(); }}>
+        {#if ftpFormMode !== "quick"}
+          <label class="lbl" for="ftp-f-name">{i18n.t("ftp.name")}</label>
+          <input id="ftp-f-name" bind:value={ftpForm.name} spellcheck="false" />
+        {/if}
+        <label class="lbl" for="ftp-f-host">{i18n.t("ftp.host")}</label>
+        <input id="ftp-f-host" bind:value={ftpForm.host} use:autofocus placeholder="ftp.gnu.org" spellcheck="false" />
+        <div class="ftp-row2">
+          <div>
+            <label class="lbl" for="ftp-f-port">{i18n.t("ftp.port")}</label>
+            <input id="ftp-f-port" type="number" bind:value={ftpForm.port} min="1" max="65535" />
+          </div>
+          <div>
+            <label class="lbl" for="ftp-f-user">{i18n.t("ftp.user")}</label>
+            <input id="ftp-f-user" bind:value={ftpForm.user} spellcheck="false" />
+          </div>
+        </div>
+        <label class="lbl" for="ftp-f-pass">{i18n.t("ftp.password")}</label>
+        <input id="ftp-f-pass" type="password" bind:value={ftpForm.password} />
+        <div class="fc-hint" style="margin-top:10px">{i18n.t("ftp.hint")}</div>
+      </form>
+      <div class="dlg-actions">
+        <button class="btn" onclick={() => ui.openDialog("ftp")}>{i18n.t("common.cancel")}</button>
+        <button class="btn primary" type="submit" form="ftp-site-form">
+          {ftpFormMode === "quick" ? i18n.t("ftp.connect") : i18n.t("ftp.saveConnect")}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 {#if ui.dialog === "windowList"}
   <div class="overlay">
     <div class="dlg">
@@ -462,6 +629,45 @@
         {/each}
       </div>
       <div class="dlg-actions"><button class="btn" onclick={() => ui.closeDialog()}>{i18n.t("common.close")}</button></div>
+    </div>
+  </div>
+{/if}
+
+{#if ui.dialog === "plugins"}
+  <div class="overlay">
+    <div class="dlg">
+      <div class="dlg-title"><i class="ph-duotone ph-puzzle-piece"></i>{i18n.t("fkeys.f11")}</div>
+      <div class="dlg-body list">
+        {#if pluginSel === null}
+          {#each EDITOR_PLUGINS as p, i (p.id)}
+            <button
+              class="li"
+              class:kbd={listIdx === i}
+              onclick={() => { pluginSel = p.id; listIdx = 0; }}
+            >
+              <i class="ph-duotone {p.icon}"></i>{i18n.t(p.titleKey)}
+            </button>
+          {/each}
+        {:else}
+          {#each pluginModes() as m, i (m.id)}
+            <button
+              class="li"
+              class:kbd={listIdx === i}
+              onclick={() => void applyCaseMode(m.id as CaseMode)}
+            >
+              <i class="ph-duotone ph-text-aa"></i>{i18n.t(m.labelKey)}
+            </button>
+          {/each}
+        {/if}
+      </div>
+      <div class="dlg-actions">
+        {#if pluginSel !== null}
+          <button class="btn" onclick={() => { pluginSel = null; listIdx = 0; }}>
+            <i class="ph ph-arrow-left"></i>{i18n.t("plug.back")}
+          </button>
+        {/if}
+        <button class="btn primary" onclick={() => ui.closeDialog()}>{i18n.t("common.close")}</button>
+      </div>
     </div>
   </div>
 {/if}
@@ -588,7 +794,18 @@
                 spellcheck="false"
                 oninput={(e) => fileColors.update(r.id, { mask: e.currentTarget.value })}
               />
-              <span class="fc-sample" style="color:{r.color}">{sampleOf(r.mask)}</span>
+              <label class="fc-bold" title={i18n.t("fc.bold")}>
+                <input
+                  type="checkbox"
+                  checked={!!r.bold}
+                  onchange={(e) => fileColors.update(r.id, { bold: e.currentTarget.checked })}
+                />
+                <b>B</b>
+              </label>
+              <span
+                class="fc-sample"
+                style="color:{r.color};font-weight:{r.bold ? 800 : 400}"
+              >{sampleOf(r.mask)}</span>
               <button class="fc-del" title={i18n.t("fc.remove")} onclick={() => fileColors.remove(r.id)}>
                 <i class="ph ph-x"></i>
               </button>
@@ -687,6 +904,23 @@
   .d-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .d-free { font-size: 10.5px; color: var(--fg-muted); }
 
+  /* FTP sites dialog + connect form */
+  .ftp-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg); }
+  .ftp-addr { font-size: 10.5px; color: var(--fg-muted); }
+  .ftp-form { min-width: 360px; }
+  .ftp-form input {
+    width: 100%;
+    padding: 5px 10px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    color: var(--fg);
+    font-size: 12.5px;
+    direction: ltr;
+  }
+  .ftp-row2 { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 8px; }
+  .ftp-row2 .lbl { margin-bottom: 4px; }
+
   .list { display: flex; flex-direction: column; gap: 2px; min-width: 380px; }
   .li {
     display: flex;
@@ -780,6 +1014,16 @@
     white-space: nowrap;
     direction: ltr;
   }
+  .fc-bold {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    color: var(--fg-dim);
+  }
+  .fc-bold input { width: 14px; height: 14px; accent-color: var(--accent); }
+  .fc-bold b { font-size: 12.5px; }
   .fc-del { flex-shrink: 0; padding: 4px 8px; border-radius: 7px; color: var(--fg-muted); font-size: 13px; }
   .fc-del:hover { color: var(--danger); background: var(--row-hover); }
 

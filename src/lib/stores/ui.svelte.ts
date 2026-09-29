@@ -14,6 +14,9 @@ export type DialogId =
   | "menu"
   | "help"
   | "fileColors"
+  | "plugins"
+  | "ftp"
+  | "ftpSite"
   | "errors"
   | null;
 

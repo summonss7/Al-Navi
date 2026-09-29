@@ -1,6 +1,7 @@
 import { registerCommand } from "$lib/commands";
-import { mkdir, renamePath, openPath, homePath } from "$lib/api";
+import { mkdir, renamePath, openPath, homePath, ftpMkdir } from "$lib/api";
 import { joinPath, sortArrow } from "$lib/format";
+import { isFtpPath } from "$lib/ftp";
 import { panels } from "$lib/stores/panels.svelte";
 import { ui } from "$lib/stores/ui.svelte";
 import { editor } from "$lib/stores/editor.svelte";
@@ -110,6 +111,10 @@ export function registerAllCommands() {
     const p = A();
     const cur = p.current;
     if (!cur || cur.name === "..") return;
+    if (isFtpPath(p.path)) {
+      ui.showError(i18n.t("ftp.opsUnsupported"));
+      return;
+    }
     const nn = await ui.askInput(i18n.t("rename.title"), i18n.t("rename.prompt"), cur.name);
     if (!nn || nn === cur.name) return;
     try {
@@ -124,7 +129,8 @@ export function registerAllCommands() {
     const name = await ui.askInput(i18n.t("mkdir.title"), i18n.t("mkdir.prompt"), "");
     if (!name) return;
     try {
-      await mkdir(joinPath(p.path, name));
+      if (isFtpPath(p.path)) await ftpMkdir(joinPath(p.path, name));
+      else await mkdir(joinPath(p.path, name));
       p.refresh();
       const idx = p.view.findIndex((e) => e.name === name);
       if (idx >= 0) p.cursor = idx;
@@ -187,6 +193,7 @@ export function registerAllCommands() {
   registerCommand("ui.windowList", () => ui.openDialog("windowList"));
   registerCommand("ui.menu", () => ui.openDialog("menu"));
   registerCommand("ui.help", () => ui.openDialog("help"));
+  registerCommand("ui.plugins", () => ui.openDialog("plugins"));
   registerCommand("app.quit", async () => {
     if (await ui.askConfirm(i18n.t("menu.quitConfirm"))) {
       panels.saveSession();
@@ -270,6 +277,12 @@ function setSort(mode: "name" | "ext" | "mtime" | "size" | "unsorted") {
 
 async function startTransfer(kind: "copy" | "move", currentOnly = false) {
   const p = panels.active;
+  // the copy engine is local-only; FTP panels can view/edit but not yet
+  // take part in transfers
+  if (isFtpPath(p.path) || isFtpPath(panels.inactive.path)) {
+    ui.showError(i18n.t("ftp.opsUnsupported"));
+    return;
+  }
   const entries = currentOnly
     ? p.current && p.current.name !== ".."
       ? [p.current]
@@ -287,6 +300,10 @@ async function startTransfer(kind: "copy" | "move", currentOnly = false) {
 
 async function startDelete(permanent: boolean, currentOnly = false) {
   const p = panels.active;
+  if (isFtpPath(p.path)) {
+    ui.showError(i18n.t("ftp.opsUnsupported"));
+    return;
+  }
   const entries = currentOnly
     ? p.current && p.current.name !== ".."
       ? [p.current]

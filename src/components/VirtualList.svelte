@@ -106,7 +106,7 @@
       {@const up = e.name === ".."}
       {@const ic = up ? UP_ICON : iconFor(e.name, e.isDir, e.isSymlink)}
       {@const selected = !up && panel.selected.has(e.name)}
-      {@const nameColor = up || e.isDir ? null : fileColors.colorFor(e.name)}
+      {@const nameStyle = up || e.isDir ? null : fileColors.styleFor(e.name)}
       <div
         class="row"
         class:cursor={i === panel.cursor}
@@ -120,7 +120,11 @@
       >
         <span class="marker {selected ? 'on' : ''}"></span>
         <i class={"ph-duotone " + ic.icon} style="color:{ic.color}"></i>
-        <span class="name" title={e.name} style={nameColor ? `color:${nameColor}` : ""}>{up ? ".." : e.name}</span>
+        <span
+          class="name"
+          title={e.name}
+          style={nameStyle ? `color:${nameStyle.color};font-weight:${nameStyle.bold ? 800 : 400}` : ""}
+        >{up ? ".." : e.name}</span>
         <span class="size mono">{sizeCell(e, up)}</span>
         <span class="date">{up ? "" : fmtDate(e.mtime)}</span>
         <span class="attr">{up ? "" : e.attrs}</span>

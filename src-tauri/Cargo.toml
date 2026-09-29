@@ -1,12 +1,18 @@
 [package]
 name = "al-navi"
-version = "1.0.1"
+version = "1.2.0"
 description = "Al-Navi — modern dual-panel file manager"
 edition = "2021"
 
 [lib]
 name = "al_navi_lib"
 crate-type = ["rlib"]
+
+[features]
+# production build: serve the frontend from the assets embedded in the exe
+# (without it the window loads the devUrl — vite dev server — instead).
+# `npm run release` passes --features custom-protocol, mirroring `tauri build`.
+custom-protocol = ["tauri/custom-protocol"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -24,6 +30,7 @@ trash = "5"
 dirs = "6"
 sysinfo = "0.37"
 filetime = "0.2"
+suppaftp = { version = "12", default-features = false, features = ["tokio"] }
 
 [profile.release]
 codegen-units = 1

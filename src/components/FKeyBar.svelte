@@ -59,7 +59,7 @@
       { k: "F8", cmd: "editor.deleteLine", label: i18n.t("editor.fkeys.f8") },
       { k: "F9", cmd: null, label: "" },
       { k: "F10", cmd: "app.quit", label: i18n.t("editor.fkeys.f10") },
-      { k: "F11", cmd: null, label: "" },
+      { k: "F11", cmd: "ui.plugins", label: i18n.t("fkeys.f11") },
       { k: "F12", cmd: "ui.windowList", label: i18n.t("fkeys.f12") },
     ] satisfies Key[];
   });

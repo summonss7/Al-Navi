@@ -15,10 +15,12 @@ cd "$ROOT"
 echo "==> Building frontend..."
 npm run build
 
-# 2) release binary (MSYS2 ucrt64 provides gcc/dlltool for the GNU toolchain)
+# 2) release binary (MSYS2 ucrt64 provides gcc/dlltool for the GNU toolchain).
+#    --features custom-protocol embeds the frontend into the exe (what
+#    `tauri build` does); without it the window would wait for a dev server.
 export PATH="/c/Users/CUSTOM/msys64/ucrt64/bin:$PATH"
 echo "==> Building release binary..."
-(cd src-tauri && cargo +stable-x86_64-pc-windows-gnu build --release)
+(cd src-tauri && cargo +stable-x86_64-pc-windows-gnu build --release --features custom-protocol)
 
 # 3) version + timestamp -> builds/
 VERSION="$(grep -m1 '^version = ' src-tauri/Cargo.toml | sed 's/version = "\(.*\)"/\1/')"

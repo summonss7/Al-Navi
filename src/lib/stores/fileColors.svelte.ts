@@ -6,6 +6,13 @@ export interface ColorRule {
   /** file-name masks: * and ? wildcards, several separated by , ; or space */
   mask: string;
   color: string;
+  /** render the name bold (e.g. the project wishlist promt.txt) */
+  bold?: boolean;
+}
+
+export interface NameStyle {
+  color: string;
+  bold: boolean;
 }
 
 let ruleSeq = 0;
@@ -39,8 +46,8 @@ class FileColorsStore {
   rules = $state<ColorRule[]>([]);
   private matchers = $derived(
     this.rules
-      .map((r) => ({ re: compileMask(r.mask), color: r.color }))
-      .filter((m): m is { re: RegExp; color: string } => m.re !== null),
+      .map((r) => ({ re: compileMask(r.mask), color: r.color, bold: !!r.bold }))
+      .filter((m): m is { re: RegExp; color: string; bold: boolean } => m.re !== null),
   );
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -51,7 +58,14 @@ class FileColorsStore {
     } catch {
       // no backend (browser preview) or no saved file yet
     }
-    this.apply(saved && saved.length ? saved : defaultRules(), false);
+    let rules = saved && saved.length ? saved : defaultRules();
+    // seed the wishlist highlight once: if the user has no rule matching
+    // promt.txt yet, add the brand default (editable/removable in F9)
+    const hasPromt = rules.some((r) => compileMask(r.mask)?.test("promt.txt") ?? false);
+    if (!hasPromt) {
+      rules = [...rules, { id: nextId(), mask: "promt.txt", color: "#EF4444", bold: true }];
+    }
+    this.apply(rules, false);
   }
 
   private apply(rules: ColorRule[], persist = true) {
@@ -79,11 +93,11 @@ class FileColorsStore {
     this.apply(defaultRules());
   }
 
-  /** color of the first rule whose mask matches the name (null = default fg);
+  /** style of the first rule whose mask matches the name (null = default fg);
    *  callers skip directories — only file names are highlighted */
-  colorFor(name: string): string | null {
+  styleFor(name: string): NameStyle | null {
     for (const m of this.matchers) {
-      if (m.re.test(name)) return m.color;
+      if (m.re.test(name)) return { color: m.color, bold: m.bold };
     }
     return null;
   }

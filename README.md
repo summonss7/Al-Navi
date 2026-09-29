@@ -140,17 +140,22 @@ npm run release
 ## Возможности
 
 - ✅ Две панели, вкладки панелей (`Ctrl+T`/`Ctrl+W`), виртуальный список (100 000+ файлов)
+- ✅ Хлебные крошки в шапке панели (клик по сегменту — переход)
+- ✅ FAR-навигация стрелками: `↑/↓` — по строке (с заворотом), `←/→` — блоком на область видимости
+- ✅ Клавиатурная навигация во всех списках-диалогах: диски (`Alt+F1`/`Alt+F2`), окна (`F12`), истории (`Alt+F12`, `Alt+F8`)
 - ✅ Файловые операции с прогрессом, скоростью, паузой/отменой, фоновым режимом
 - ✅ Разрешение конфликтов: перезаписать / пропустить / переименовать (+ «для всех»)
 - ✅ Корзина (`trash`) и безвозвратное удаление
 - ✅ Редактор с подсветкой 30+ языков, мультидокументы, `Ctrl+Tab`
 - ✅ Вьювер: текст / hex / изображения
-- ✅ 5 тем (Al-Navi Dark/Light, Midnight, Solarized, High Contrast) + авто по системе
+- ✅ 5 тем (Al-Navi Dark/Light, Midnight, Solarized, High Contrast) + авто по системе;
+  **Al-Navi Light** (по `images/design.jpg`) — тема по умолчанию
 - ✅ 6 языков интерфейса: English, Русский, Українська, Română, Slovenčina, العربية (RTL)
 - ✅ Ярлыки каталогов Ctrl+0…9, история каталогов и команд
 - ✅ Командная строка внизу с историей и `cd`
 - ✅ Наблюдение за ФС (автообновление панелей)
 - ✅ Сохранение состояния (панели, ярлыки, история) в `%APPDATA%/al-navi` / `~/.config/al-navi`
+- ✅ Превью интерфейса в обычном браузере без бэкенда (`npm run dev` → http://localhost:1420)
 - 🚧 Поиск файлов Alt+F7, архивы zip/7z/tar, мультипереименование Ctrl+M, атрибуты Ctrl+A —
   следующие этапы (M5–M8 из плана)
 
@@ -164,7 +169,10 @@ src/lib/           Ядро: keymap (FAR-карта клавиш), commands (р�
                   stores (panels/ops/editor/settings/i18n/cmdline/ui), editor/cm.ts (CodeMirror)
 src/components/    TitleBar, PanelsGrid, FilePanel, VirtualList, CmdLine, FKeyBar,
                   Dialogs, EditorArea, ViewerArea
-scripts/           make-icon.mjs (генерация бренд-иконки)
+scripts/           make-icon.mjs (генерация бренд-иконки), build-release.sh (релиз в builds/)
+images/            дизайн-референсы: design.jpg (макет), logo.jpg, icon.jpg, font.jpg, color.jpg
+backup.bat/.ps1    резервные копии проекта в backups/ (ротация 8 архивов)
+CHANGELOG.md       история версий
 ```
 
 ## Добавление хоткеев / команд

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { chordOf, defaultKeymap, type KeyContext } from "$lib/keymap";
+  import { chordOf, defaultKeymap, latinKeyOf, type KeyContext } from "$lib/keymap";
   import { runCommand } from "$lib/commands";
   import { registerAllCommands } from "$lib/register-commands";
   import { settings } from "$lib/stores/settings.svelte";
@@ -22,7 +22,9 @@
   registerAllCommands();
 
   function currentContext(): KeyContext {
-    if (ui.dialog && ui.dialog !== "progress" && ui.dialog !== "conflict") return "dialog";
+    // progress stays transparent (hotkeys keep working in the background op),
+    // conflict is modal: Esc resolves it as skip
+    if (ui.dialog && ui.dialog !== "progress") return "dialog";
     if (ui.mode === "editor") return "editor";
     if (ui.mode === "viewer") return "viewer";
     if (ui.cmdLineFocused) return "cmdline";
@@ -45,6 +47,16 @@
 
     // panel quick-find: plain printable characters start incremental search
     if (ctx === "panel" && !ui.dialog) {
+      // Alt+letter: quick jump to the first entry starting with that letter,
+      // matched by physical key so any keyboard layout works
+      if (e.altKey && !e.ctrlKey && !e.metaKey) {
+        const latin = latinKeyOf(e);
+        if (latin) {
+          e.preventDefault();
+          runCommand("panel.quickJump", latin);
+          return;
+        }
+      }
       if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
         e.preventDefault();
         runCommand("panel.quickFind", e.key);

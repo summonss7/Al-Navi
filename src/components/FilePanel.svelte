@@ -179,6 +179,14 @@
       var(--card-shadow),
       0 0 0 1px color-mix(in srgb, var(--accent2) 28%, transparent);
   }
+  /* inactive panel: cursor row dims to gray instead of the theme highlight;
+     rows in VirtualList are colored through these custom properties */
+  .panel.inactive {
+    --row-cursor-bg: rgba(127, 127, 127, 0.3);
+    --row-cursor-fg: var(--fg);
+    --row-cursor-border: transparent;
+    --row-cursor-glow: none;
+  }
 
   .p-head {
     background: var(--bg-header);

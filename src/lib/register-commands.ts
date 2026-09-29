@@ -1,5 +1,6 @@
 import { registerCommand } from "$lib/commands";
 import { mkdir, renamePath, openPath, homePath } from "$lib/api";
+import { cyrillicOfLatin } from "$lib/keymap";
 import { joinPath } from "$lib/format";
 import { panels } from "$lib/stores/panels.svelte";
 import { ui } from "$lib/stores/ui.svelte";
@@ -80,6 +81,16 @@ export function registerAllCommands() {
     p.rebuild();
     p.cursor = p.view.length ? 0 : 0;
     if (p.view.length > 1) p.cursor = 1; // skip ".."
+  });
+  registerCommand("panel.quickJump", (latin) => {
+    const p = A();
+    const l = String(latin ?? "");
+    if (!l) return;
+    // Latin names win; otherwise try the Cyrillic letter on the same physical key
+    if (!p.moveByName(l)) {
+      const cyr = cyrillicOfLatin(l);
+      if (cyr) p.moveByName(cyr);
+    }
   });
 
   // ---------- viewer ----------
@@ -168,6 +179,7 @@ export function registerAllCommands() {
   registerCommand("dialog.close", () => {
     if (ui.confirmReq) ui.confirmReq.resolve(false);
     else if (ui.inputReq) ui.inputReq.resolve(null);
+    else if (ops.conflict) ops.resolveConflictAction("skip");
     else ui.closeDialog();
   });
 

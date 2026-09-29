@@ -1,8 +1,9 @@
-import { listDir, watchSet, onWatchChanged, loadJson, saveJson, homePath, openPath } from "$lib/api";
+import { listDir, watchSet, onWatchChanged, onDirSize, computeDirSizes, loadJson, saveJson, homePath, openPath } from "$lib/api";
 import type { FileEntry, SortMode } from "$lib/types";
 import { extOf, joinPath, parentOf } from "$lib/format";
 import { i18n } from "./i18n.svelte";
 import { settings } from "./settings.svelte";
+import { dirSizeCache } from "./dirSizes.svelte";
 
 export interface TabState {
   id: number;
@@ -25,8 +26,9 @@ export class PanelState {
   view = $state.raw<FileEntry[]>([]);
   version = $state(0);
   selVersion = $state(0);
-  free = 0;
-  total = 0;
+  // reactive: the footer's {#if panel.free} must re-render after load()
+  free = $state(0);
+  total = $state(0);
   loading = $state(false);
   error = $state<string | null>(null);
   tabs = $state<TabState[]>([]);
@@ -34,6 +36,8 @@ export class PanelState {
   sortMode = $state<SortMode>("name");
   showHidden = $state(false);
   quickFilter = $state<string | null>(null);
+  /** computed folder sizes for children of the current dir: full path -> bytes */
+  dirSizes = $state<Map<string, number>>(new Map());
   /** selected entry names — raw state replaced with a new Set on every change */
   selected = $state.raw<Set<string>>(new Set());
   /** visible rows in the panel viewport (kept in sync by VirtualList) */
@@ -74,7 +78,7 @@ export class PanelState {
 
   // ---------- data ----------
 
-  async load(path: string, opts: { push?: boolean } = {}) {
+  async load(path: string, opts: { push?: boolean; forceSizes?: boolean } = {}) {
     const seq = ++this.loadSeq;
     this.loading = true;
     this.error = null;
@@ -93,6 +97,7 @@ export class PanelState {
         }
       }
       this.rebuild();
+      this.requestDirSizes(opts.forceSizes === true);
     } catch (e) {
       if (seq !== this.loadSeq) return;
       this.error = String(e);
@@ -142,16 +147,48 @@ export class PanelState {
     this.tab.cursor = Math.max(0, idx);
     this.version++;  }
 
-  refresh() {
-    void this.load(this.path, { push: false });
+  refresh(forceSizes = false) {
+    void this.load(this.path, { push: false, forceSizes });
   }
 
   scheduleReload() {
     if (this.reloadTimer) return;
     this.reloadTimer = setTimeout(() => {
       this.reloadTimer = null;
-      this.refresh();
+      // watcher fired: the dir really changed, so recompute children sizes too
+      this.refresh(true);
     }, 250);
+  }
+
+  /**
+   * Show cached folder sizes instantly, then recompute stale ones in background.
+   * Results arrive via `dirsize` events and land in applyDirSize().
+   */
+  private requestDirSizes(force: boolean) {
+    const names = this.raw.filter((e) => e.isDir).map((e) => e.name);
+    const next = new Map<string, number>();
+    const stale: string[] = [];
+    for (const name of names) {
+      const p = joinPath(this.path, name);
+      const cached = dirSizeCache.peek(p);
+      if (cached !== undefined) next.set(p, cached);
+      if (force || dirSizeCache.isStale(p)) stale.push(p);
+    }
+    this.dirSizes = next;
+    if (stale.length) computeDirSizes(stale).catch(() => {});
+  }
+
+  /** apply a background-computed size if it belongs to a child of the current dir */
+  applyDirSize(path: string, size: number) {
+    const parent = parentOf(path);
+    if (!parent || parent.toLowerCase() !== this.path.toLowerCase()) return;
+    const next = new Map(this.dirSizes);
+    next.set(path, size);
+    this.dirSizes = next;
+  }
+
+  dirSizeOf(name: string): number | undefined {
+    return this.dirSizes.get(joinPath(this.path, name));
   }
 
   // ---------- navigation ----------
@@ -224,10 +261,13 @@ export class PanelState {
   }
 
   moveByName(prefix: string): boolean {
-    // quick-find: jump to first entry with this prefix (case-insensitive)
+    // jump to the next entry with this prefix (case-insensitive, wraps around)
     const p = prefix.toLowerCase();
-    const start = this.view[this.cursor]?.name === UP_NAME ? 1 : this.cursor;
-    for (let i = start; i < this.view.length; i++) {
+    const n = this.view.length;
+    if (!n) return false;
+    const start = this.cursor >= n - 1 ? -1 : this.cursor;
+    for (let k = 1; k <= n; k++) {
+      const i = (start + k + n) % n;
       if (this.view[i].name.toLowerCase().startsWith(p)) {
         this.cursor = i;
         return true;
@@ -401,6 +441,7 @@ class PanelsStore {
     this.shortcuts = session?.shortcuts ?? {};
     const hist = await loadJson<string[]>("dir-history.json");
     this.dirHistory = hist ?? [];
+    await dirSizeCache.init();
     await Promise.all([this.left.load(leftPath), this.right.load(rightPath)]);
     this.notifyWatch();
     onWatchChanged((path) => {
@@ -409,6 +450,11 @@ class PanelsStore {
         const pp = p.path.replace(/[\\/]+$/, "").toLowerCase();
         if (norm.startsWith(pp)) p.scheduleReload();
       }
+    }).catch(console.error);
+    onDirSize(({ path, size }) => {
+      dirSizeCache.put(path, size);
+      this.left.applyDirSize(path, size);
+      this.right.applyDirSize(path, size);
     }).catch(console.error);
   }
 

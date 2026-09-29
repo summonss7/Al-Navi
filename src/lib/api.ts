@@ -9,6 +9,7 @@ import type {
 
 // ---- FS ----
 export const listDir = (path: string) => invoke<DirListing>("list_dir", { path });
+export const computeDirSizes = (paths: string[]) => invoke<void>("dir_sizes", { paths });
 export const freeSpace = (path: string) => invoke<[number, number]>("free_space", { path });
 export const mkdir = (path: string) => invoke<void>("mkdir", { path });
 export const pathExists = (path: string) => invoke<boolean>("path_exists", { path });
@@ -69,3 +70,5 @@ export const onOpConflict = (cb: (c: ConflictInfo) => void): Promise<UnlistenFn>
   listen<ConflictInfo>("op:conflict", (e) => cb(e.payload));
 export const onWatchChanged = (cb: (path: string) => void): Promise<UnlistenFn> =>
   listen<{ path: string }>("watch:changed", (e) => cb(e.payload.path));
+export const onDirSize = (cb: (p: { path: string; size: number }) => void): Promise<UnlistenFn> =>
+  listen<{ path: string; size: number }>("dirsize", (e) => cb(e.payload));

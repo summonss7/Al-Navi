@@ -8,6 +8,7 @@
   import { settings, THEMES, type ThemeId } from "$lib/stores/settings.svelte";
   import { LOCALES, type Locale } from "$lib/stores/i18n.svelte";
   import { drivesList, appInfo, type AppInfo } from "$lib/api";
+  import { latinKeyOf } from "$lib/keymap";
   import { formatSize } from "$lib/format";
   import type { DriveInfo } from "$lib/types";
 
@@ -153,6 +154,19 @@
     if (!LIST_DIALOGS.has(ui.dialog ?? "")) return;
     const n = listCount();
     if (!n) return;
+    // drives dialog: pressing a drive letter switches to it right away,
+    // matched by physical key so any keyboard layout works (FAR behavior)
+    if (ui.dialog === "drives" && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
+      const latin = latinKeyOf(e);
+      if (latin) {
+        const idx = drives.findIndex((d) => d.mountPoint.toUpperCase().startsWith(latin));
+        if (idx >= 0) {
+          e.preventDefault();
+          void pickDrive(drives[idx]);
+          return;
+        }
+      }
+    }
     let handled = true;
     switch (e.key) {
       case "ArrowDown":
@@ -188,6 +202,28 @@
     if (handled) e.preventDefault();
   }
 
+  // ---- button dialogs (confirm / conflict): focus the default button and let
+  // arrows walk the actions so the "cursor" sits on the form, not in the text ----
+  function onButtonDialogKey(e: KeyboardEvent) {
+    const id = ui.dialog;
+    if (id !== "confirm" && id !== "conflict") return;
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    const dlg = document.querySelector(".overlay .dlg");
+    const btns = dlg
+      ? Array.from(dlg.querySelectorAll<HTMLButtonElement>(".dlg-actions button")).filter((b) => !b.disabled)
+      : [];
+    if (btns.length < 2) return;
+    const idx = btns.indexOf(document.activeElement as HTMLButtonElement);
+    const dir = e.key === "ArrowRight" ? 1 : -1;
+    btns[(idx < 0 ? 0 : idx + dir + btns.length) % btns.length].focus();
+    e.preventDefault();
+  }
+
+  function onWindowKey(e: KeyboardEvent) {
+    onListKey(e);
+    onButtonDialogKey(e);
+  }
+
   // ---- input submit ----
   function submitInput() {
     ui.inputReq?.resolve(inputVal);
@@ -204,7 +240,7 @@
   }
 </script>
 
-<svelte:window onkeydown={onListKey} />
+<svelte:window onkeydown={onWindowKey} />
 
 {#if ui.dialog === "confirm" && ui.confirmReq}
   <div class="overlay">
@@ -213,7 +249,7 @@
       <div class="dlg-body">{ui.confirmReq.message}</div>
       <div class="dlg-actions">
         <button class="btn" onclick={() => ui.confirmReq!.resolve(false)}>{i18n.t("common.no")}</button>
-        <button class="btn primary" onclick={() => ui.confirmReq!.resolve(true)}>{i18n.t("common.yes")}</button>
+        <button class="btn primary" use:autofocus onclick={() => ui.confirmReq!.resolve(true)}>{i18n.t("common.yes")}</button>
       </div>
     </div>
   </div>
@@ -298,7 +334,7 @@
         <div class="conf-row"><span class="lbl">{i18n.t("ops.dst")}:</span><span class="mono path">{ops.conflict.dst}</span></div>
       </div>
       <div class="dlg-actions wrap">
-        <button class="btn primary" onclick={() => ops.resolveConflictAction("overwrite")}>{i18n.t("ops.copy")} ↩</button>
+        <button class="btn primary" use:autofocus onclick={() => ops.resolveConflictAction("overwrite")}>{i18n.t("ops.copy")} ↩</button>
         <button class="btn" onclick={() => ops.resolveConflictAction("overwrite_all")}>{i18n.t("common.all")}</button>
         <button class="btn" onclick={() => ops.resolveConflictAction("skip")}>{i18n.t("common.cancel")}</button>
         <button class="btn" onclick={() => ops.resolveConflictAction("skip_all")}>↷ {i18n.t("common.all")}</button>
@@ -321,7 +357,7 @@
             <i class="ph-duotone {driveIcon(d.kind)}"></i>
             <span class="d-name" title={d.mountPoint}>{d.name}</span>
             {#if d.totalBytes}
-              <span class="d-free mono">{formatSize(d.freeBytes)} {i18n.t("panel.free")}</span>
+              <span class="d-free mono">{formatSize(d.freeBytes)} {i18n.t("panel.free")} / {formatSize(d.totalBytes)}</span>
             {/if}
           </button>
         {/each}

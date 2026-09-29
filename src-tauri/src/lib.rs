@@ -93,6 +93,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             fs::list_dir,
+            fs::dir_sizes,
             fs::free_space,
             fs::mkdir,
             fs::path_exists,

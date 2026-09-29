@@ -8,6 +8,7 @@
     setActiveView,
   } from "$lib/editor/cm";
   import { editor } from "$lib/stores/editor.svelte";
+  import { ui } from "$lib/stores/ui.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
 
   let host: HTMLDivElement | undefined = $state();
@@ -47,6 +48,13 @@
       view?.destroy();
       setActiveView(null);
     };
+  });
+
+  // caret into the text whenever the editor opens and after any dialog closes
+  // (save-as, confirm, goto-line); the component remounts on every mode switch
+  $effect(() => {
+    if (ui.dialog !== null) return;
+    requestAnimationFrame(() => view?.focus());
   });
 
   // switch content when the active document changes

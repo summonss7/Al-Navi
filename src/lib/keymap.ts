@@ -55,6 +55,23 @@ function mod(e: KeyboardEvent): string {
   return m;
 }
 
+/** Latin letter of the physical key (e.code "KeyD" -> "D") — layout-independent.
+ *  Falls back to e.key when it is already an ASCII letter (synthetic events). */
+export function latinKeyOf(e: KeyboardEvent): string | null {
+  if (e.code.length === 4 && e.code.startsWith("Key")) return e.code[3];
+  return /^[a-z]$/i.test(e.key) ? e.key.toUpperCase() : null;
+}
+
+/** Cyrillic (ЙЦУКЕН) letter sharing the physical key with the given Latin one. */
+const CYR_OF_LATIN: Record<string, string> = {
+  Q: "Й", W: "Ц", E: "У", R: "К", T: "Е", Y: "Н", U: "Г", I: "Ш", O: "Щ", P: "З",
+  A: "Ф", S: "Ы", D: "В", F: "А", G: "П", H: "Р", J: "О", K: "Л", L: "Д",
+  Z: "Я", X: "Ч", C: "С", V: "М", B: "И", N: "Т", M: "Ь",
+};
+export function cyrillicOfLatin(latin: string): string | null {
+  return CYR_OF_LATIN[latin.toUpperCase()] ?? null;
+}
+
 /** Default FAR-compatible bindings: context -> chord -> command id */
 export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
   panel: {
@@ -145,6 +162,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
   editor: {
     F2: "editor.save",
     "Shift+F2": "editor.saveAs",
+    "Ctrl+S": "editor.save",
     F4: "editor.open",
     "Shift+F4": "editor.newFile",
     F7: "editor.search",

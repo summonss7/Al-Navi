@@ -1,8 +1,11 @@
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use tauri::Emitter;
 
 #[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct EntryDto {
     pub name: String,
     pub is_dir: bool,
@@ -14,6 +17,7 @@ pub struct EntryDto {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DirListing {
     pub path: String,
     pub entries: Vec<EntryDto>,
@@ -112,7 +116,13 @@ fn build_entry(path: &Path, name: String) -> Option<EntryDto> {
 fn sysinfo_free_total(path: &Path) -> (u64, u64) {
     use sysinfo::Disks;
     let disks = Disks::new_with_refreshed_list();
-    let abs = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    // canonicalize() yields a \\?\-prefixed verbatim path on Windows, which never
+    // component-matches plain mount points like "C:\" — strip the prefix
+    let canon = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let abs = match canon.to_str().and_then(|s| s.strip_prefix(r"\\?\")) {
+        Some(s) => PathBuf::from(s),
+        None => canon,
+    };
     let mut best: Option<(usize, u64, u64)> = None; // (mount length, free, total)
     for d in disks.list() {
         let mp = d.mount_point();
@@ -155,6 +165,36 @@ pub async fn list_dir(path: String) -> Result<DirListing, String> {
     tauri::async_runtime::spawn_blocking(move || list_dir_blocking(path))
         .await
         .map_err(|e| e.to_string())?
+}
+
+/// Generation for dir_sizes workers: a new call invalidates the previous one,
+/// so fast navigation never piles up zombie walks.
+static DIR_SIZE_GEN: AtomicU64 = AtomicU64::new(0);
+
+/// Recursively size each folder and emit a `dirsize` event ({ path, size }) per
+/// result. Runs detached; the command returns immediately.
+#[tauri::command]
+pub fn dir_sizes(app: tauri::AppHandle, paths: Vec<String>) {
+    let gen = DIR_SIZE_GEN.fetch_add(1, Ordering::Relaxed) + 1;
+    tauri::async_runtime::spawn_blocking(move || {
+        for p in paths {
+            if DIR_SIZE_GEN.load(Ordering::Relaxed) != gen {
+                break; // superseded by a newer request
+            }
+            let pb = PathBuf::from(&p);
+            if !pb.is_dir() {
+                continue;
+            }
+            // sum of plain files, symlinks not followed — an "≈" size, like FAR
+            let size: u64 = walkdir::WalkDir::new(&pb)
+                .into_iter()
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_type().is_file())
+                .map(|e| e.metadata().map(|m| m.len()).unwrap_or(0))
+                .sum();
+            let _ = app.emit("dirsize", serde_json::json!({ "path": p, "size": size }));
+        }
+    });
 }
 
 #[tauri::command]

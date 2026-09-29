@@ -186,6 +186,7 @@ pub async fn write_text(
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct HexChunk {
     pub data: Vec<u8>,
     pub file_size: u64,

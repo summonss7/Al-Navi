@@ -64,7 +64,14 @@
 
 <footer class="fkeys">
   {#each keys as f}
-    <button class="fkey" class:dim={!f.cmd || !f.label} disabled={!f.cmd} onclick={() => f.cmd && runCommand(f.cmd)}>
+    <!-- preventDefault on mousedown keeps focus in the editor text / panel input -->
+    <button
+      class="fkey"
+      class:dim={!f.cmd || !f.label}
+      disabled={!f.cmd}
+      onmousedown={(e) => e.preventDefault()}
+      onclick={() => f.cmd && runCommand(f.cmd)}
+    >
       <kbd>{f.k}</kbd>
       {#if f.label}<span class="lbl">{f.label}</span>{/if}
     </button>

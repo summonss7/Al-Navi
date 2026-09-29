@@ -57,6 +57,16 @@
     return formatDate(ms, i18n.locale);
   }
 
+  // folders show a cached/background-computed "≈" size, like FAR's calculated sizes
+  function sizeCell(e: (typeof panel.view)[number], up: boolean) {
+    if (up) return "<DIR>";
+    if (e.isDir) {
+      const n = panel.dirSizeOf(e.name);
+      return n === undefined ? "<DIR>" : "≈" + formatSize(n);
+    }
+    return formatSize(e.size);
+  }
+
   function clickRow(i: number, e: MouseEvent) {
     if (e.shiftKey) {
       // shift-click: range select from previous cursor to clicked row
@@ -109,7 +119,7 @@
         <span class="marker {selected ? 'on' : ''}"></span>
         <i class={"ph-duotone " + ic.icon} style="color:{ic.color}"></i>
         <span class="name" title={e.name}>{up ? ".." : e.name}</span>
-        <span class="size mono">{up || e.isDir ? "<DIR>" : formatSize(e.size)}</span>
+        <span class="size mono">{sizeCell(e, up)}</span>
         <span class="date">{up ? "" : fmtDate(e.mtime)}</span>
         <span class="attr">{up ? "" : e.attrs}</span>
       </div>

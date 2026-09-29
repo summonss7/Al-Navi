@@ -1,0 +1,4 @@
+# Prefer the static WebView2Loader archive (src-tauri/lib) over the DLL in
+# webview2-com-sys' OUT_DIR, so the release exe is self-contained.
+[target.x86_64-pc-windows-gnu]
+rustflags = ["-L", "native=D:/Al-Navi/src-tauri/lib"]

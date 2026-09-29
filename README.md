@@ -1,0 +1,148 @@
+# Al-Navi
+
+Современный двухпанельный файловый менеджер с управлением в духе FAR Manager.
+Кроссплатформенный: Windows + Linux. Стек: **Tauri 2 (Rust) + Svelte 5 + TypeScript + CodeMirror 6**.
+
+Бренд: лайм `#8EE53F`, оранж `#F97316`, серый `#9E9E9E`, duotone-иконки (Phosphor), шрифт Inter.
+
+---
+
+## Быстрый старт
+
+### Требования
+
+- **Node.js ≥ 20**, npm
+- **Rust** (`rustup`) — <https://rustup.rs>
+- Линкер:
+  - **Простой путь (рекомендуется, Windows):** Visual Studio Build Tools 2022 с workload
+    «Desktop development with C++» (включает MSVC + Windows SDK). Установка:
+    ```
+    winget install Microsoft.VisualStudio.2022.BuildTools --override "--wait --quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+    ```
+    (нужны права администратора)
+  - **Без прав администратора (путь, уже настроенный на этой машине):** MSYS2 + GCC:
+    ```
+    # MSYS2 установлен в C:\Users\CUSTOM\msys64; перед cargo добавить в PATH:
+    PATH="/c/Users/CUSTOM/msys64/ucrt64/bin:$PATH"
+    cargo +stable-x86_64-pc-windows-gnu build
+    ```
+- **Linux:** `sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev`
+
+### Разработка
+
+```bash
+npm install
+
+# Windows с MSVC (стандартно):
+npm run tauri dev
+
+# Windows с GNU-тулчейном (настроено на этой машине):
+PATH="/c/Users/CUSTOM/msys64/ucrt64/bin:$PATH" \
+  cargo +stable-x86_64-pc-windows-gnu run   # из src-tauri, при запущенном `npm run dev`
+
+# Проверки
+npm run check        # svelte-check (типы)
+cargo check          # из src-tauri
+npm run build        # сборка фронтенда
+```
+
+### Релизная сборка
+
+```bash
+npm run release
+# → builds/Al-Navi-<версия>-<дата-время>.exe
+```
+
+Версия берётся из `src-tauri/Cargo.toml` (`[package] version`; при изменении
+синхронно обновите `version` в `src-tauri/tauri.conf.json`). Время сборки вшивается
+автоматически (`build.rs` → `AL_NAVI_BUILD_TIME`) и показывается в тайтлбаре
+программы рядом с версией, а также в меню F9.
+
+---
+
+## Управление (FAR-совместимое)
+
+| Клавиши | Действие |
+|---|---|
+| `Tab` | переключение активной панели |
+| `Alt+F1` / `Alt+F2` | меню дисков левой / правой панели |
+| `Ctrl+F1` / `Ctrl+F2` | скрыть/показать панель |
+| `Ctrl+O` / `Ctrl+P` | скрыть / показать обе панели |
+| `Ctrl+U` | поменять панели местами |
+| `Enter` | войти в каталог / открыть файл в ОС |
+| `Ctrl+PgUp` / `Ctrl+PgDn` | уровень вверх / войти в каталог |
+| `Backspace` | уровень вверх |
+| `Ctrl+\` | корень диска |
+| `Ctrl+R`, `Ctrl+L` | обновить панель |
+| `Ctrl+.` | показать/скрыть скрытые файлы |
+| `Insert` | выделить текущий объект |
+| `Gray +` / `Gray −` / `Gray *` | выделить группу (маска) / снять / инвертировать |
+| `Ctrl+F3…F7` | сортировка: имя / расширение / время / размер / без |
+| `Alt+Shift+←/→` | история каталогов назад / вперёд |
+| `F3` / `F4` / `Shift+F4` | просмотр / редактор / новый файл |
+| `F5` / `Shift+F5` | копировать выбранное / текущий файл |
+| `F6` / `Shift+F6` | перенести / переименовать текущий |
+| `F7` | создать каталог |
+| `F8` / `Shift+Del` | удалить в корзину / безвозвратно |
+| `Alt+F5` / `Alt+F6` / `Alt+F7` | упаковка / распаковка / поиск файлов *(в разработке)* |
+| `Ctrl+A` | атрибуты файла *(в разработке)* |
+| `Ctrl+0…9` | перейти к сохранённому каталогу |
+| `Ctrl+Shift+0…9` | назначить ярлык текущего каталога |
+| `Ctrl+Tab` / `Ctrl+Shift+Tab` | следующая / предыдущая вкладка (панели или документы) |
+| `F12` | список окон (панели, редакторы, вьюверы) |
+| `Alt+F12` | история каталогов |
+| `Alt+F8` | история команд |
+| `Ctrl+E` | предыдущая команда |
+| `Ctrl+Ins` | скопировать имена в буфер |
+| `F9` | меню (темы, язык, выход) |
+| `F10` | выход |
+| просто буквы | быстрый поиск в панели |
+
+### Редактор (F4)
+
+`F2` сохранить · `Shift+F2` сохранить как · `F7` поиск/замена · `F8` удалить строку ·
+`Ctrl+G` перейти к строке · `Esc` закрыть.
+
+Кодировки: UTF-8, UTF-16LE/BE, Windows-1251, KOI8-R, CP866, ISO-8859-5 — автодетект при
+открытии, выбор кодировки и типа концов строк (LF/CRLF) в статус-баре.
+
+### Вьювер (F3)
+
+Текст · Hex (`F8` переключение) · изображения.
+
+---
+
+## Возможности
+
+- ✅ Две панели, вкладки панелей (`Ctrl+T`/`Ctrl+W`), виртуальный список (100 000+ файлов)
+- ✅ Файловые операции с прогрессом, скоростью, паузой/отменой, фоновым режимом
+- ✅ Разрешение конфликтов: перезаписать / пропустить / переименовать (+ «для всех»)
+- ✅ Корзина (`trash`) и безвозвратное удаление
+- ✅ Редактор с подсветкой 30+ языков, мультидокументы, `Ctrl+Tab`
+- ✅ Вьювер: текст / hex / изображения
+- ✅ 5 тем (Al-Navi Dark/Light, Midnight, Solarized, High Contrast) + авто по системе
+- ✅ 6 языков интерфейса: English, Русский, Українська, Română, Slovenčina, العربية (RTL)
+- ✅ Ярлыки каталогов Ctrl+0…9, история каталогов и команд
+- ✅ Командная строка внизу с историей и `cd`
+- ✅ Наблюдение за ФС (автообновление панелей)
+- ✅ Сохранение состояния (панели, ярлыки, история) в `%APPDATA%/al-navi` / `~/.config/al-navi`
+- 🚧 Поиск файлов Alt+F7, архивы zip/7z/tar, мультипереименование Ctrl+M, атрибуты Ctrl+A —
+  следующие этапы (M5–M8 из плана)
+
+## Структура
+
+```
+src-tauri/src/     Rust-бэкенд: fs (листинг/диски/открытие), ops (копирование/перемещение/
+                  удаление с прогрессом и конфликтами), textio (кодировки, hex),
+                  watch (notify-debouncer), config (JSON-хранилище), drives (sysinfo)
+src/lib/           Ядро: keymap (FAR-карта клавиш), commands (реестр команд), api (IPC),
+                  stores (panels/ops/editor/settings/i18n/cmdline/ui), editor/cm.ts (CodeMirror)
+src/components/    TitleBar, PanelsGrid, FilePanel, VirtualList, CmdLine, FKeyBar,
+                  Dialogs, EditorArea, ViewerArea
+scripts/           make-icon.mjs (генерация бренд-иконки)
+```
+
+## Добавление хоткеев / команд
+
+Все действия — команды в `src/lib/register-commands.ts`, привязки — в `src/lib/keymap.ts`
+(таблица «контекст → сочетание → команда»; контексты: panel, editor, viewer, dialog, cmdline).

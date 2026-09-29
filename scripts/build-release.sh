@@ -44,6 +44,11 @@ if [ -d "$PF_DIR" ] || mkdir -p "$PF_DIR" 2>/dev/null; then
   taskkill //IM Al-Navi.exe //F >/dev/null 2>&1 || true
   if cp -f "$SRC_EXE" "$PF_DIR/Al-Navi.exe" 2>/dev/null; then
     echo "    updated"
+    # the exe path never changes, so Explorer keeps serving the icon from its
+    # per-path cache — desktop shortcuts would keep showing the old icon even
+    # for freshly created ones. ie4uinit -show rebuilds the cache (Win10/11,
+    # no admin, no Explorer restart).
+    ie4uinit.exe -show >/dev/null 2>&1 || true
   else
     echo "    FAILED — copy $OUT into C:\\Al-Navi manually"
   fi

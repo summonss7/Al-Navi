@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { ui } from "$lib/stores/ui.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
   import { ops } from "$lib/stores/ops.svelte";
@@ -266,6 +267,7 @@
         const idx = drives.findIndex((d) => d.mountPoint.toUpperCase().startsWith(latin));
         if (idx >= 0) {
           e.preventDefault();
+          e.stopPropagation();
           void pickDrive(drives[idx]);
           return;
         }
@@ -303,7 +305,10 @@
       default:
         handled = false;
     }
-    if (handled) e.preventDefault();
+    if (handled) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
   }
 
   // ---- button dialogs (confirm / conflict): focus the default button and let
@@ -321,12 +326,22 @@
     const dir = e.key === "ArrowRight" ? 1 : -1;
     btns[(idx < 0 ? 0 : idx + dir + btns.length) % btns.length].focus();
     e.preventDefault();
+    e.stopPropagation();
   }
 
   function onWindowKey(e: KeyboardEvent) {
     onListKey(e);
     onButtonDialogKey(e);
   }
+
+  // capture phase: keys handled by a dialog must be stopped on the way down —
+  // the editor's CodeMirror listens on its focused content DOM and would run
+  // before a bubble-phase window listener (Enter inserted a newline while the
+  // F11 plugins dialog was open)
+  onMount(() => {
+    window.addEventListener("keydown", onWindowKey, { capture: true });
+    return () => window.removeEventListener("keydown", onWindowKey, { capture: true });
+  });
 
   // ---- input submit ----
   function submitInput() {
@@ -354,8 +369,6 @@
     panels.refreshView();
   }
 </script>
-
-<svelte:window onkeydown={onWindowKey} />
 
 {#if ui.dialog === "confirm" && ui.confirmReq}
   <div class="overlay">

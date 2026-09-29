@@ -6,18 +6,26 @@
 
   type Key = { k: string; cmd: string | null; label: string };
 
-  // FAR-style: while Ctrl is held, the bottom bar swaps F1..F12 for the
-  // Ctrl-combo hints of the current mode (keyups can be missed when a combo
-  // opens/closes windows — reset on window blur too)
+  // FAR-style: while Ctrl/Alt/Shift is held, the bottom bar swaps F1..F12 for
+  // that modifier's combo hints of the current mode (keyups can be missed when
+  // a combo opens/closes windows — reset on window blur too). Ctrl has
+  // priority, as in FAR: Ctrl+Alt / Ctrl+Shift keep showing the Ctrl bar.
   let ctrlDown = $state(false);
+  let altDown = $state(false);
+  let shiftDown = $state(false);
   onMount(() => {
-    const kd = (e: KeyboardEvent) => {
-      if (e.key === "Control") ctrlDown = true;
+    const set = (key: string, down: boolean) => {
+      if (key === "Control") ctrlDown = down;
+      else if (key === "Alt") altDown = down;
+      else if (key === "Shift") shiftDown = down;
     };
-    const ku = (e: KeyboardEvent) => {
-      if (e.key === "Control") ctrlDown = false;
+    const kd = (e: KeyboardEvent) => set(e.key, true);
+    const ku = (e: KeyboardEvent) => set(e.key, false);
+    const reset = () => {
+      ctrlDown = false;
+      altDown = false;
+      shiftDown = false;
     };
-    const reset = () => (ctrlDown = false);
     window.addEventListener("keydown", kd, { capture: true });
     window.addEventListener("keyup", ku, { capture: true });
     window.addEventListener("blur", reset);
@@ -122,38 +130,79 @@
     return [{ k: "Ctrl+Tab", cmd: "ui.nextTab", label: i18n.t("hint.ring") }] satisfies Key[];
   });
 
-  const hints = $derived(ui.mode === "editor" ? editorHints : ui.mode === "viewer" ? viewerHints : panelHints);
+  const ctrlHints = $derived(ui.mode === "editor" ? editorHints : ui.mode === "viewer" ? viewerHints : panelHints);
+
+  // Alt-hint chips; only the panels have Alt bindings (editor/viewer keep the
+  // F-key bar — an empty row would be worse than no hints)
+  const altHints = $derived.by(() => {
+    void i18n.locale;
+    if (ui.mode !== "panels") return [] as Key[];
+    return [
+      { k: "Alt+F1", cmd: "panel.drivesLeft", label: i18n.t("hint.drivesL") },
+      { k: "Alt+F2", cmd: "panel.drivesRight", label: i18n.t("hint.drivesR") },
+      { k: "Alt+←", cmd: "panel.historyBack", label: i18n.t("hint.histBack") },
+      { k: "Alt+→", cmd: "panel.historyForward", label: i18n.t("hint.histFwd") },
+      { k: "Alt+F5", cmd: "stub.pack", label: i18n.t("hint.pack") },
+      { k: "Alt+F6", cmd: "stub.unpack", label: i18n.t("hint.unpack") },
+      { k: "Alt+F7", cmd: "stub.search", label: i18n.t("hint.search") },
+      { k: "Alt+F8", cmd: "cmdline.history", label: i18n.t("hint.cmdList") },
+      { k: "Alt+F11", cmd: "stub.viewHistory", label: i18n.t("hint.viewHist") },
+      { k: "Alt+F12", cmd: "panel.dirHistory", label: i18n.t("hint.dirHist") },
+      // quick jump is not a keymap chord (any Alt+letter) — info-only chip
+      { k: "Alt+A…Z", cmd: null, label: i18n.t("hint.quickJump") },
+    ] satisfies Key[];
+  });
+
+  const shiftHints = $derived.by(() => {
+    void i18n.locale;
+    if (ui.mode === "editor") {
+      return [
+        { k: "Shift+F2", cmd: "editor.saveAs", label: i18n.t("help.ed.saveAs") },
+        { k: "Shift+F4", cmd: "editor.newFile", label: i18n.t("help.ed.new") },
+      ] satisfies Key[];
+    }
+    if (ui.mode === "viewer") return [] as Key[];
+    return [
+      { k: "Shift+Enter", cmd: "panel.enterExternal", label: i18n.t("hint.openExt") },
+      { k: "Shift+F4", cmd: "editor.newFile", label: i18n.t("help.ed.new") },
+      { k: "Shift+F5", cmd: "fs.copyCurrent", label: i18n.t("hint.copyCur") },
+      { k: "Shift+F6", cmd: "fs.renameCurrent", label: i18n.t("hint.renameCur") },
+      { k: "Shift+F8", cmd: "fs.deleteCurrent", label: i18n.t("hint.delCur") },
+      { k: "Shift+Del", cmd: "fs.deletePermanent", label: i18n.t("hint.delPerm") },
+      { k: "Shift+Ins", cmd: "cmdline.pasteClipboard", label: i18n.t("hint.paste") },
+    ] satisfies Key[];
+  });
+
+  // which row is on screen: modifier hints (chips) or the plain F-key bar
+  const bar = $derived(
+    ctrlDown
+      ? ctrlHints
+      : altDown && altHints.length
+        ? altHints
+        : shiftDown && shiftHints.length
+          ? shiftHints
+          : keys,
+  );
+  const chips = $derived(
+    ctrlDown || (altDown && altHints.length > 0) || (shiftDown && shiftHints.length > 0),
+  );
 </script>
 
 <footer class="fkeys">
-  {#if ctrlDown}
-    {#each hints as h}
-      <button
-        class="fkey chip"
-        class:dim={!h.cmd || !h.label}
-        disabled={!h.cmd}
-        onmousedown={(e) => e.preventDefault()}
-        onclick={() => h.cmd && runCommand(h.cmd)}
-      >
-        <kbd>{h.k}</kbd>
-        {#if h.label}<span class="lbl">{h.label}</span>{/if}
-      </button>
-    {/each}
-  {:else}
-    {#each keys as f}
-      <!-- preventDefault on mousedown keeps focus in the editor text / command line -->
-      <button
-        class="fkey"
-        class:dim={!f.cmd || !f.label}
-        disabled={!f.cmd}
-        onmousedown={(e) => e.preventDefault()}
-        onclick={() => f.cmd && runCommand(f.cmd)}
-      >
-        <kbd>{f.k}</kbd>
-        {#if f.label}<span class="lbl">{f.label}</span>{/if}
-      </button>
-    {/each}
-  {/if}
+  {#each bar as f}
+    <!-- preventDefault on mousedown keeps focus in the editor text / command line -->
+    <button
+      class="fkey"
+      class:chip={chips}
+      class:dim={!f.cmd || !f.label}
+      disabled={!f.cmd}
+      onmousedown={(e) => e.preventDefault()}
+      onclick={() => f.cmd && runCommand(f.cmd)}
+    >
+      <kbd>{f.k}</kbd>
+      {#if f.label}<span class="lbl">{f.label}</span>{/if}
+    </button>
+  {/each}
 </footer>
 
 <style>

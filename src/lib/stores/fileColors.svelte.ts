@@ -18,12 +18,27 @@ export interface NameStyle {
 let ruleSeq = 0;
 const nextId = () => `r${Date.now().toString(36)}${(ruleSeq++).toString(36)}`;
 
+/** the wishlist file is a brand default: red bold, ahead of every group rule */
+function promtRule(): ColorRule {
+  return { id: nextId(), mask: "promt.txt", color: "#EF4444", bold: true };
+}
+
+function maskParts(mask: string): string[] {
+  return mask
+    .split(/[,;\s]+/)
+    .map((p) => p.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 function defaultRules(): ColorRule[] {
-  return COLOR_GROUPS.map((g) => ({
-    id: nextId(),
-    mask: g.exts.map((e) => "*." + e).join(", "),
-    color: g.color,
-  }));
+  return [
+    promtRule(),
+    ...COLOR_GROUPS.map((g) => ({
+      id: nextId(),
+      mask: g.exts.map((e) => "*." + e).join(", "),
+      color: g.color,
+    })),
+  ];
 }
 
 /** mask list -> one case-insensitive full-match regex (null = empty/invalid) */
@@ -59,11 +74,12 @@ class FileColorsStore {
       // no backend (browser preview) or no saved file yet
     }
     let rules = saved && saved.length ? saved : defaultRules();
-    // seed the wishlist highlight once: if the user has no rule matching
-    // promt.txt yet, add the brand default (editable/removable in F9)
-    const hasPromt = rules.some((r) => compileMask(r.mask)?.test("promt.txt") ?? false);
+    // seed the wishlist highlight: if no rule names promt.txt explicitly, put
+    // the brand default first — a bare *.txt rule must not count as covering
+    // it (first match wins, and the doc group paints *.txt blue)
+    const hasPromt = rules.some((r) => maskParts(r.mask).includes("promt.txt"));
     if (!hasPromt) {
-      rules = [...rules, { id: nextId(), mask: "promt.txt", color: "#EF4444", bold: true }];
+      rules = [promtRule(), ...rules];
     }
     this.apply(rules, false);
   }

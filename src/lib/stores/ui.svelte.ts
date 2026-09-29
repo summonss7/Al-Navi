@@ -46,13 +46,22 @@ class UIStore {
 
   openDialog(id: Exclude<DialogId, null>) {
     this.dialog = id;
-    // a modal takes the keyboard: the command line gives up the caret (the
-    // App effect hands it back after close). Progress stays transparent so
-    // commands can keep being typed while an operation runs in background.
-    if (id !== "progress" && this.cmdLineFocused) {
+    // a modal takes the keyboard. Progress stays transparent so commands
+    // can keep being typed while an operation runs in background.
+    if (id !== "progress") this.takeKeyboard();
+  }
+
+  /** a modal takes the keyboard from whoever holds it: the command line
+   *  (the App effect hands the caret back after close) or the CodeMirror
+   *  editor (EditorArea refocuses it after close). Without this, keys like
+   *  Enter leak into the editor underneath the dialog. */
+  private takeKeyboard() {
+    if (this.cmdLineFocused) {
       this.cmdLineFocused = false;
       cmdline.blurInput();
+      return;
     }
+    (document.activeElement as HTMLElement | null)?.blur?.();
   }
 
   closeDialog() {
@@ -86,6 +95,7 @@ class UIStore {
   showError(text: string) {
     this.errorText = text;
     this.dialog = "errors";
+    this.takeKeyboard();
   }
 
   showToast(text: string) {

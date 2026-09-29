@@ -12,6 +12,8 @@ export type DialogId =
   | "dirHistory"
   | "cmdHistory"
   | "menu"
+  | "help"
+  | "fileColors"
   | "errors"
   | null;
 

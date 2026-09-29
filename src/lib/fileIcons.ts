@@ -65,3 +65,9 @@ export function iconFor(name: string, isDir: boolean, isSymlink: boolean): IconS
 }
 
 export const UP_ICON: IconSpec = { icon: "ph-duotone ph-arrow-u-up-left", color: "#9E9E9E" };
+
+/** colored groups (without the gray binary/text pair) — seeds the default
+ *  file-color rules so panel names are highlighted out of the box */
+export const COLOR_GROUPS: { exts: string[]; color: string }[] = Object.entries(GROUPS)
+  .filter(([g]) => g !== "binary" && g !== "text")
+  .map(([g, exts]) => ({ exts, color: MAP[g].color }));

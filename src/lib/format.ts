@@ -67,3 +67,11 @@ export function parentOf(p: string): string | null {
 export function isRootPath(p: string): boolean {
   return parentOf(p) === null;
 }
+
+/** Direction mark for the active sort column. dir=1 is the natural order of
+ *  the mode (name/ext A→Z, mtime newest first, size largest first), so for
+ *  date/size dir=1 reads as descending. */
+export function sortArrow(mode: string, dir: 1 | -1): string {
+  const desc = mode === "mtime" || mode === "size" ? dir === 1 : dir === -1;
+  return desc ? "↓" : "↑";
+}

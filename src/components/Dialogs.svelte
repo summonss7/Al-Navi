@@ -10,6 +10,8 @@
   import { drivesList, appInfo, type AppInfo } from "$lib/api";
   import { latinKeyOf } from "$lib/keymap";
   import { formatSize } from "$lib/format";
+  import { HELP_SECTIONS } from "$lib/help";
+  import { fileColors } from "$lib/stores/fileColors.svelte";
   import type { DriveInfo } from "$lib/types";
 
   let appVer = $state<AppInfo | null>(null);
@@ -109,7 +111,6 @@
         if (c !== undefined) {
           cmdline.setText(c);
           ui.closeDialog();
-          ui.cmdLineFocused = true;
         }
         break;
       }
@@ -237,6 +238,17 @@
   function pct(op: { bytesDone: number; bytesTotal: number }): number {
     if (!op.bytesTotal) return 0;
     return Math.min(100, Math.round((op.bytesDone / op.bytesTotal) * 100));
+  }
+
+  // file-color rules: a small colored sample of the first mask ("*.jpg" -> "sample.jpg")
+  function sampleOf(mask: string): string {
+    const p = mask.split(/[,;\s]+/).find((x) => x.trim().length > 0) ?? "*";
+    return p.replace(/^\*/, "sample").replace(/\*/g, "");
+  }
+
+  function setViewFlag(patch: Partial<{ dirsFirst: boolean; showHidden: boolean; showSystem: boolean }>) {
+    settings.set(patch);
+    panels.refreshView();
   }
 </script>
 
@@ -441,7 +453,7 @@
           <button
             class="li mono"
             class:kbd={listIdx === i}
-            onclick={() => { cmdline.setText(c); ui.closeDialog(); ui.cmdLineFocused = true; }}
+            onclick={() => { cmdline.setText(c); ui.closeDialog(); }}
           >
             <i class="ph-duotone ph-terminal-window"></i>{c}
           </button>
@@ -459,6 +471,37 @@
     <div class="dlg" style="min-width:340px">
       <div class="dlg-title"><i class="ph-duotone ph-list"></i>{i18n.t("fkeys.f9")}</div>
       <div class="dlg-body">
+        <div class="grp">{i18n.t("menu.view")}</div>
+        <div class="checks">
+          <label class="check">
+            <input
+              type="checkbox"
+              checked={settings.s.dirsFirst}
+              onchange={(e) => setViewFlag({ dirsFirst: e.currentTarget.checked })}
+            />
+            <span>{i18n.t("menu.dirsFirst")}</span>
+          </label>
+          <label class="check">
+            <input
+              type="checkbox"
+              checked={settings.s.showHidden}
+              onchange={(e) => setViewFlag({ showHidden: e.currentTarget.checked })}
+            />
+            <span>{i18n.t("menu.showHidden")}</span>
+          </label>
+          <label class="check">
+            <input
+              type="checkbox"
+              checked={settings.s.showSystem}
+              onchange={(e) => setViewFlag({ showSystem: e.currentTarget.checked })}
+            />
+            <span>{i18n.t("menu.showSystem")}</span>
+          </label>
+        </div>
+        <button class="btn fc-open" onclick={() => ui.openDialog("fileColors")}>
+          <i class="ph-duotone ph-palette"></i>{i18n.t("menu.fileColors")}
+        </button>
+
         <div class="grp">{i18n.t("menu.themes")}</div>
         <div class="theme-grid">
           {#each THEMES as th (th.id)}
@@ -493,6 +536,69 @@
         <button class="btn" onclick={() => { void import("$lib/commands").then(({runCommand}) => runCommand("app.quit")); }}>
           <i class="ph ph-sign-out"></i>{i18n.t("menu.quit")}
         </button>
+        <button class="btn primary" onclick={() => ui.closeDialog()}>{i18n.t("common.close")}</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if ui.dialog === "help"}
+  <div class="overlay">
+    <div class="dlg help-dlg">
+      <div class="dlg-title"><i class="ph-duotone ph-question"></i>{i18n.t("fkeys.f1")}</div>
+      <div class="dlg-body help-body">
+        {#each HELP_SECTIONS as s}
+          <div class="grp">{i18n.t(s.title)}</div>
+          <div class="help-grid">
+            {#each s.items as it}
+              <div class="hrow">
+                {#if it.chord}<kbd>{it.chord}</kbd>{:else}<span class="nokbd"></span>{/if}
+                <span class="hdesc">{i18n.t(it.key)}</span>
+              </div>
+            {/each}
+          </div>
+        {/each}
+      </div>
+      <div class="dlg-actions">
+        <button class="btn primary" onclick={() => ui.closeDialog()}>{i18n.t("common.close")}</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if ui.dialog === "fileColors"}
+  <div class="overlay">
+    <div class="dlg" style="min-width: 500px">
+      <div class="dlg-title"><i class="ph-duotone ph-palette"></i>{i18n.t("menu.fileColors")}</div>
+      <div class="dlg-body">
+        <div class="fc-hint">{i18n.t("fc.hint")}</div>
+        <div class="fc-rows">
+          {#each fileColors.rules as r (r.id)}
+            <div class="fc-row">
+              <input
+                type="color"
+                value={r.color}
+                title={r.color}
+                oninput={(e) => fileColors.update(r.id, { color: e.currentTarget.value })}
+              />
+              <input
+                class="fc-mask"
+                type="text"
+                value={r.mask}
+                spellcheck="false"
+                oninput={(e) => fileColors.update(r.id, { mask: e.currentTarget.value })}
+              />
+              <span class="fc-sample" style="color:{r.color}">{sampleOf(r.mask)}</span>
+              <button class="fc-del" title={i18n.t("fc.remove")} onclick={() => fileColors.remove(r.id)}>
+                <i class="ph ph-x"></i>
+              </button>
+            </div>
+          {/each}
+        </div>
+      </div>
+      <div class="dlg-actions wrap">
+        <button class="btn" onclick={() => fileColors.add()}><i class="ph ph-plus"></i>{i18n.t("fc.add")}</button>
+        <button class="btn" onclick={() => fileColors.reset()}>{i18n.t("fc.reset")}</button>
         <button class="btn primary" onclick={() => ui.closeDialog()}>{i18n.t("common.close")}</button>
       </div>
     </div>
@@ -608,6 +714,74 @@
   .lang-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
   .thmb, .lang { justify-content: flex-start; padding: 7px 10px; font-size: 12.5px; }
   .thmb.on, .lang.on { border-color: var(--accent); color: var(--fg); }
+
+  /* menu: view settings checkboxes */
+  .checks { display: flex; flex-direction: column; gap: 7px; }
+  .check { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--fg-dim); cursor: pointer; }
+  .check:hover { color: var(--fg); }
+  .check input { width: 15px; height: 15px; accent-color: var(--accent); flex-shrink: 0; }
+  .fc-open { width: 100%; justify-content: flex-start; margin-top: 8px; font-size: 12.5px; }
+  .fc-open i { font-size: 16px; color: var(--accent2); }
+
+  /* help dialog */
+  .help-dlg { min-width: 660px; max-width: 940px; }
+  .help-body { overflow-y: auto; }
+  .help-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 22px; }
+  .hrow { display: flex; align-items: baseline; gap: 9px; font-size: 12px; color: var(--fg-dim); min-width: 0; }
+  .hrow kbd {
+    flex-shrink: 0;
+    min-width: 92px;
+    align-self: center;
+    padding: 1px 7px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    background: var(--bg-panel);
+    color: var(--fg);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    text-align: center;
+    white-space: nowrap;
+    direction: ltr;
+  }
+  .hrow .nokbd { display: none; }
+  .hdesc { min-width: 0; }
+  .hrow:has(.nokbd) .hdesc { color: var(--fg); }
+
+  /* file colors dialog */
+  .fc-hint { font-size: 11.5px; color: var(--fg-muted); margin-bottom: 10px; }
+  .fc-rows { display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; }
+  .fc-row { display: flex; align-items: center; gap: 8px; }
+  .fc-row input[type="color"] {
+    width: 36px;
+    height: 26px;
+    padding: 1px 2px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--bg-panel);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .fc-mask {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 10px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    border-radius: 7px;
+    direction: ltr;
+  }
+  .fc-sample {
+    flex-shrink: 0;
+    width: 110px;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    direction: ltr;
+  }
+  .fc-del { flex-shrink: 0; padding: 4px 8px; border-radius: 7px; color: var(--fg-muted); font-size: 13px; }
+  .fc-del:hover { color: var(--danger); background: var(--row-hover); }
 
   .about {
     margin-top: 14px;

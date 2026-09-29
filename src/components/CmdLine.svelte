@@ -20,18 +20,15 @@
   });
 
   function onKey(e: KeyboardEvent) {
+    // only Enter is handled here: the global capture handler routes everything
+    // else (panel navigation, bound chords) before the event reaches the input,
+    // and plain typing arrives natively
     if (e.key === "Enter") {
       const cmd = cmdline.currentCommand;
       if (cmd) {
         cmdline.submit();
         void runCommand(cmd);
       }
-      e.preventDefault();
-    } else if (e.key === "ArrowUp" || (e.ctrlKey && e.key === "e")) {
-      cmdline.stepHistory(-1);
-      e.preventDefault();
-    } else if (e.key === "ArrowDown") {
-      cmdline.stepHistory(1);
       e.preventDefault();
     }
     e.stopPropagation();

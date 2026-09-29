@@ -13,7 +13,8 @@ export interface Settings {
   theme: ThemeId;
   locale: Locale;
   showHidden: boolean;
-  sortName: "name";
+  showSystem: boolean;
+  dirsFirst: boolean;
   editorTabSize: number;
   editorWordWrap: boolean;
   confirmDelete: boolean;
@@ -24,7 +25,8 @@ const DEFAULTS: Settings = {
   theme: "alnaviLight",
   locale: "en",
   showHidden: false,
-  sortName: "name",
+  showSystem: true,
+  dirsFirst: true,
   editorTabSize: 4,
   editorWordWrap: false,
   confirmDelete: true,

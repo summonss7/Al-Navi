@@ -15,6 +15,10 @@ class CmdlineStore {
     this.el?.blur();
   }
 
+  focusInput() {
+    this.el?.focus();
+  }
+
   async init() {
     const h = await loadJson<string[]>("cmd-history.json");
     this.history = h ?? [];

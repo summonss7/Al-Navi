@@ -1,11 +1,10 @@
 <script lang="ts">
   import type { PanelState } from "$lib/stores/panels.svelte";
   import { panels } from "$lib/stores/panels.svelte";
-  import { ui } from "$lib/stores/ui.svelte";
-  import { cmdline } from "$lib/stores/cmdline.svelte";
+  import { runCommand } from "$lib/commands";
   import { cyrillicOfLatin } from "$lib/keymap";
   import { i18n } from "$lib/stores/i18n.svelte";
-  import { formatSize, formatCount, basename, joinPath } from "$lib/format";
+  import { formatSize, formatCount, basename, sortArrow } from "$lib/format";
   import VirtualList from "./VirtualList.svelte";
 
   let { panel }: { panel: PanelState } = $props();
@@ -51,31 +50,27 @@
     return out;
   });
 
-  function onQuickKey(e: KeyboardEvent) {
-    if (e.key === "Escape") {
-      panel.quickFilter = null;
-      panel.rebuild();
-      e.preventDefault();
-    } else if (e.key === "Enter") {
-      const q = panel.quickFilter ?? "";
-      const matches = panel.view.filter((x) => x.name !== ".." && x.name.toLowerCase().includes(q.toLowerCase()));
-      if (matches.length === 1 && matches[0].isDir) {
-        void panel.chdir(joinPath(panel.path, matches[0].name));
-      }
-      panel.quickFilter = null;
-      panel.rebuild();
-      e.preventDefault();
-    }
-    e.stopPropagation();
+  // column captions double as sort buttons: first press sorts (name/ext
+  // A→Z, date/size newest & largest first), pressing again reverses
+  function sortBy(mode: "name" | "size" | "mtime") {
+    if (!active) panels.activeSide = panel.side;
+    runCommand(`panel.sort${mode === "name" ? "Name" : mode === "size" ? "Size" : "Mtime"}`);
   }
+
+  const sortMark = (mode: "name" | "size" | "mtime") =>
+    panel.sortMode === mode ? " " + sortArrow(mode, panel.sortDir) : "";
 </script>
 
+<!-- mousedown is prevented so clicks never steal the caret from the command
+     line; the .vlist container itself is skipped to keep the native scrollbar -->
 <section
   class="panel"
   class:active
   class:inactive={!active}
   onclick={() => { if (!active) panels.activeSide = panel.side; }}
-  onmousedown={() => { if (ui.cmdLineFocused) cmdline.blurInput(); }}
+  onmousedown={(e) => {
+    if (!(e.target as HTMLElement).classList.contains("vlist")) e.preventDefault();
+  }}
 >
   <header class="p-head">
     <div class="tabs-row">
@@ -114,29 +109,33 @@
           {#if qjCyr}<b>{qjCyr}</b> · {/if}{panel.quickJumpPrefix.toLowerCase()}
         </span>
       {/if}
-      {#if panel.quickFilter !== null}
-        <input
-          class="quick"
-          placeholder={i18n.t("panel.quickSearch") + "…"}
-          bind:value={panel.quickFilter}
-          oninput={() => panel.rebuild()}
-          onkeydown={onQuickKey}
-          use:focusEl
-        />
-      {:else}
-        <nav class="crumbs" title={panel.path}>
-          {#each crumbs as c, i (c.path + i)}
-            {#if i > 0}<span class="crumb-sep">/</span>{/if}
-            <button
-              class="crumb"
-              class:last={i === crumbs.length - 1}
-              onclick={() => void panel.chdir(c.path)}
-            >{c.label}</button>
-          {/each}
-        </nav>
-      {/if}
+      <nav class="crumbs" title={panel.path}>
+        {#each crumbs as c, i (c.path + i)}
+          {#if i > 0}<span class="crumb-sep">/</span>{/if}
+          <button
+            class="crumb"
+            class:last={i === crumbs.length - 1}
+            onclick={() => void panel.chdir(c.path)}
+          >{c.label}</button>
+        {/each}
+      </nav>
     </div>
   </header>
+
+  <div class="cols">
+    <span class="marker"></span>
+    <span class="islot"></span>
+    <button class="col name" class:on={panel.sortMode === "name"} onclick={() => sortBy("name")} title="Ctrl+F3">
+      {i18n.t("col.name")}{sortMark("name")}
+    </button>
+    <button class="col size" class:on={panel.sortMode === "size"} onclick={() => sortBy("size")} title="Ctrl+F6">
+      {i18n.t("col.size")}{sortMark("size")}
+    </button>
+    <button class="col date" class:on={panel.sortMode === "mtime"} onclick={() => sortBy("mtime")} title="Ctrl+F5">
+      {i18n.t("col.date")}{sortMark("mtime")}
+    </button>
+    <span class="col attr">{i18n.t("col.attr")}</span>
+  </div>
 
   <div class="list-wrap">
     <VirtualList {panel} />
@@ -171,13 +170,6 @@
     {/if}
   </footer>
 </section>
-
-<script module lang="ts">
-  export function focusEl(node: HTMLInputElement) {
-    node.focus();
-    node.select?.();
-  }
-</script>
 
 <style>
   .panel {
@@ -291,15 +283,6 @@
   .crumb.last { color: var(--fg); font-weight: 700; }
   .panel.active .crumb.last { color: var(--accent-ink); }
   .crumb-sep { color: var(--fg-muted); font-size: 11.5px; flex-shrink: 0; }
-  .quick {
-    flex: 1;
-    padding: 3px 12px;
-    font-size: 12.5px;
-    border-radius: var(--r-tab);
-    background: color-mix(in srgb, var(--accent) 8%, var(--bg-panel));
-    border-color: var(--accent);
-    direction: ltr;
-  }
   .qjump {
     display: inline-flex;
     align-items: center;
@@ -318,6 +301,39 @@
   .qjump b { font-weight: 800; }
 
   .list-wrap { position: relative; flex: 1; min-height: 0; }
+
+  /* column captions: same geometry as the rows below (marker + icon slot +
+     name/size/date/attr), clicking a caption sorts, clicking again reverses */
+  .cols {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-inline: 5px;
+    padding-inline: 4px;
+    height: 22px;
+    color: var(--fg-muted);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-header);
+    flex-shrink: 0;
+    user-select: none;
+  }
+  .cols .marker { width: 5px; flex-shrink: 0; }
+  .cols .islot { width: 19px; flex-shrink: 0; }
+  .col {
+    padding: 0;
+    color: var(--fg-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+  }
+  .col:hover { color: var(--fg); }
+  .col.on { color: var(--accent2); }
+  .col.name { flex: 1; min-width: 0; text-align: start; }
+  .col.size { width: 78px; text-align: end; }
+  .col.date { width: 128px; text-align: center; }
+  .col.attr { width: 68px; text-align: center; }
+  [dir="rtl"] .col.size { text-align: start; }
 
   .overlay-msg {
     position: absolute;

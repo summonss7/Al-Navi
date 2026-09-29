@@ -2,6 +2,7 @@
   import type { PanelState } from "$lib/stores/panels.svelte";
   import { iconFor, UP_ICON } from "$lib/fileIcons";
   import { formatSize, formatDate } from "$lib/format";
+  import { fileColors } from "$lib/stores/fileColors.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
 
   let { panel, rowHeight = 26 }: { panel: PanelState; rowHeight?: number } = $props();
@@ -105,6 +106,7 @@
       {@const up = e.name === ".."}
       {@const ic = up ? UP_ICON : iconFor(e.name, e.isDir, e.isSymlink)}
       {@const selected = !up && panel.selected.has(e.name)}
+      {@const nameColor = up || e.isDir ? null : fileColors.colorFor(e.name)}
       <div
         class="row"
         class:cursor={i === panel.cursor}
@@ -118,7 +120,7 @@
       >
         <span class="marker {selected ? 'on' : ''}"></span>
         <i class={"ph-duotone " + ic.icon} style="color:{ic.color}"></i>
-        <span class="name" title={e.name}>{up ? ".." : e.name}</span>
+        <span class="name" title={e.name} style={nameColor ? `color:${nameColor}` : ""}>{up ? ".." : e.name}</span>
         <span class="size mono">{sizeCell(e, up)}</span>
         <span class="date">{up ? "" : fmtDate(e.mtime)}</span>
         <span class="attr">{up ? "" : e.attrs}</span>
@@ -160,7 +162,8 @@
   .marker.on { background: var(--accent2); }
 
   .row.selected { background: var(--row-selected); }
-  .row.selected .name { color: var(--fg); }
+  /* per-extension name colors are inline styles — beat them where readability wins */
+  .row.selected .name { color: var(--fg) !important; }
 
   /* cursor: solid bar in dark themes; orange rounded-rect + glow in light */
   .row.cursor {
@@ -169,8 +172,10 @@
     box-shadow: inset 0 0 0 2px var(--row-cursor-border), var(--row-cursor-glow);
   }
   .row.cursor .name, .row.cursor .size, .row.cursor .date, .row.cursor .attr { color: var(--row-cursor-fg); }
-  /* solid-cursor themes (dark): recolor icons for contrast; outline cursor keeps file colors */
+  /* solid-cursor themes (dark): recolor icons for contrast; the outline cursor
+     of the light theme keeps per-file icon and name colors */
   :global([data-cursor="solid"]) .row.cursor :global(i) { color: var(--row-cursor-fg) !important; }
+  :global([data-cursor="solid"]) .row.cursor .name { color: var(--row-cursor-fg) !important; }
 
   .row i {
     font-size: 17px;

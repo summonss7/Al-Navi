@@ -35,8 +35,8 @@ export class PanelState {
   tabs = $state<TabState[]>([]);
   activeTabId = $state(0);
   sortMode = $state<SortMode>("name");
-  showHidden = $state(false);
-  quickFilter = $state<string | null>(null);
+  /** 1 = natural order per mode (name A→Z, newest first, largest first), -1 = reversed */
+  sortDir = $state<1 | -1>(1);
   /** accumulated Alt+letter quick-jump prefix (latin physical keys), null = idle */
   quickJumpPrefix = $state<string | null>(null);
   private quickJumpAt = 0;
@@ -57,7 +57,6 @@ export class PanelState {
     const t = newTab(path);
     this.tabs = [t];
     this.activeTabId = t.id;
-    this.showHidden = settings.s.showHidden;
   }
 
   get tab(): TabState {
@@ -115,32 +114,42 @@ export class PanelState {
 
   rebuild() {
     const prevName = this.current?.name;
-    const q = this.quickFilter?.toLowerCase() ?? null;
+    const showHidden = settings.s.showHidden;
+    const showSystem = settings.s.showSystem;
     let list = this.raw.filter((e) => {
-      if (!this.showHidden && e.isHidden && e.name !== UP_NAME) return false;
-      if (q && e.name !== UP_NAME && !e.name.toLowerCase().includes(q)) return false;
+      if (e.name === UP_NAME) return true;
+      if (!showHidden && e.isHidden) return false;
+      if (!showSystem && e.attrs.includes("S")) return false;
       return true;
     });
 
+    const dir = this.sortDir;
     const collator = new Intl.Collator(i18n.locale, { numeric: true, sensitivity: "base" });
     switch (this.sortMode) {
       case "name":
-        list.sort((a, b) => collator.compare(a.name, b.name));
+        list.sort((a, b) => dir * collator.compare(a.name, b.name));
         break;
       case "ext":
         list.sort((a, b) => {
           const d = collator.compare(extOf(a.name), extOf(b.name));
-          return d !== 0 ? d : collator.compare(a.name, b.name);
+          return dir * (d !== 0 ? d : collator.compare(a.name, b.name));
         });
         break;
       case "mtime":
-        list.sort((a, b) => b.mtime - a.mtime);
+        list.sort((a, b) => dir * (b.mtime - a.mtime));
         break;
       case "size":
-        list.sort((a, b) => b.size - a.size);
+        list.sort((a, b) => dir * (b.size - a.size));
         break;
       case "unsorted":
         break;
+    }
+    if (settings.s.dirsFirst) {
+      // stable partition: directories keep their sorted order on top
+      const dirs = list.filter((e) => e.isDir);
+      if (dirs.length && dirs.length < list.length) {
+        list = [...dirs, ...list.filter((e) => !e.isDir)];
+      }
     }
     this.view = [{ name: UP_NAME, isDir: true, size: 0, mtime: 0, attrs: "", isSymlink: false, isHidden: false }, ...list];
     // restore cursor position by name
@@ -201,7 +210,6 @@ export class PanelState {
   async chdir(path: string) {
     this.clearSelection();
     this.clearQuickJump();
-    this.quickFilter = null;
     await this.load(path);
     panels.notifyWatch();
   }
@@ -222,6 +230,19 @@ export class PanelState {
   async up() {
     const p = parentOf(this.path);
     if (p) await this.chdir(p);
+  }
+
+  /** Shift+Enter: always hand the entry to the OS shell — folders (and "..")
+   *  open in Explorer, files run/open in their own window */
+  async enterExternal() {
+    const cur = this.current;
+    if (!cur) return;
+    if (cur.name === UP_NAME) {
+      const p = parentOf(this.path);
+      if (p) await panels.openExternally(p);
+      return;
+    }
+    await panels.openExternally(joinPath(this.path, cur.name));
   }
 
   async root() {
@@ -492,6 +513,12 @@ class PanelsStore {
 
   async openExternally(path: string) {
     openPath(path).catch((e) => console.error(e));
+  }
+
+  /** re-apply view settings (hidden/system/dirs-first) to both panels */
+  refreshView() {
+    this.left.rebuild();
+    this.right.rebuild();
   }
 
   switchActive() {

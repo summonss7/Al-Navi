@@ -8,7 +8,7 @@
   const panelKeys = $derived.by(() => {
     void i18n.locale;
     return [
-      { k: "F1", cmd: "stub.help", label: i18n.t("fkeys.f1") },
+      { k: "F1", cmd: "ui.help", label: i18n.t("fkeys.f1") },
       { k: "F2", cmd: "stub.userMenu", label: i18n.t("fkeys.f2") },
       { k: "F3", cmd: "viewer.open", label: i18n.t("fkeys.f3") },
       { k: "F4", cmd: "editor.open", label: i18n.t("fkeys.f4") },
@@ -26,7 +26,7 @@
   const editorKeys = $derived.by(() => {
     void i18n.locale;
     return [
-      { k: "F1", cmd: "stub.help", label: i18n.t("fkeys.f1") },
+      { k: "F1", cmd: "ui.help", label: i18n.t("fkeys.f1") },
       { k: "F2", cmd: "editor.save", label: i18n.t("editor.fkeys.f2") },
       { k: "F3", cmd: null, label: "" },
       { k: "F4", cmd: null, label: "" },
@@ -44,7 +44,7 @@
   const viewerKeys = $derived.by(() => {
     void i18n.locale;
     return [
-      { k: "F1", cmd: "stub.help", label: i18n.t("fkeys.f1") },
+      { k: "F1", cmd: "ui.help", label: i18n.t("fkeys.f1") },
       { k: "F2", cmd: null, label: "" },
       { k: "F3", cmd: null, label: "" },
       { k: "F4", cmd: "viewer.toEditor", label: i18n.t("viewer.fkeys.f4") },

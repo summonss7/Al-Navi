@@ -9,6 +9,7 @@
   import { ui, type DialogId } from "$lib/stores/ui.svelte";
   import { editor } from "$lib/stores/editor.svelte";
   import { cmdline } from "$lib/stores/cmdline.svelte";
+  import { fileColors } from "$lib/stores/fileColors.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
 
   import TitleBar from "$comp/TitleBar.svelte";
@@ -27,7 +28,6 @@
     if (ui.dialog && ui.dialog !== "progress") return "dialog";
     if (ui.mode === "editor") return "editor";
     if (ui.mode === "viewer") return "viewer";
-    if (ui.cmdLineFocused) return "cmdline";
     return "panel";
   }
 
@@ -36,14 +36,38 @@
     const chord = chordOf(e);
     if (!chord) return;
 
-    // real typing goes to whichever input has DOM focus (command line, panel
-    // quick search) — never hijack keys aimed at an editable target in panel mode
-    const t = e.target as HTMLElement | null;
-    const editing =
-      !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
-    if (editing && ctx === "panel") return;
+    if (ctx !== "panel") {
+      const cmdId = defaultKeymap[ctx]?.[chord];
+      if (cmdId) {
+        e.preventDefault();
+        e.stopPropagation();
+        runCommand(cmdId);
+      }
+      return;
+    }
 
-    const cmdId = defaultKeymap[ctx]?.[chord];
+    // ---- panels mode ----
+    // The command line keeps the caret at all times (FAR model): plain typing
+    // lands in the line, while bound chords and navigation still drive the
+    // panels. Keys below are routed to the line whenever it has text.
+    const hasText = cmdline.text.length > 0;
+    switch (chord) {
+      case "Enter":
+        if (hasText) return; // the input's own handler executes the command
+        break; // empty line: act on the panel (panel.enter below)
+      case "Esc":
+        if (hasText) {
+          e.preventDefault();
+          cmdline.setText("");
+          return;
+        }
+        break;
+      case "Backspace":
+        if (hasText) return; // delete a char in the line
+        break; // empty line: go up one directory
+    }
+
+    const cmdId = defaultKeymap.panel[chord];
     if (cmdId) {
       e.preventDefault();
       e.stopPropagation();
@@ -51,47 +75,40 @@
       return;
     }
 
-    // FAR: F-keys and Ctrl+Tab keep working even while typing in the command
-    // line; everything else falls through to the input natively
-    if (ctx === "cmdline") {
-      const global = defaultKeymap.panel[chord];
-      const isFKey = /F\d+$/.test(chord);
-      const isTabChord = chord === "Ctrl+Tab" || chord === "Ctrl+Shift+Tab";
-      if (global && (isFKey || isTabChord)) {
+    // Alt+letter: quick jump to the first entry starting with that letter,
+    // matched by physical key so any keyboard layout works
+    if (e.altKey && !e.ctrlKey && !e.metaKey) {
+      const latin = latinKeyOf(e);
+      if (latin) {
         e.preventDefault();
-        e.stopPropagation();
-        runCommand(global);
+        runCommand("panel.quickJump", latin);
+        return;
       }
+    }
+
+    // caret keys with text stay in the line: Ctrl+Left/Right word jump,
+    // Shift+Left char selection, Home/End line start/end
+    if (hasText && !e.altKey) {
+      switch (chord) {
+        case "Left":
+        case "Right":
+        case "Home":
+        case "End":
+        case "Delete":
+          return;
+      }
+    }
+
+    // navigation keys for the panel list; Up/Down always move the cursor
+    // even while a command is being typed (Left/Right etc. were routed above)
+    const nav = navAction(e);
+    if (nav) {
+      e.preventDefault();
+      nav();
       return;
     }
 
-    // panel quick-find: plain printable characters start incremental search
-    if (ctx === "panel" && !ui.dialog) {
-      // Alt+letter: quick jump to the first entry starting with that letter,
-      // matched by physical key so any keyboard layout works
-      if (e.altKey && !e.ctrlKey && !e.metaKey) {
-        const latin = latinKeyOf(e);
-        if (latin) {
-          e.preventDefault();
-          runCommand("panel.quickJump", latin);
-          return;
-        }
-      }
-      if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        e.preventDefault();
-        runCommand("panel.quickFind", e.key);
-      }
-      // navigation keys that our virtual list needs; skip when typing in an
-      // input (caret movement) — FAR note: Left/Right also move the cursor
-      // (up/down) for faster two-hand walking
-      if (!editing) {
-        const nav = navAction(e);
-        if (nav) {
-          e.preventDefault();
-          nav();
-        }
-      }
-    }
+    // everything else (plain characters) is typed into the focused command line
   }
 
   function navAction(e: KeyboardEvent): (() => void) | null {
@@ -117,16 +134,16 @@
   }
 
   onMount(() => {
-    // focus the app shell so the webview routes keyboard events from the start,
-    // then hand focus to the command line (FAR-style: typing starts there)
+    // focus the app shell so the webview routes keyboard events from the start;
+    // the effect below hands the caret to the command line (FAR-style)
     document.querySelector<HTMLElement>(".app-shell")?.focus();
-    ui.cmdLineFocused = true;
 
     void settings.init()
       .then(async () => {
         await panels.init();
         ops.init();
         void cmdline.init();
+        void fileColors.init();
       })
       .catch(() => {
         // outside Tauri (browser preview) panels can't load — chrome still renders
@@ -147,6 +164,15 @@
   // keep document title in sync (top-level effect: allowed in runes mode)
   $effect(() => {
     document.title = `Al-Navi — ${i18n.t("menu.about")}`;
+  });
+
+  // the command line owns the caret whenever the panels are on screen: it is
+  // focused at startup and comes back by itself after a dialog closes, the
+  // editor/viewer is left, or anything steals the DOM focus — no Ctrl+K, no mouse
+  $effect(() => {
+    if (ui.mode === "panels" && ui.dialog === null && !ui.cmdLineFocused) {
+      cmdline.focusInput();
+    }
   });
 </script>
 

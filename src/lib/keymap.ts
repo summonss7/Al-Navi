@@ -1,4 +1,4 @@
-export type KeyContext = "panel" | "editor" | "viewer" | "dialog" | "cmdline";
+export type KeyContext = "panel" | "editor" | "viewer" | "dialog";
 
 /**
  * Normalize a KeyboardEvent into a FAR-style chord string:
@@ -84,8 +84,10 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     "Ctrl+P": "panel.showBoth",
     "Ctrl+U": "panel.swap",
     Enter: "panel.enter",
+    "Shift+Enter": "panel.enterExternal",
     "Ctrl+PageDown": "panel.intoDir",
     "Ctrl+PageUp": "panel.up",
+    "Ctrl+Up": "panel.up",
     Backspace: "panel.up",
     "Ctrl+\\": "panel.root",
     "Ctrl+R": "panel.refresh",
@@ -121,9 +123,9 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     "Alt+F5": "stub.pack",
     "Alt+F6": "stub.unpack",
     "Alt+F7": "stub.search",
-    "Ctrl+A": "stub.attrs",
-    "Ctrl+Ins": "panel.copyNames",
-    "Shift+Ins": "cmdline.pasteClipboard",
+    "Ctrl+Insert": "panel.copyNames",
+    "Ctrl+Shift+Insert": "panel.copyPaths",
+    "Shift+Insert": "cmdline.pasteClipboard",
     "Ctrl+0": "shortcuts.jump0",
     "Ctrl+1": "shortcuts.jump1",
     "Ctrl+2": "shortcuts.jump2",
@@ -148,7 +150,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     "Ctrl+Shift+Tab": "ui.prevTab",
     "Ctrl+T": "panel.newTab",
     "Ctrl+W": "panel.closeTab",
-    F1: "stub.help",
+    F1: "ui.help",
     F2: "stub.userMenu",
     F9: "ui.menu",
     F10: "app.quit",
@@ -157,7 +159,6 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     "Alt+F8": "cmdline.history",
     "Alt+F11": "stub.viewHistory",
     "Ctrl+E": "cmdline.prevHistory",
-    "Ctrl+K": "cmdline.focus",
     Esc: "panel.escape",
   },
   editor: {
@@ -169,7 +170,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     F7: "editor.search",
     F8: "editor.deleteLine",
     "Ctrl+G": "editor.gotoLine",
-    "Ctrl+K": "cmdline.focus",
+    F1: "ui.help",
     Esc: "editor.close",
     "Ctrl+Tab": "ui.nextTab",
     "Ctrl+Shift+Tab": "ui.prevTab",
@@ -177,10 +178,10 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     F12: "ui.windowList",
   },
   viewer: {
+    F1: "ui.help",
     F4: "viewer.toEditor",
     F8: "viewer.toggleHex",
     Esc: "viewer.close",
-    "Ctrl+K": "cmdline.focus",
     "Ctrl+Tab": "ui.nextTab",
     "Ctrl+Shift+Tab": "ui.prevTab",
     F10: "app.quit",
@@ -188,10 +189,5 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
   },
   dialog: {
     Esc: "dialog.close",
-  },
-  cmdline: {
-    "Alt+F8": "cmdline.history",
-    "Ctrl+E": "cmdline.prevHistory",
-    Esc: "cmdline.blur",
   },
 };

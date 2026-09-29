@@ -1,6 +1,6 @@
 import { registerCommand } from "$lib/commands";
 import { mkdir, renamePath, openPath, homePath } from "$lib/api";
-import { joinPath } from "$lib/format";
+import { joinPath, sortArrow } from "$lib/format";
 import { panels } from "$lib/stores/panels.svelte";
 import { ui } from "$lib/stores/ui.svelte";
 import { editor } from "$lib/stores/editor.svelte";
@@ -33,16 +33,13 @@ export function registerAllCommands() {
   registerCommand("panel.root", () => void A().root());
   registerCommand("panel.refresh", () => A().refresh());
   registerCommand("panel.toggleHidden", () => {
-    const p = A();
-    p.showHidden = !p.showHidden;
-    p.rebuild();
+    // global setting: both panels rebuild and it persists
+    settings.set({ showHidden: !settings.s.showHidden });
+    panels.refreshView();
   });
   registerCommand("panel.escape", () => {
     const p = A();
-    if (p.quickFilter !== null) {
-      p.quickFilter = null;
-      p.rebuild();
-    } else if (p.quickJumpPrefix !== null) {
+    if (p.quickJumpPrefix !== null) {
       p.clearQuickJump();
     } else {
       p.clearSelection();
@@ -75,15 +72,12 @@ export function registerAllCommands() {
       .join("\r\n");
     if (names) void navigator.clipboard.writeText(names);
   });
-  registerCommand("panel.dirHistory", () => ui.openDialog("dirHistory"));
-  registerCommand("panel.quickFind", (ch) => {
-    const p = A();
-    p.clearQuickJump();
-    p.quickFilter = (p.quickFilter ?? "") + String(ch);
-    p.rebuild();
-    p.cursor = p.view.length ? 0 : 0;
-    if (p.view.length > 1) p.cursor = 1; // skip ".."
+  registerCommand("panel.copyPaths", () => {
+    const paths = A().targetPaths.join("\r\n");
+    if (paths) void navigator.clipboard.writeText(paths);
   });
+  registerCommand("panel.enterExternal", () => void A().enterExternal());
+  registerCommand("panel.dirHistory", () => ui.openDialog("dirHistory"));
   registerCommand("panel.quickJump", (latin) => {
     const l = String(latin ?? "");
     if (l) A().quickJump(l);
@@ -192,6 +186,7 @@ export function registerAllCommands() {
   registerCommand("ui.prevTab", () => stepWindowRing(-1));
   registerCommand("ui.windowList", () => ui.openDialog("windowList"));
   registerCommand("ui.menu", () => ui.openDialog("menu"));
+  registerCommand("ui.help", () => ui.openDialog("help"));
   registerCommand("app.quit", async () => {
     if (await ui.askConfirm(i18n.t("menu.quitConfirm"))) {
       panels.saveSession();
@@ -208,22 +203,14 @@ export function registerAllCommands() {
 
   // ---------- cmdline ----------
   registerCommand("cmdline.history", () => ui.openDialog("cmdHistory"));
-  registerCommand("cmdline.focus", () => {
-    ui.cmdLineFocused = true;
-  });
-  registerCommand("cmdline.blur", () => {
-    ui.cmdLineFocused = false;
-    cmdline.blurInput();
-  });
   registerCommand("cmdline.prevHistory", () => {
-    ui.cmdLineFocused = true;
     cmdline.stepHistory(-1);
   });
   registerCommand("cmdline.pasteClipboard", async () => {
     try {
       const text = await navigator.clipboard.readText();
       cmdline.setText(text.split(/\r?\n/)[0] ?? "");
-      ui.cmdLineFocused = true;
+      cmdline.focusInput();
     } catch {
       /* clipboard unavailable */
     }
@@ -258,7 +245,6 @@ export function registerAllCommands() {
   registerCommand("stub.pack", stub("misc.feature.pack"));
   registerCommand("stub.unpack", stub("misc.feature.unpack"));
   registerCommand("stub.attrs", stub("misc.feature.attrs"));
-  registerCommand("stub.help", stub("misc.feature.help"));
   registerCommand("stub.userMenu", stub("misc.feature.userMenu"));
   registerCommand("stub.viewHistory", stub("misc.feature.viewHistory"));
 
@@ -268,9 +254,18 @@ export function registerAllCommands() {
 
 function setSort(mode: "name" | "ext" | "mtime" | "size" | "unsorted") {
   const p = panels.active;
-  p.sortMode = mode;
+  // same mode again = reverse (unsorted has no direction)
+  if (p.sortMode === mode && mode !== "unsorted") {
+    p.sortDir = p.sortDir === 1 ? -1 : 1;
+  } else {
+    p.sortMode = mode;
+    p.sortDir = 1;
+  }
   p.rebuild();
-  ui.showToast(i18n.t(`panel.sort${mode === "unsorted" ? "Unsorted" : mode === "name" ? "Name" : mode === "ext" ? "Ext" : mode === "mtime" ? "Mtime" : "Size"}`));
+  const label =
+    mode === "unsorted" ? "Unsorted" : mode === "name" ? "Name" : mode === "ext" ? "Ext" : mode === "mtime" ? "Mtime" : "Size";
+  const arrow = mode === "unsorted" ? "" : " " + sortArrow(mode, p.sortDir);
+  ui.showToast(i18n.t(`panel.sort${label}`) + arrow);
 }
 
 async function startTransfer(kind: "copy" | "move", currentOnly = false) {

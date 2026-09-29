@@ -49,11 +49,18 @@
         e.preventDefault();
         runCommand("panel.quickFind", e.key);
       }
-      // navigation keys that our virtual list needs
-      const nav = navAction(e);
-      if (nav) {
-        e.preventDefault();
-        nav();
+      // navigation keys that our virtual list needs; skip when typing in an
+      // input (caret movement) — FAR note: Left/Right also move the cursor
+      // (up/down) for faster two-hand walking
+      const t = e.target as HTMLElement | null;
+      const editing =
+        !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+      if (!editing) {
+        const nav = navAction(e);
+        if (nav) {
+          e.preventDefault();
+          nav();
+        }
       }
     }
   }
@@ -63,8 +70,13 @@
     const rows = p.view.length;
     if (!rows) return null;
     switch (e.key) {
-      case "ArrowDown": return () => p.moveCursor(1);
-      case "ArrowUp": return () => p.moveCursor(-1);
+      // FAR semantics: Right = row down, Left = row up (with wrap-around)
+      case "ArrowDown":
+      case "ArrowRight":
+        return () => (p.cursor = (p.cursor + 1) % rows);
+      case "ArrowUp":
+      case "ArrowLeft":
+        return () => (p.cursor = (p.cursor - 1 + rows) % rows);
       case "PageDown": return () => p.pageMove(1, 25);
       case "PageUp": return () => p.pageMove(-1, 25);
       case "Home": return () => (p.cursor = 0);

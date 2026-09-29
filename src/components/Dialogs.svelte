@@ -34,51 +34,11 @@
 
   // ---- drives ----
   let drives = $state<DriveInfo[]>([]);
-  let driveIdx = $state(-1);
   $effect(() => {
     if (ui.dialog === "drives") {
       drivesList().then((d) => (drives = d)).catch(console.error);
     }
   });
-  // keyboard cursor: first drive once loaded, reset on close
-  $effect(() => {
-    void drives.length;
-    if (ui.dialog === "drives" && drives.length && driveIdx < 0) driveIdx = 0;
-    if (ui.dialog !== "drives" && driveIdx !== -1) driveIdx = -1;
-  });
-  $effect(() => {
-    if (ui.dialog === "drives" && driveIdx >= 0) {
-      document.querySelector(".drive.kbd")?.scrollIntoView({ block: "nearest" });
-    }
-  });
-
-  function onDrivesKey(e: KeyboardEvent) {
-    if (ui.dialog !== "drives" || !drives.length) return;
-    switch (e.key) {
-      case "ArrowDown":
-        driveIdx = (driveIdx + 1) % drives.length;
-        e.preventDefault();
-        break;
-      case "ArrowUp":
-        driveIdx = (driveIdx - 1 + drives.length) % drives.length;
-        e.preventDefault();
-        break;
-      case "Home":
-        driveIdx = 0;
-        e.preventDefault();
-        break;
-      case "End":
-        driveIdx = drives.length - 1;
-        e.preventDefault();
-        break;
-      case "Enter":
-        if (driveIdx >= 0) {
-          e.preventDefault();
-          void pickDrive(drives[driveIdx]);
-        }
-        break;
-    }
-  }
 
   async function pickDrive(d: DriveInfo) {
     const panel = ui.drivesFor === "left" ? panels.left : panels.right;
@@ -99,6 +59,114 @@
     }
   }
 
+  // ---- keyboard navigation for list dialogs (drives, F12 windows, histories)
+  // FAR semantics: Left/Right also move the cursor (up/down) for fast walking
+  const LIST_DIALOGS = new Set(["drives", "windowList", "dirHistory", "cmdHistory"]);
+  let listIdx = $state(-1);
+
+  function listCount(): number {
+    switch (ui.dialog) {
+      case "drives": return drives.length;
+      case "windowList": return 1 + editor.docs.length + editor.viewDocs.length;
+      case "dirHistory": return panels.dirHistory.length;
+      case "cmdHistory": return cmdline.history.length;
+      default: return 0;
+    }
+  }
+
+  function activateListItem(i: number) {
+    switch (ui.dialog) {
+      case "drives":
+        if (drives[i]) void pickDrive(drives[i]);
+        break;
+      case "windowList": {
+        if (i === 0) {
+          ui.setMode("panels");
+          ui.closeDialog();
+          return;
+        }
+        const d = i - 1;
+        if (d < editor.docs.length) {
+          editor.activate(editor.docs[d].id);
+        } else {
+          const v = editor.viewDocs[d - editor.docs.length];
+          if (v) editor.activate(v.id);
+        }
+        ui.closeDialog();
+        break;
+      }
+      case "dirHistory": {
+        const p = panels.dirHistory[i];
+        if (p !== undefined) {
+          void panels.active.chdir(p);
+          ui.closeDialog();
+        }
+        break;
+      }
+      case "cmdHistory": {
+        const c = cmdline.history[i];
+        if (c !== undefined) {
+          cmdline.setText(c);
+          ui.closeDialog();
+          ui.cmdLineFocused = true;
+        }
+        break;
+      }
+    }
+  }
+
+  $effect(() => {
+    void ui.dialog;
+    void drives.length;
+    void editor.docs.length;
+    void editor.viewDocs.length;
+    void panels.dirHistory.length;
+    void cmdline.history.length;
+    if (!LIST_DIALOGS.has(ui.dialog ?? "")) {
+      if (listIdx !== -1) listIdx = -1;
+      return;
+    }
+    const n = listCount();
+    if (n && listIdx < 0) listIdx = 0;
+    else if (n && listIdx > n - 1) listIdx = n - 1;
+  });
+
+  $effect(() => {
+    if (LIST_DIALOGS.has(ui.dialog ?? "") && listIdx >= 0) {
+      document.querySelector(".drive.kbd, .li.kbd")?.scrollIntoView({ block: "nearest" });
+    }
+  });
+
+  function onListKey(e: KeyboardEvent) {
+    if (!LIST_DIALOGS.has(ui.dialog ?? "")) return;
+    const n = listCount();
+    if (!n) return;
+    let handled = true;
+    switch (e.key) {
+      case "ArrowDown":
+      case "ArrowRight":
+        listIdx = listIdx < 0 ? 0 : (listIdx + 1) % n;
+        break;
+      case "ArrowUp":
+      case "ArrowLeft":
+        listIdx = listIdx < 0 ? 0 : (listIdx - 1 + n) % n;
+        break;
+      case "Home":
+        listIdx = 0;
+        break;
+      case "End":
+        listIdx = n - 1;
+        break;
+      case "Enter":
+        if (listIdx >= 0) activateListItem(listIdx);
+        else handled = false;
+        break;
+      default:
+        handled = false;
+    }
+    if (handled) e.preventDefault();
+  }
+
   // ---- input submit ----
   function submitInput() {
     ui.inputReq?.resolve(inputVal);
@@ -115,7 +183,7 @@
   }
 </script>
 
-<svelte:window onkeydown={onDrivesKey} />
+<svelte:window onkeydown={onListKey} />
 
 {#if ui.dialog === "confirm" && ui.confirmReq}
   <div class="overlay">
@@ -228,7 +296,7 @@
       </div>
       <div class="dlg-body drives">
         {#each drives as d, i (d.mountPoint)}
-          <button class="drive" class:kbd={i === driveIdx} onclick={() => void pickDrive(d)}>
+          <button class="drive" class:kbd={i === listIdx} onclick={() => void pickDrive(d)}>
             <i class="ph-duotone {driveIcon(d.kind)}"></i>
             <span class="d-name" title={d.mountPoint}>{d.name}</span>
             {#if d.totalBytes}
@@ -249,21 +317,28 @@
     <div class="dlg">
       <div class="dlg-title"><i class="ph-duotone ph-squares-four"></i>F12</div>
       <div class="dlg-body list">
-        <button class="li {ui.mode === 'panels' ? 'on' : ''}" onclick={() => { ui.setMode("panels"); ui.closeDialog(); }}>
+        <button
+          class="li"
+          class:kbd={listIdx === 0}
+          class:on={ui.mode === 'panels' ? true : false}
+          onclick={() => { ui.setMode("panels"); ui.closeDialog(); }}
+        >
           <i class="ph-duotone ph-squares-four"></i>{i18n.t("windows.panels")}
         </button>
-        {#each editor.docs as d (d.id)}
+        {#each editor.docs as d, i (d.id)}
           <button
             class="li"
+            class:kbd={listIdx === 1 + i}
             class:on={ui.mode === "editor" && editor.activeId === d.id}
             onclick={() => { editor.activate(d.id); ui.closeDialog(); }}
           >
             <i class="ph-duotone ph-note-pencil"></i>{d.name}{#if d.dirty} •{/if}
           </button>
         {/each}
-        {#each editor.viewDocs as d (d.id)}
+        {#each editor.viewDocs as d, i (d.id)}
           <button
             class="li"
+            class:kbd={listIdx === 1 + editor.docs.length + i}
             class:on={ui.mode === "viewer" && editor.activeViewId === d.id}
             onclick={() => { editor.activate(d.id); ui.closeDialog(); }}
           >
@@ -283,8 +358,12 @@
     <div class="dlg">
       <div class="dlg-title"><i class="ph-duotone ph-clock-counter-clockwise"></i>{i18n.t("history.dirs")}</div>
       <div class="dlg-body list">
-        {#each panels.dirHistory as p (p)}
-          <button class="li mono" onclick={() => { void panels.active.chdir(p); ui.closeDialog(); }}>
+        {#each panels.dirHistory as p, i (p)}
+          <button
+            class="li mono"
+            class:kbd={listIdx === i}
+            onclick={() => { void panels.active.chdir(p); ui.closeDialog(); }}
+          >
             <i class="ph-duotone ph-folder-simple"></i>{p}
           </button>
         {:else}
@@ -301,9 +380,10 @@
     <div class="dlg">
       <div class="dlg-title"><i class="ph-duotone ph-terminal-window"></i>{i18n.t("history.cmds")}</div>
       <div class="dlg-body list">
-        {#each cmdline.history as c (c)}
+        {#each cmdline.history as c, i (c)}
           <button
             class="li mono"
+            class:kbd={listIdx === i}
             onclick={() => { cmdline.setText(c); ui.closeDialog(); ui.cmdLineFocused = true; }}
           >
             <i class="ph-duotone ph-terminal-window"></i>{c}
@@ -458,6 +538,11 @@
   .li:hover { background: var(--row-hover); color: var(--fg); }
   .li.on { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--fg); }
   .li i { font-size: 17px; color: var(--accent); }
+  .li.kbd {
+    background: color-mix(in srgb, var(--accent2) 10%, transparent);
+    color: var(--fg);
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent2) 55%, transparent);
+  }
   .none { color: var(--fg-muted); text-align: center; padding: 14px; }
 
   .grp { color: var(--fg-muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.6px; margin: 12px 0 8px; }

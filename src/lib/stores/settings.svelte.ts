@@ -21,7 +21,7 @@ export interface Settings {
 }
 
 const DEFAULTS: Settings = {
-  theme: "alnaviDark",
+  theme: "alnaviLight",
   locale: "en",
   showHidden: false,
   sortName: "name",
@@ -45,7 +45,12 @@ class SettingsStore {
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
 
   async init() {
-    const saved = await loadJson<Partial<Settings>>("settings.json");
+    let saved: Partial<Settings> | null = null;
+    try {
+      saved = await loadJson<Partial<Settings>>("settings.json");
+    } catch {
+      // no Tauri backend (browser preview) — keep defaults
+    }
     this.s = { ...DEFAULTS, ...(saved ?? {}) };
     i18n.setLocale(this.s.locale);
     this.applyTheme();
@@ -67,6 +72,9 @@ class SettingsStore {
         : "alnaviLight";
     }
     document.documentElement.dataset.theme = t;
+    // themes with a solid full-row cursor recolor row icons; the light theme
+    // uses an orange outline selection that keeps per-file icon colors
+    document.documentElement.dataset.cursor = t === "alnaviLight" ? "outline" : "solid";
   }
 
   private persist() {

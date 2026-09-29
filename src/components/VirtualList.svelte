@@ -117,10 +117,12 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding-inline: 8px;
+    margin-inline: 5px;
+    padding-inline: 4px;
     font-size: 13px;
     cursor: default;
     white-space: nowrap;
+    border-radius: 8px;
   }
   .row:hover { background: var(--row-hover); }
 
@@ -136,12 +138,15 @@
   .row.selected { background: var(--row-selected); }
   .row.selected .name { color: var(--fg); }
 
+  /* cursor: solid bar in dark themes; orange rounded-rect + glow in light */
   .row.cursor {
     background: var(--row-cursor-bg);
     color: var(--row-cursor-fg);
+    box-shadow: inset 0 0 0 1.5px var(--row-cursor-border), var(--row-cursor-glow);
   }
   .row.cursor .name, .row.cursor .size, .row.cursor .date, .row.cursor .attr { color: var(--row-cursor-fg); }
-  .row.cursor :global(i) { color: var(--row-cursor-fg) !important; }
+  /* solid-cursor themes (dark): recolor icons for contrast; outline cursor keeps file colors */
+  :global([data-cursor="solid"]) .row.cursor :global(i) { color: var(--row-cursor-fg) !important; }
 
   .row i {
     font-size: 17px;

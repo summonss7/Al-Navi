@@ -74,11 +74,15 @@
   }
 
   onMount(() => {
-    void settings.init().then(async () => {
-      await panels.init();
-      ops.init();
-      void cmdline.init();
-    });
+    void settings.init()
+      .then(async () => {
+        await panels.init();
+        ops.init();
+        void cmdline.init();
+      })
+      .catch(() => {
+        // outside Tauri (browser preview) panels can't load — chrome still renders
+      });
 
     window.addEventListener("keydown", onKeyDown, { capture: true });
 
@@ -128,7 +132,7 @@
     flex: 1;
     min-height: 0;
     display: flex;
-    padding: 6px 8px 2px;
-    gap: 8px;
+    padding: 10px 12px 4px;
+    gap: 12px;
   }
 </style>

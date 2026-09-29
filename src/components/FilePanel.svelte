@@ -18,6 +18,29 @@
     return basename(t.path) || t.path;
   }
 
+  // breadcrumb segments: clickable, per images/design.jpg
+  const crumbs = $derived.by(() => {
+    void panel.path;
+    const p = panel.path;
+    const out: { label: string; path: string }[] = [];
+    if (/^[a-zA-Z]:[\\/]/.test(p) || /^[a-zA-Z]:$/.test(p)) {
+      const parts = p.split(/[\\/]+/).filter(Boolean);
+      out.push({ label: parts[0], path: parts[0] + "\\" });
+      for (let i = 1; i < parts.length; i++) {
+        out.push({ label: parts[i], path: parts.slice(0, i + 1).join("\\") });
+      }
+    } else if (p.startsWith("/")) {
+      out.push({ label: "/", path: "/" });
+      const parts = p.split("/").filter(Boolean);
+      for (let i = 0; i < parts.length; i++) {
+        out.push({ label: parts[i], path: "/" + parts.slice(0, i + 1).join("/") });
+      }
+    } else {
+      out.push({ label: p, path: p });
+    }
+    return out;
+  });
+
   function onQuickKey(e: KeyboardEvent) {
     if (e.key === "Escape") {
       panel.quickFilter = null;
@@ -84,8 +107,16 @@
           use:focusEl
         />
       {:else}
-        <i class="ph-duotone ph-folder-opened lead"></i>
-        <span class="path mono" title={panel.path}>{panel.path}</span>
+        <nav class="crumbs" title={panel.path}>
+          {#each crumbs as c, i (c.path + i)}
+            {#if i > 0}<span class="crumb-sep">/</span>{/if}
+            <button
+              class="crumb"
+              class:last={i === crumbs.length - 1}
+              onclick={() => void panel.chdir(c.path)}
+            >{c.label}</button>
+          {/each}
+        </nav>
       {/if}
     </div>
   </header>
@@ -137,14 +168,16 @@
     flex-direction: column;
     background: var(--bg-panel-inactive);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: var(--r-card);
     overflow: hidden;
     min-width: 0;
   }
   .panel.active {
     background: var(--bg-panel);
-    border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+    border-color: color-mix(in srgb, var(--accent2) 45%, var(--border));
+    box-shadow:
+      var(--card-shadow),
+      0 0 0 1px color-mix(in srgb, var(--accent2) 28%, transparent);
   }
 
   .p-head {
@@ -156,7 +189,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 5px 6px 0;
+    padding: 6px 8px 0;
   }
   .tabs {
     display: flex;
@@ -171,28 +204,28 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 3px 9px;
-    border-radius: 7px 7px 0 0;
+    padding: 3px 12px;
+    border-radius: var(--r-tab);
     color: var(--fg-dim);
     font-size: 12px;
+    font-weight: 600;
     max-width: 160px;
     border: 1px solid transparent;
-    border-bottom: none;
+    flex-shrink: 0;
   }
   .tab i { font-size: 14px; }
   .tab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tab:hover { color: var(--fg); background: var(--row-hover); }
   .tab.on {
-    background: var(--bg-panel);
-    color: var(--fg);
-    border-color: var(--border);
+    background: color-mix(in srgb, var(--accent) 24%, transparent);
+    color: var(--accent-ink);
   }
-  .panel.active .tab.on { color: var(--accent); }
-  .tab.new { padding-inline: 7px; }
+  .panel.active .tab.on { color: var(--accent-ink); }
+  .tab.new { padding-inline: 8px; }
   .p-head-actions { display: flex; gap: 2px; padding-bottom: 3px; }
   .mini {
-    padding: 3px 6px;
-    border-radius: 6px;
+    padding: 3px 7px;
+    border-radius: var(--r-tab);
     color: var(--fg-muted);
     font-size: 14px;
   }
@@ -201,27 +234,44 @@
   .path-row {
     display: flex;
     align-items: center;
-    gap: 7px;
-    padding: 5px 10px;
-    min-height: 30px;
+    gap: 4px;
+    padding: 6px 12px;
+    min-height: 32px;
   }
-  .lead { color: var(--accent2); font-size: 16px; }
-  .panel.active .lead { color: var(--accent); }
-  .path {
+  .crumbs {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    overflow: hidden;
+    white-space: nowrap;
+    direction: ltr;
+    flex: 1;
+    min-width: 0;
+  }
+  .crumb {
+    padding: 1px 4px;
+    border-radius: 6px;
+    color: var(--fg-dim);
+    font-size: 12.5px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .crumb:not(:first-of-type) {
+    flex-shrink: 1;
+    min-width: 24px;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 12px;
-    color: var(--fg-dim);
-    direction: ltr;
   }
-  .panel.active .path { color: var(--fg); }
+  .crumb:hover { color: var(--accent-ink); background: var(--row-hover); }
+  .crumb.last { color: var(--fg); font-weight: 700; }
+  .panel.active .crumb.last { color: var(--accent-ink); }
+  .crumb-sep { color: var(--fg-muted); font-size: 11.5px; flex-shrink: 0; }
   .quick {
     flex: 1;
-    padding: 2px 8px;
+    padding: 3px 12px;
     font-size: 12.5px;
-    border-radius: 6px;
-    background: color-mix(in srgb, var(--accent) 8%, var(--bg));
+    border-radius: var(--r-tab);
+    background: color-mix(in srgb, var(--accent) 8%, var(--bg-panel));
     border-color: var(--accent);
     direction: ltr;
   }
@@ -250,7 +300,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 4px 10px;
+    padding: 5px 12px;
     font-size: 11.5px;
     color: var(--fg-dim);
     border-top: 1px solid var(--border);
@@ -259,7 +309,7 @@
     white-space: nowrap;
     overflow: hidden;
   }
-  .sel { color: var(--accent2); }
+  .sel { color: var(--accent2); font-weight: 700; }
   .sep { width: 1px; height: 12px; background: var(--border); }
   .grow { flex: 1; }
   .free { color: var(--fg-muted); }

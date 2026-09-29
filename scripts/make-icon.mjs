@@ -1,12 +1,14 @@
-// Generates the Al-Navi brand icon (duotone compass) as a 1024px PNG.
-// Pure JS: polygon rasterizer + PNG encoder (zlib). No native deps.
+// Generates the Al-Navi brand icon per images/icon.jpg as a 1024px PNG:
+// cream rounded-square, broken lime ring (gaps at cardinals + NE), 8-point
+// compass star (west half lime / east half orange, long NE needle crossing
+// the ring), orange hub. Pure JS: polygon rasterizer + PNG encoder.
 import { deflateSync } from "node:zlib";
 import { writeFileSync, mkdirSync } from "node:fs";
 
 const W = 1024, H = 1024;
 const LIME = [0x8e, 0xe5, 0x3f, 255];
 const ORANGE = [0xf9, 0x73, 0x16, 255];
-const BG = [0x17, 0x19, 0x1c, 255];
+const CREAM = [0xf0, 0xee, 0xe6, 255];
 
 const px = new Uint8Array(W * H * 4);
 
@@ -66,11 +68,12 @@ function fillRing(cx, cy, rOuter, rInner, a0, a1, color, samples = 3) {
 function roundedRect(x0, y0, x1, y1, r, color) {
   const pts = [];
   const seg = 24;
+  // screen coords (y down): 0=east, PI/2=south, PI=west, 3PI/2=north
   const corners = [
-    [x1 - r, y1 - r, 0, Math.PI / 2],          // BR
-    [x1 - r, y0 + r, Math.PI / 2, Math.PI],    // TR
-    [x0 + r, y0 + r, Math.PI, 3 * Math.PI / 2],// TL
-    [x0 + r, y1 - r, 3 * Math.PI / 2, 2 * Math.PI], // BL
+    [x1 - r, y0 + r, 3 * Math.PI / 2, 2 * Math.PI], // TR: north -> east
+    [x1 - r, y1 - r, 0, Math.PI / 2],               // BR: east -> south
+    [x0 + r, y1 - r, Math.PI / 2, Math.PI],         // BL: south -> west
+    [x0 + r, y0 + r, Math.PI, 3 * Math.PI / 2],     // TL: west -> north
   ];
   for (const [cx, cy, a0, a1] of corners) {
     for (let i = 0; i <= seg; i++) {
@@ -83,35 +86,41 @@ function roundedRect(x0, y0, x1, y1, r, color) {
 
 const CX = 512, CY = 512;
 
-// 1) dark rounded-square background
-roundedRect(32, 32, W - 32, H - 32, 224, BG);
+// 1) cream rounded-square background
+roundedRect(32, 32, W - 32, H - 32, 230, CREAM);
 
-// 2) broken ring: gap at lower-right (from -10° to 55°)
-const a0 = (55 * Math.PI) / 180;
-const a1 = (350 * Math.PI) / 180;
-fillRing(CX, CY, 400, 342, a0, a1, LIME);
+// 2) broken lime ring: gaps at the four cardinals (star points reach it)
+//    plus a wider gap at NE where the orange needle crosses it
+const seg = (a0, a1) => fillRing(CX, CY, 400, 336, (a0 * Math.PI) / 180, (a1 * Math.PI) / 180, LIME);
+seg(7, 83);      // E gap -> S gap
+seg(97, 173);    // S -> W
+seg(187, 263);   // W -> N
+seg(277, 299);   // N -> NE needle gap
+seg(331, 353);   // NE needle gap -> E gap
 
-// 3) compass star: 4 kites; north = orange (long), others lime (shorter)
-function kite(tipAngle, tipR, halfW, color) {
-  const tip = [CX + tipR * Math.cos(tipAngle), CY + tipR * Math.sin(tipAngle)];
-  const leftA = tipAngle - Math.PI / 2;
-  const rightA = tipAngle + Math.PI / 2;
-  const left = [CX + halfW * Math.cos(leftA), CY + halfW * Math.sin(leftA)];
-  const right = [CX + halfW * Math.cos(rightA), CY + halfW * Math.sin(rightA)];
-  const tailR = halfW * 0.62;
-  const tail = [CX + tailR * Math.cos(tipAngle + Math.PI), CY + tailR * Math.sin(tipAngle + Math.PI)];
+// 3) 8-point compass star: west half lime, east half orange; NE = long needle
+function kite(tipAngleDeg, tipR, halfW, color) {
+  const a = (tipAngleDeg * Math.PI) / 180;
+  const pt = (r, ang) => [CX + r * Math.cos(ang), CY + r * Math.sin(ang)];
+  const tip = pt(tipR, a);
+  const left = pt(halfW, a + Math.PI / 2);
+  const right = pt(halfW, a - Math.PI / 2);
+  const tail = pt(halfW * 0.72, a + Math.PI);
   fillPoly([tip, right, tail, left], color);
 }
 
-const N = -Math.PI / 2; // up
-kite(N, 300, 52, ORANGE);          // north — long orange needle
-kite(N + Math.PI / 2, 205, 46, LIME);
-kite(N + Math.PI, 205, 46, LIME);
-kite(N - Math.PI / 2, 205, 46, LIME);
+kite(-45, 470, 62, ORANGE);   // NE — long needle crossing the ring
+kite(0, 340, 56, ORANGE);     // E
+kite(45, 240, 44, ORANGE);    // SE
+kite(-90, 340, 56, LIME);     // N
+kite(90, 340, 56, LIME);      // S
+kite(180, 340, 56, LIME);     // W
+kite(135, 240, 44, LIME);     // SW
+kite(-135, 240, 44, LIME);    // NW
 
-// 4) center hub
-fillRing(CX, CY, 34, 0, 0, 2 * Math.PI, [23, 25, 28, 255]);
-fillRing(CX, CY, 22, 0, 0, 2 * Math.PI, ORANGE);
+// 4) hub: orange core with cream center dot
+fillRing(CX, CY, 36, 0, 0, 2 * Math.PI, ORANGE);
+fillRing(CX, CY, 13, 0, 0, 2 * Math.PI, CREAM);
 
 // ---- encode PNG ----
 function crc32(buf) {

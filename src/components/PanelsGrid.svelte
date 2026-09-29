@@ -26,7 +26,7 @@
   .panels {
     flex: 1;
     display: flex;
-    gap: 8px;
+    gap: 12px;
     min-height: 0;
     min-width: 0;
   }

@@ -52,17 +52,18 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 5px 10px;
+    padding: 6px 12px;
     border-top: 1px solid var(--border);
-    background: var(--bg-elev);
+    background: var(--bg-chrome);
     flex-shrink: 0;
   }
-  .lead { color: var(--accent); font-size: 17px; }
+  .lead { color: var(--accent-ink); font-size: 17px; }
   .cmdline input {
     flex: 1;
-    background: var(--bg);
+    background: var(--bg-panel);
     font-family: "JetBrains Mono", Consolas, monospace;
     font-size: 12.5px;
-    padding: 4px 10px;
+    padding: 4px 12px;
+    border-radius: var(--r-tab);
   }
 </style>

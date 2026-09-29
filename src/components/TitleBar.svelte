@@ -8,7 +8,8 @@
   import { ops } from "$lib/stores/ops.svelte";
   import { appInfo, type AppInfo } from "$lib/api";
 
-  const win = getCurrentWindow();
+  // null when opened in a plain browser (dev preview, no Tauri backend)
+  const win = "__TAURI_INTERNALS__" in window ? getCurrentWindow() : null;
   let maximized = $state(false);
   let info = $state<AppInfo | null>(null);
 
@@ -16,12 +17,12 @@
     appInfo()
       .then((i) => (info = i))
       .catch(() => {});
-    void win.isMaximized().then((m: boolean) => (maximized = m));
-    const p1 = win.onResized(async () => {
+    void win?.isMaximized().then((m: boolean) => (maximized = m));
+    const p1 = win?.onResized(async () => {
       maximized = await win.isMaximized();
     });
     return () => {
-      void p1.then((u) => u());
+      void p1?.then((u) => u());
     };
   });
 
@@ -32,6 +33,32 @@
     solarized: "ph-sun-horizon",
     contrast: "ph-circle-half",
   };
+
+  // brand compass mark (images/icon.jpg): 8-point star — east half orange,
+  // west half lime; NE needle crosses the broken lime ring
+  const LIME = "#8EE53F";
+  const ORANGE = "#F97316";
+  function kite(aDeg: number, tipR: number, w: number) {
+    const a = (aDeg * Math.PI) / 180;
+    const pt = (r: number, ang: number) =>
+      `${(12 + r * Math.cos(ang)).toFixed(2)} ${(12 + r * Math.sin(ang)).toFixed(2)}`;
+    return [
+      pt(tipR, a),
+      pt(w, a + Math.PI / 2),
+      pt(w * 0.72, a + Math.PI),
+      pt(w, a - Math.PI / 2),
+    ].join(" ");
+  }
+  const STAR = [
+    { pts: kite(-45, 10.6, 2), fill: ORANGE },
+    { pts: kite(0, 7.2, 1.8), fill: ORANGE },
+    { pts: kite(45, 5, 1.5), fill: ORANGE },
+    { pts: kite(-90, 7.2, 1.8), fill: LIME },
+    { pts: kite(90, 7.2, 1.8), fill: LIME },
+    { pts: kite(180, 7.2, 1.8), fill: LIME },
+    { pts: kite(135, 5, 1.5), fill: LIME },
+    { pts: kite(-135, 5, 1.5), fill: LIME },
+  ];
 
   function cycleTheme() {
     const idx = THEMES.findIndex((t) => t.id === settings.s.theme);
@@ -48,14 +75,19 @@
 
 <header class="titlebar" data-tauri-drag-region>
   <div class="brand" data-tauri-drag-region>
-    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-      <path fill="#8EE53F" d="M12 2.2 A9.8 9.8 0 1 0 20.4 7.1 L18.7 8.1 A7.9 7.9 0 1 1 12 4.1 Z" />
-      <path fill="#F97316" d="M12 3.6 L13.5 10.5 L12 12 L10.5 10.5 Z" />
-      <path fill="#8EE53F" d="M19.4 9.2 L14.6 13.2 L12.6 12.6 L13.2 10.6 Z" />
-      <path fill="#8EE53F" d="M12 20.4 L10.5 13.5 L12 12 L13.5 13.5 Z" />
-      <path fill="#8EE53F" d="M4.6 9.2 L9.4 13.2 L11.4 12.6 L10.8 10.6 Z" />
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <circle
+        cx="12" cy="12" r="8.4" fill="none" stroke={LIME} stroke-width="2.4"
+        stroke-linecap="round" pathLength="100" stroke-dasharray="72 28"
+        transform="rotate(5.4 12 12)"
+      />
+      {#each STAR as s}
+        <polygon points={s.pts} fill={s.fill} />
+      {/each}
+      <circle cx="12" cy="12" r="1.7" fill={ORANGE} />
+      <circle cx="12" cy="12" r="0.7" fill="#F0EEE6" />
     </svg>
-    <span class="brand-name">Al-<b class="brand-accent">Navi</b></span>
+    <span class="brand-name"><b class="al">Al-</b><b class="navi">Navi</b></span>
     {#if info}
       <span class="version" title={info.buildTime}>
         v{info.version} <span class="btime">· {info.buildTime}</span>
@@ -125,13 +157,15 @@
     <i class={"ph-duotone " + (themeIcons[settings.s.theme] ?? "ph-palette")}></i>
   </button>
 
-  <div class="win-controls">
-    <button class="wc" onclick={() => win.minimize()} title="_"><i class="ph ph-minus"></i></button>
-    <button class="wc" onclick={() => win.toggleMaximize()} title="□">
-      <i class={"ph " + (maximized ? "ph-copy" : "ph-square")}></i>
-    </button>
-    <button class="wc close" onclick={() => win.close()} title="✕"><i class="ph ph-x"></i></button>
-  </div>
+  {#if win}
+    <div class="win-controls">
+      <button class="wc" onclick={() => win.minimize()} title="_"><i class="ph ph-minus"></i></button>
+      <button class="wc" onclick={() => win.toggleMaximize()} title="□">
+        <i class={"ph " + (maximized ? "ph-copy" : "ph-square")}></i>
+      </button>
+      <button class="wc close" onclick={() => win.close()} title="✕"><i class="ph ph-x"></i></button>
+    </div>
+  {/if}
 </header>
 
 <style>
@@ -139,9 +173,9 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    height: 38px;
+    height: 40px;
     padding: 0 0 0 12px;
-    background: var(--bg-elev);
+    background: var(--bg-chrome);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
   }
@@ -149,13 +183,12 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 15px;
+    font-size: 16px;
     letter-spacing: 0.2px;
-    color: var(--fg-dim);
   }
-  .brand-name b { color: var(--fg); font-weight: 700; }
-  .brand-accent { color: var(--accent2); }
-  .brand-name b { color: var(--accent); }
+  .brand-name .al { color: var(--accent-ink); }
+  .brand-name .navi { color: var(--accent2); }
+  .brand-name b { font-weight: 800; }
 
   .version {
     font-size: 11px;
@@ -177,11 +210,12 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 8px;
-    border-radius: 7px;
+    padding: 4px 10px;
+    border-radius: var(--r-tab);
     color: var(--fg-dim);
     border: 1px solid transparent;
     font-size: 12.5px;
+    font-weight: 600;
     max-width: 180px;
   }
   .win-tab:hover { background: var(--row-hover); }
@@ -208,10 +242,11 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 5px 10px;
-    border-radius: 7px;
+    padding: 5px 11px;
+    border-radius: var(--r-tab);
     color: var(--fg-dim);
     font-size: 12.5px;
+    font-weight: 600;
   }
   .tb-btn:hover { background: var(--row-hover); color: var(--fg); }
   .tb-btn i { font-size: 16px; }

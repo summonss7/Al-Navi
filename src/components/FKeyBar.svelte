@@ -74,10 +74,10 @@
 <style>
   .fkeys {
     display: flex;
-    gap: 4px;
-    padding: 5px 8px;
+    gap: 5px;
+    padding: 6px 10px;
     border-top: 1px solid var(--border);
-    background: var(--bg-elev);
+    background: var(--bg-chrome);
     flex-shrink: 0;
     overflow-x: auto;
     scrollbar-width: none;
@@ -87,19 +87,20 @@
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    padding: 3px 10px;
-    border-radius: 7px;
+    padding: 3px 12px;
+    border-radius: var(--r-tab);
     border: 1px solid var(--border);
-    background: var(--bg);
+    background: var(--bg-panel);
     color: var(--fg-dim);
     font-size: 12px;
+    font-weight: 600;
     white-space: nowrap;
     flex: 1;
     justify-content: center;
     min-width: 0;
   }
   .fkey:hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+    border-color: color-mix(in srgb, var(--accent2) 50%, var(--border));
     color: var(--fg);
   }
   .fkey.dim { opacity: 0.45; }

@@ -1,6 +1,5 @@
 import { registerCommand } from "$lib/commands";
 import { mkdir, renamePath, openPath, homePath } from "$lib/api";
-import { cyrillicOfLatin } from "$lib/keymap";
 import { joinPath } from "$lib/format";
 import { panels } from "$lib/stores/panels.svelte";
 import { ui } from "$lib/stores/ui.svelte";
@@ -43,6 +42,8 @@ export function registerAllCommands() {
     if (p.quickFilter !== null) {
       p.quickFilter = null;
       p.rebuild();
+    } else if (p.quickJumpPrefix !== null) {
+      p.clearQuickJump();
     } else {
       p.clearSelection();
     }
@@ -77,20 +78,15 @@ export function registerAllCommands() {
   registerCommand("panel.dirHistory", () => ui.openDialog("dirHistory"));
   registerCommand("panel.quickFind", (ch) => {
     const p = A();
+    p.clearQuickJump();
     p.quickFilter = (p.quickFilter ?? "") + String(ch);
     p.rebuild();
     p.cursor = p.view.length ? 0 : 0;
     if (p.view.length > 1) p.cursor = 1; // skip ".."
   });
   registerCommand("panel.quickJump", (latin) => {
-    const p = A();
     const l = String(latin ?? "");
-    if (!l) return;
-    // Latin names win; otherwise try the Cyrillic letter on the same physical key
-    if (!p.moveByName(l)) {
-      const cyr = cyrillicOfLatin(l);
-      if (cyr) p.moveByName(cyr);
-    }
+    if (l) A().quickJump(l);
   });
 
   // ---------- viewer ----------
@@ -159,14 +155,22 @@ export function registerAllCommands() {
   }
 
   // ---------- ui ----------
-  registerCommand("ui.nextTab", () => {
-    if (ui.mode === "panels") A().cycleTab(1);
-    else editor.cycle(1);
-  });
-  registerCommand("ui.prevTab", () => {
-    if (ui.mode === "panels") A().cycleTab(-1);
-    else editor.cycle(-1);
-  });
+  // Ctrl+Tab is an instant editor/viewer <-> panels toggle; open documents stay
+  // in memory and come back on the next press. With nothing open it keeps the
+  // old meaning: cycling file-panel tabs.
+  const toggleEditor = (dir: 1 | -1) => {
+    if (ui.mode === "editor" || ui.mode === "viewer") {
+      ui.setMode("panels");
+    } else if (editor.docs.length > 0) {
+      ui.setMode("editor");
+    } else if (editor.viewDocs.length > 0) {
+      ui.setMode("viewer");
+    } else {
+      A().cycleTab(dir);
+    }
+  };
+  registerCommand("ui.nextTab", () => toggleEditor(1));
+  registerCommand("ui.prevTab", () => toggleEditor(-1));
   registerCommand("ui.windowList", () => ui.openDialog("windowList"));
   registerCommand("ui.menu", () => ui.openDialog("menu"));
   registerCommand("app.quit", async () => {
@@ -185,6 +189,10 @@ export function registerAllCommands() {
 
   // ---------- cmdline ----------
   registerCommand("cmdline.history", () => ui.openDialog("cmdHistory"));
+  registerCommand("cmdline.blur", () => {
+    ui.cmdLineFocused = false;
+    cmdline.blurInput();
+  });
   registerCommand("cmdline.prevHistory", () => {
     ui.cmdLineFocused = true;
     cmdline.stepHistory(-1);

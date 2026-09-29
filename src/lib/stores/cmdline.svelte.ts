@@ -8,6 +8,12 @@ class CmdlineStore {
   history = $state<string[]>([]);
   histIndex = $state(-1); // -1 = editing new text
   private draft = "";
+  /** the command line <input> element (for programmatic focus/blur) */
+  el: HTMLInputElement | null = null;
+
+  blurInput() {
+    this.el?.blur();
+  }
 
   async init() {
     const h = await loadJson<string[]>("cmd-history.json");

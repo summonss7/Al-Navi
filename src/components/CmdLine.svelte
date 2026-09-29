@@ -1,15 +1,22 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { cmdline, runCommand } from "$lib/stores/cmdline.svelte";
   import { ui } from "$lib/stores/ui.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
 
   let input: HTMLInputElement | undefined = $state();
 
+  // the flag mirrors real DOM focus (set here, cleared by onblur) so the global
+  // key handler routes plain typing into the input instead of the panels
   $effect(() => {
-    if (ui.cmdLineFocused) {
-      input?.focus();
-      ui.cmdLineFocused = false;
-    }
+    if (ui.cmdLineFocused) input?.focus();
+  });
+
+  onMount(() => {
+    cmdline.el = input ?? null;
+    return () => {
+      if (cmdline.el === input) cmdline.el = null;
+    };
   });
 
   function onKey(e: KeyboardEvent) {
@@ -29,10 +36,6 @@
     }
     e.stopPropagation();
   }
-
-  function blurNow() {
-    input?.blur();
-  }
 </script>
 
 <div class="cmdline">
@@ -41,7 +44,8 @@
     bind:this={input}
     bind:value={cmdline.text}
     onkeydown={onKey}
-    onblur={blurNow}
+    onfocus={() => (ui.cmdLineFocused = true)}
+    onblur={() => (ui.cmdLineFocused = false)}
     placeholder={i18n.t("cmdline.hint")}
     spellcheck="false"
   />

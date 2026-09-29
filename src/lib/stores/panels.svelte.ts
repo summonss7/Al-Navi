@@ -1,6 +1,7 @@
 import { listDir, watchSet, onWatchChanged, onDirSize, computeDirSizes, loadJson, saveJson, homePath, openPath } from "$lib/api";
 import type { FileEntry, SortMode } from "$lib/types";
 import { extOf, joinPath, parentOf } from "$lib/format";
+import { cyrillicOfLatin } from "$lib/keymap";
 import { i18n } from "./i18n.svelte";
 import { settings } from "./settings.svelte";
 import { dirSizeCache } from "./dirSizes.svelte";
@@ -36,6 +37,10 @@ export class PanelState {
   sortMode = $state<SortMode>("name");
   showHidden = $state(false);
   quickFilter = $state<string | null>(null);
+  /** accumulated Alt+letter quick-jump prefix (latin physical keys), null = idle */
+  quickJumpPrefix = $state<string | null>(null);
+  private quickJumpAt = 0;
+  private quickJumpTimer: ReturnType<typeof setTimeout> | null = null;
   /** computed folder sizes for children of the current dir: full path -> bytes */
   dirSizes = $state<Map<string, number>>(new Map());
   /** selected entry names — raw state replaced with a new Set on every change */
@@ -195,6 +200,7 @@ export class PanelState {
 
   async chdir(path: string) {
     this.clearSelection();
+    this.clearQuickJump();
     this.quickFilter = null;
     await this.load(path);
     panels.notifyWatch();
@@ -274,6 +280,32 @@ export class PanelState {
       }
     }
     return false;
+  }
+
+  /** Alt+letter quick jump with prefix accumulation: rapid presses extend the
+   *  prefix ("с", "л" -> "сл"), a pause starts a new search. Latin names win,
+   *  otherwise the same physical keys are retried as their ЙЦУКЕН letters. */
+  quickJump(latin: string, ttl = 900): void {
+    const now = Date.now();
+    if (this.quickJumpPrefix === null || now - this.quickJumpAt > ttl) this.quickJumpPrefix = "";
+    this.quickJumpAt = now;
+    this.quickJumpPrefix += latin.toUpperCase();
+
+    const cyr = [...this.quickJumpPrefix].map((c) => cyrillicOfLatin(c) ?? "\0").join("");
+    if (!this.moveByName(this.quickJumpPrefix) && !cyr.includes("\0")) {
+      this.moveByName(cyr);
+    }
+
+    if (this.quickJumpTimer) clearTimeout(this.quickJumpTimer);
+    this.quickJumpTimer = setTimeout(() => this.clearQuickJump(), ttl);
+  }
+
+  clearQuickJump() {
+    if (this.quickJumpTimer) {
+      clearTimeout(this.quickJumpTimer);
+      this.quickJumpTimer = null;
+    }
+    this.quickJumpPrefix = null;
   }
 
   // ---------- selection ----------

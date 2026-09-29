@@ -1,6 +1,9 @@
 <script lang="ts">
   import type { PanelState } from "$lib/stores/panels.svelte";
   import { panels } from "$lib/stores/panels.svelte";
+  import { ui } from "$lib/stores/ui.svelte";
+  import { cmdline } from "$lib/stores/cmdline.svelte";
+  import { cyrillicOfLatin } from "$lib/keymap";
   import { i18n } from "$lib/stores/i18n.svelte";
   import { formatSize, formatCount, basename, joinPath } from "$lib/format";
   import VirtualList from "./VirtualList.svelte";
@@ -12,6 +15,13 @@
     void panel.version;
     void panel.selVersion;
     return panel.stats;
+  });
+
+  // ЙЦУКЕН twin of the accumulated Alt+letter prefix (always complete — every
+  // latin letter has a mapping), shown in the quick-jump chip
+  const qjCyr = $derived.by(() => {
+    const p = panel.quickJumpPrefix;
+    return p === null ? null : [...p].map((c) => cyrillicOfLatin(c) ?? "").join("");
   });
 
   function tabTitle(t: { path: string }) {
@@ -65,6 +75,7 @@
   class:active
   class:inactive={!active}
   onclick={() => { if (!active) panels.activeSide = panel.side; }}
+  onmousedown={() => { if (ui.cmdLineFocused) cmdline.blurInput(); }}
 >
   <header class="p-head">
     <div class="tabs-row">
@@ -97,6 +108,12 @@
       </div>
     </div>
     <div class="path-row">
+      {#if panel.quickJumpPrefix !== null}
+        <span class="qjump" title="Alt + …">
+          <i class="ph ph-magnifying-glass"></i>
+          {#if qjCyr}<b>{qjCyr}</b> · {/if}{panel.quickJumpPrefix.toLowerCase()}
+        </span>
+      {/if}
       {#if panel.quickFilter !== null}
         <input
           class="quick"
@@ -283,6 +300,22 @@
     border-color: var(--accent);
     direction: ltr;
   }
+  .qjump {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 9px;
+    border-radius: var(--r-tab);
+    background: var(--row-cursor-bg);
+    border: 1px solid var(--row-cursor-border);
+    color: var(--accent2);
+    font-size: 11.5px;
+    font-weight: 700;
+    flex-shrink: 0;
+    direction: ltr;
+  }
+  .qjump i { font-size: 12px; }
+  .qjump b { font-weight: 800; }
 
   .list-wrap { position: relative; flex: 1; min-height: 0; }
 

@@ -75,6 +75,37 @@
 
 {#if doc}
   <div class="editor">
+    <div class="doc-tabs">
+      {#each editor.docs as d (d.id)}
+        <button
+          class="doc-tab"
+          class:on={d.id === editor.activeId}
+          onclick={() => editor.activate(d.id)}
+          onmousedown={(e) => e.preventDefault()}
+          title={d.path ?? d.name}
+        >
+          {#if d.dirty}<span class="dot">●</span>{/if}
+          <span class="doc-name">{d.name}</span>
+          <span
+            class="x"
+            role="button"
+            tabindex="-1"
+            aria-label="close"
+            onclick={(e) => {
+              e.stopPropagation();
+              void editor.close(d.id);
+            }}
+            onkeydown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.stopPropagation();
+                void editor.close(d.id);
+              }
+            }}
+          >×</span>
+        </button>
+      {/each}
+    </div>
+
     <div class="ed-status top">
       <span class="path mono" title={doc.path ?? ""}>{doc.path ?? doc.name}</span>
       {#if doc.dirty}<span class="dirty">●</span>{/if}
@@ -130,6 +161,44 @@
   }
   .ed-status.top { border-bottom: 1px solid var(--border); }
   .ed-status:not(.top) { border-top: 1px solid var(--border); }
+  .doc-tabs {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 6px 8px 0;
+    background: var(--bg-header);
+    flex-shrink: 0;
+  }
+  .doc-tabs::-webkit-scrollbar { display: none; }
+  .doc-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: var(--r-tab);
+    color: var(--fg-dim);
+    font-size: 12px;
+    font-weight: 600;
+    max-width: 180px;
+    border: 1px solid transparent;
+    flex-shrink: 0;
+  }
+  .doc-tab:hover { color: var(--fg); background: var(--row-hover); }
+  .doc-tab.on {
+    background: color-mix(in srgb, var(--accent) 24%, transparent);
+    color: var(--accent-ink);
+  }
+  .doc-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dot { color: var(--accent2); font-size: 10px; }
+  .x {
+    padding: 0 3px;
+    border-radius: 5px;
+    color: var(--fg-muted);
+    font-size: 13px;
+    line-height: 1;
+  }
+  .x:hover { color: var(--danger); background: var(--row-hover); }
   .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; }
   .dirty { color: var(--accent2); }
   .warn { color: var(--accent2); }

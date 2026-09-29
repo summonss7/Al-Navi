@@ -220,6 +220,25 @@
   --cm-invalid: #ff5555;
 }
 
+/* ============ CodeMirror cursor line mirrors the panel cursor row ============ */
+
+/* outline (light) themes: orange frame around the cursor line, like .row.cursor */
+.cm-activeLine {
+  box-shadow: inset 0 0 0 2px var(--row-cursor-border);
+  border-radius: 6px;
+}
+
+/* solid (dark) themes: full line inversion like the solid panel cursor */
+[data-cursor="solid"] .cm-content { caret-color: var(--row-cursor-fg); }
+[data-cursor="solid"] .cm-activeLine {
+  box-shadow: none;
+  color: var(--row-cursor-fg) !important;
+}
+[data-cursor="solid"] .cm-activeLine *,
+[data-cursor="solid"] .cm-activeLineGutter {
+  color: var(--row-cursor-fg) !important;
+}
+
 /* ============ base ============ */
 
 * { margin: 0; padding: 0; box-sizing: border-box; }

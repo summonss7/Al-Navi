@@ -147,7 +147,7 @@ export function createView(
           fontFamily: "'JetBrains Mono', 'Cascadia Mono', Consolas, monospace",
           lineHeight: "1.55",
         },
-        ".cm-content": { caretColor: "var(--accent)" },
+        ".cm-content": { caretColor: "var(--accent2)" },
         "&.cm-focused": { outline: "none" },
         ".cm-gutters": {
           backgroundColor: "transparent",
@@ -155,10 +155,14 @@ export function createView(
           border: "none",
           borderInlineEnd: "1px solid var(--border)",
         },
-        ".cm-activeLine": { backgroundColor: "var(--row-hover)" },
-        ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--accent)" },
+        // cursor line mirrors the panel cursor row (orange frame on light themes,
+        // full inversion on solid themes via [data-cursor="solid"] rules in app.css)
+        ".cm-activeLine": { backgroundColor: "var(--row-cursor-bg)" },
+        ".cm-activeLineGutter": { backgroundColor: "var(--row-cursor-bg)", color: "var(--row-cursor-fg)" },
         ".cm-selectionMatch": { backgroundColor: "color-mix(in srgb, var(--accent2) 25%, transparent)" },
-        "::selection": { backgroundColor: "color-mix(in srgb, var(--accent) 30%, transparent)" },
+        ".cm-selectionBackground": { backgroundColor: "color-mix(in srgb, var(--accent2) 26%, transparent)" },
+        "&.cm-focused .cm-selectionBackground": { backgroundColor: "color-mix(in srgb, var(--accent2) 34%, transparent)" },
+        "::selection": { backgroundColor: "color-mix(in srgb, var(--accent2) 30%, transparent)" },
         ".cm-panels": {
           backgroundColor: "var(--bg-elev)",
           color: "var(--fg)",

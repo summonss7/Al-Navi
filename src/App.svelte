@@ -32,16 +32,36 @@
   }
 
   function onKeyDown(e: KeyboardEvent) {
-    // don't touch editor/editor-ish typing unless a bound chord is hit
     const ctx = currentContext();
     const chord = chordOf(e);
     if (!chord) return;
-    const cmdId = defaultKeymap[ctx]?.[chord];
 
+    // real typing goes to whichever input has DOM focus (command line, panel
+    // quick search) — never hijack keys aimed at an editable target in panel mode
+    const t = e.target as HTMLElement | null;
+    const editing =
+      !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+    if (editing && ctx === "panel") return;
+
+    const cmdId = defaultKeymap[ctx]?.[chord];
     if (cmdId) {
       e.preventDefault();
       e.stopPropagation();
       runCommand(cmdId);
+      return;
+    }
+
+    // FAR: F-keys and Ctrl+Tab keep working even while typing in the command
+    // line; everything else falls through to the input natively
+    if (ctx === "cmdline") {
+      const global = defaultKeymap.panel[chord];
+      const isFKey = /F\d+$/.test(chord);
+      const isTabChord = chord === "Ctrl+Tab" || chord === "Ctrl+Shift+Tab";
+      if (global && (isFKey || isTabChord)) {
+        e.preventDefault();
+        e.stopPropagation();
+        runCommand(global);
+      }
       return;
     }
 
@@ -64,9 +84,6 @@
       // navigation keys that our virtual list needs; skip when typing in an
       // input (caret movement) — FAR note: Left/Right also move the cursor
       // (up/down) for faster two-hand walking
-      const t = e.target as HTMLElement | null;
-      const editing =
-        !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
       if (!editing) {
         const nav = navAction(e);
         if (nav) {
@@ -100,8 +117,10 @@
   }
 
   onMount(() => {
-    // focus the app shell so the webview routes keyboard events from the start
+    // focus the app shell so the webview routes keyboard events from the start,
+    // then hand focus to the command line (FAR-style: typing starts there)
     document.querySelector<HTMLElement>(".app-shell")?.focus();
+    ui.cmdLineFocused = true;
 
     void settings.init()
       .then(async () => {

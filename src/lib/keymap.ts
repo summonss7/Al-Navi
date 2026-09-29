@@ -157,6 +157,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     "Alt+F8": "cmdline.history",
     "Alt+F11": "stub.viewHistory",
     "Ctrl+E": "cmdline.prevHistory",
+    "Ctrl+K": "cmdline.focus",
     Esc: "panel.escape",
   },
   editor: {
@@ -168,6 +169,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     F7: "editor.search",
     F8: "editor.deleteLine",
     "Ctrl+G": "editor.gotoLine",
+    "Ctrl+K": "cmdline.focus",
     Esc: "editor.close",
     "Ctrl+Tab": "ui.nextTab",
     "Ctrl+Shift+Tab": "ui.prevTab",
@@ -178,6 +180,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     F4: "viewer.toEditor",
     F8: "viewer.toggleHex",
     Esc: "viewer.close",
+    "Ctrl+K": "cmdline.focus",
     "Ctrl+Tab": "ui.nextTab",
     "Ctrl+Shift+Tab": "ui.prevTab",
     F10: "app.quit",

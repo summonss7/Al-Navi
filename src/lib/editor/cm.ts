@@ -40,24 +40,28 @@ const langComp = new Compartment();
 const wrapComp = new Compartment();
 const readOnlyComp = new Compartment();
 
-/** Al-Navi syntax colors driven by theme CSS variables */
+/** Al-Navi syntax colors driven by theme CSS variables.
+ *  Every role gets its own hue per theme (--cm-*); definition names share the
+ *  name color but are bold, invalid gets an underline — no two roles look
+ *  alike within a theme. */
 const alnaviHighlight = HighlightStyle.define([
-  { tag: t.keyword, color: "var(--cm-keyword)" },
+  { tag: [t.keyword, t.controlKeyword, t.moduleKeyword, t.operatorKeyword], color: "var(--cm-keyword)", fontWeight: "700" },
   { tag: [t.name, t.deleted, t.character, t.propertyName, t.macroName], color: "var(--cm-name)" },
-  { tag: [t.function(t.variableName), t.labelName], color: "var(--cm-func)" },
-  { tag: [t.color, t.constant(t.name), t.standard(t.name)], color: "var(--cm-const)" },
-  { tag: [t.definition(t.name), t.separator], color: "var(--cm-def)" },
+  { tag: [t.function(t.variableName), t.labelName, t.tagName], color: "var(--cm-func)" },
+  { tag: [t.color, t.constant(t.name), t.standard(t.name), t.attributeName], color: "var(--cm-const)" },
+  { tag: [t.definition(t.name)], color: "var(--cm-def)", fontWeight: "700" },
   { tag: [t.typeName, t.className, t.number, t.changed, t.annotation, t.self, t.namespace], color: "var(--cm-type)" },
-  { tag: [t.operator, t.operatorKeyword, t.url, t.escape, t.regexp, t.link, t.special(t.string)], color: "var(--cm-op)" },
-  { tag: [t.meta, t.comment], color: "var(--cm-comment)", fontStyle: "italic" },
+  { tag: [t.operator, t.url, t.escape, t.regexp, t.special(t.string), t.separator, t.bracket, t.punctuation], color: "var(--cm-op)" },
+  { tag: [t.meta, t.comment, t.processingInstruction, t.contentSeparator], color: "var(--cm-comment)", fontStyle: "italic" },
   { tag: t.strong, fontWeight: "bold" },
   { tag: t.emphasis, fontStyle: "italic" },
   { tag: t.strikethrough, textDecoration: "line-through" },
   { tag: t.link, color: "var(--cm-op)", textDecoration: "underline" },
-  { tag: t.heading, fontWeight: "bold", color: "var(--cm-type)" },
+  { tag: [t.heading, t.heading1, t.heading2, t.heading3, t.heading4, t.heading5, t.heading6], fontWeight: "bold", color: "var(--cm-type)" },
   { tag: [t.atom, t.bool, t.special(t.variableName)], color: "var(--cm-const)" },
-  { tag: [t.processingInstruction, t.string, t.inserted], color: "var(--cm-string)" },
-  { tag: t.invalid, color: "var(--cm-invalid)" },
+  { tag: [t.string, t.inserted], color: "var(--cm-string)" },
+  { tag: t.invalid, color: "var(--cm-invalid)", textDecoration: "underline" },
+  { tag: t.variableName, color: "var(--cm-name)" },
 ]);
 
 export function languageFor(path: string | null, content = "") {
@@ -160,8 +164,8 @@ export function createView(
         ".cm-activeLine": { backgroundColor: "var(--row-cursor-bg)" },
         ".cm-activeLineGutter": { backgroundColor: "var(--row-cursor-bg)", color: "var(--row-cursor-fg)" },
         ".cm-selectionMatch": { backgroundColor: "color-mix(in srgb, var(--accent2) 25%, transparent)" },
-        ".cm-selectionBackground": { backgroundColor: "color-mix(in srgb, var(--accent2) 26%, transparent)" },
-        "&.cm-focused .cm-selectionBackground": { backgroundColor: "color-mix(in srgb, var(--accent2) 34%, transparent)" },
+        // selection background is themed globally in app.css (must beat CM's
+        // base-theme specificity and paint above the active-line fill)
         "::selection": { backgroundColor: "color-mix(in srgb, var(--accent2) 30%, transparent)" },
         ".cm-panels": {
           backgroundColor: "var(--bg-elev)",

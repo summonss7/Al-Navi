@@ -1,5 +1,7 @@
 export type UIMode = "panels" | "editor" | "viewer";
 
+import { cmdline } from "./cmdline.svelte";
+
 export type DialogId =
   | "confirm"
   | "input"
@@ -46,6 +48,12 @@ class UIStore {
   }
 
   setMode(m: UIMode) {
+    // entering the editor/viewer must take the keyboard away from the command
+    // line — otherwise typed characters keep going into the command input
+    if (m !== "panels" && this.cmdLineFocused) {
+      this.cmdLineFocused = false;
+      cmdline.blurInput();
+    }
     this.mode = m;
   }
 

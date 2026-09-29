@@ -155,22 +155,41 @@ export function registerAllCommands() {
   }
 
   // ---------- ui ----------
-  // Ctrl+Tab is an instant editor/viewer <-> panels toggle; open documents stay
-  // in memory and come back on the next press. With nothing open it keeps the
-  // old meaning: cycling file-panel tabs.
-  const toggleEditor = (dir: 1 | -1) => {
-    if (ui.mode === "editor" || ui.mode === "viewer") {
-      ui.setMode("panels");
-    } else if (editor.docs.length > 0) {
-      ui.setMode("editor");
-    } else if (editor.viewDocs.length > 0) {
-      ui.setMode("viewer");
-    } else {
+  // Ctrl+Tab walks a FAR-style window ring: editor docs, then viewer docs, then
+  // the panels, and around again (file1 -> file2 -> panels -> file1). With a
+  // single document it degenerates into the editor <-> panels toggle; with
+  // nothing open it keeps the old meaning of cycling file-panel tabs.
+  const stepWindowRing = (dir: 1 | -1) => {
+    type RingWin = { mode: "editor" | "viewer"; id: number } | { mode: "panels" };
+    const ring: RingWin[] = [
+      ...editor.docs.map((d) => ({ mode: "editor" as const, id: d.id })),
+      ...editor.viewDocs.map((d) => ({ mode: "viewer" as const, id: d.id })),
+    ];
+    if (ring.length === 0) {
       A().cycleTab(dir);
+      return;
+    }
+    ring.push({ mode: "panels" });
+
+    let i = ring.findIndex((w) => {
+      if (w.mode !== ui.mode) return false;
+      if (w.mode === "panels") return true;
+      return w.id === (w.mode === "editor" ? editor.activeId : editor.activeViewId);
+    });
+    if (i < 0) i = ring.length - 1; // unknown position: step from panels
+
+    const next = ring[(i + dir + ring.length) % ring.length];
+    if (next.mode === "panels") ui.setMode("panels");
+    else if (next.mode === "editor") {
+      editor.activeId = next.id;
+      ui.setMode("editor");
+    } else {
+      editor.activeViewId = next.id;
+      ui.setMode("viewer");
     }
   };
-  registerCommand("ui.nextTab", () => toggleEditor(1));
-  registerCommand("ui.prevTab", () => toggleEditor(-1));
+  registerCommand("ui.nextTab", () => stepWindowRing(1));
+  registerCommand("ui.prevTab", () => stepWindowRing(-1));
   registerCommand("ui.windowList", () => ui.openDialog("windowList"));
   registerCommand("ui.menu", () => ui.openDialog("menu"));
   registerCommand("app.quit", async () => {
@@ -189,6 +208,9 @@ export function registerAllCommands() {
 
   // ---------- cmdline ----------
   registerCommand("cmdline.history", () => ui.openDialog("cmdHistory"));
+  registerCommand("cmdline.focus", () => {
+    ui.cmdLineFocused = true;
+  });
   registerCommand("cmdline.blur", () => {
     ui.cmdLineFocused = false;
     cmdline.blurInput();

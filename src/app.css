@@ -47,16 +47,16 @@
   --card-shadow: 0 8px 26px rgba(56, 54, 42, 0.1);
   --danger: #dc2626;
   --ok: #4e9a0e;
-  /* code mirror tokens */
-  --cm-keyword: #d9480f;
-  --cm-name: #26251f;
-  --cm-func: #3f7a12;
-  --cm-const: #b45309;
-  --cm-def: #26251f;
-  --cm-type: #0369a1;
-  --cm-op: #7e22ce;
-  --cm-comment: #9a9890;
-  --cm-string: #3f7a12;
+  /* code mirror tokens — one distinct hue per role, GitHub-Light-warm */
+  --cm-keyword: #cf222e;
+  --cm-name: #24292f;
+  --cm-func: #8250df;
+  --cm-const: #953800;
+  --cm-def: #24292f;
+  --cm-type: #0550ae;
+  --cm-op: #57606a;
+  --cm-comment: #8b949e;
+  --cm-string: #0a7d6c;
   --cm-invalid: #dc2626;
 }
 
@@ -88,15 +88,15 @@
   --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
   --danger: #ef4444;
   --ok: #8ee53f;
-  --cm-keyword: #f97316;
-  --cm-name: #e8eaed;
-  --cm-func: #8ee53f;
-  --cm-const: #fbbf24;
-  --cm-def: #e8eaed;
-  --cm-type: #38bdf8;
-  --cm-op: #c084fc;
-  --cm-comment: #6b7178;
-  --cm-string: #8ee53f;
+  --cm-keyword: #c678dd;
+  --cm-name: #abb2bf;
+  --cm-func: #61afef;
+  --cm-const: #d19a66;
+  --cm-def: #abb2bf;
+  --cm-type: #e5c07b;
+  --cm-op: #56b6c2;
+  --cm-comment: #7d8590;
+  --cm-string: #98c379;
   --cm-invalid: #ef4444;
 }
 
@@ -128,16 +128,16 @@
   --card-shadow: 0 10px 30px rgba(2, 8, 20, 0.5);
   --danger: #f87171;
   --ok: #8ee53f;
-  --cm-keyword: #f97316;
-  --cm-name: #dbe4f0;
-  --cm-func: #8ee53f;
-  --cm-const: #fbbf24;
-  --cm-def: #dbe4f0;
-  --cm-type: #38bdf8;
-  --cm-op: #c084fc;
-  --cm-comment: #5b7089;
-  --cm-string: #8ee53f;
-  --cm-invalid: #f87171;
+  --cm-keyword: #c792ea;
+  --cm-name: #d6deeb;
+  --cm-func: #82aaff;
+  --cm-const: #f78c6c;
+  --cm-def: #d6deeb;
+  --cm-type: #ffcb6b;
+  --cm-op: #89ddff;
+  --cm-comment: #676e95;
+  --cm-string: #c3e88d;
+  --cm-invalid: #ff5370;
 }
 
 :root[data-theme="solarized"] {
@@ -168,15 +168,15 @@
   --card-shadow: 0 8px 24px rgba(88, 110, 117, 0.18);
   --danger: #dc322f;
   --ok: #859900;
-  --cm-keyword: #cb4b16;
+  --cm-keyword: #859900;
   --cm-name: #073642;
-  --cm-func: #859900;
-  --cm-const: #b58900;
+  --cm-func: #268bd2;
+  --cm-const: #cb4b16;
   --cm-def: #073642;
-  --cm-type: #268bd2;
-  --cm-op: #6c71c4;
+  --cm-type: #b58900;
+  --cm-op: #d33682;
   --cm-comment: #93a1a1;
-  --cm-string: #859900;
+  --cm-string: #2aa198;
   --cm-invalid: #dc322f;
 }
 
@@ -208,15 +208,15 @@
   --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
   --danger: #ff5555;
   --ok: #aaff2b;
-  --cm-keyword: #ff8c2b;
+  --cm-keyword: #ff79c6;
   --cm-name: #ffffff;
-  --cm-func: #aaff2b;
-  --cm-const: #ffd700;
+  --cm-func: #8be9fd;
+  --cm-const: #ffb86c;
   --cm-def: #ffffff;
-  --cm-type: #6ecbff;
-  --cm-op: #e2a8ff;
-  --cm-comment: #909090;
-  --cm-string: #aaff2b;
+  --cm-type: #bd93f9;
+  --cm-op: #50fa7b;
+  --cm-comment: #9aa0c8;
+  --cm-string: #f1fa8c;
   --cm-invalid: #ff5555;
 }
 
@@ -237,6 +237,24 @@
 [data-cursor="solid"] .cm-activeLine *,
 [data-cursor="solid"] .cm-activeLineGutter {
   color: var(--row-cursor-fg) !important;
+}
+
+/* selection: CM draws the selection layer below line backgrounds (z-index -1)
+   and its base color wins over EditorView.theme — so lift the layer above the
+   content (translucent orange keeps the letters readable) and force the color
+   with the full base-theme selector chain */
+.cm-editor > .cm-scroller > .cm-selectionLayer { z-index: 0 !important; }
+.cm-editor > .cm-scroller > .cm-selectionLayer .cm-selectionBackground {
+  background: color-mix(in srgb, var(--accent2) 24%, transparent) !important;
+}
+.cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground {
+  background: color-mix(in srgb, var(--accent2) 36%, transparent) !important;
+}
+/* solid themes: stronger orange so the selection stays distinguishable when it
+   crosses the fully inverted (lime) active line */
+[data-cursor="solid"] .cm-editor > .cm-scroller > .cm-selectionLayer .cm-selectionBackground,
+[data-cursor="solid"] .cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground {
+  background: color-mix(in srgb, var(--accent2) 55%, transparent) !important;
 }
 
 /* ============ base ============ */

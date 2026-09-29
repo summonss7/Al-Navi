@@ -74,6 +74,9 @@
   }
 
   onMount(() => {
+    // focus the app shell so the webview routes keyboard events from the start
+    document.querySelector<HTMLElement>(".app-shell")?.focus();
+
     void settings.init()
       .then(async () => {
         await panels.init();
@@ -102,7 +105,7 @@
   });
 </script>
 
-<div class="app-shell">
+<div class="app-shell" tabindex="-1">
   <TitleBar />
   <main class="main">
     {#if ui.mode === "editor"}
@@ -127,6 +130,7 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
+    outline: none;
   }
   .main {
     flex: 1;

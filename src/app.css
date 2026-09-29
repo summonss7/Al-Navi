@@ -2,6 +2,7 @@
 @import "@fontsource/jetbrains-mono/400.css";
 @import "@fontsource/jetbrains-mono/700.css";
 @import "@phosphor-icons/web/duotone";
+@import "@phosphor-icons/web/regular";
 
 /* ============ Themes (brand: lime #8EE53F, orange #F97316, gray #9E9E9E) ============
    Design (images/design.jpg): light UI, warm-gray page, white rounded cards
@@ -36,10 +37,10 @@
   --border-strong: #d2cfc6;
   --row-hover: #f3f2ed;
   /* cursor = orange rounded-rect selection with glow (design.jpg) */
-  --row-cursor-bg: rgba(249, 115, 22, 0.1);
+  --row-cursor-bg: rgba(249, 115, 22, 0.18);
   --row-cursor-fg: #26251f;
   --row-cursor-border: #f97316;
-  --row-cursor-glow: 0 2px 10px rgba(249, 115, 22, 0.3);
+  --row-cursor-glow: 0 2px 12px rgba(249, 115, 22, 0.35);
   --row-selected: rgba(249, 115, 22, 0.12);
   --row-selected-border: rgba(249, 115, 22, 0.5);
   --shadow: rgba(56, 54, 42, 0.22);

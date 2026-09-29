@@ -261,9 +261,9 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: var(--fg-dim);
+    color: var(--accent2);
     font-size: 15px;
   }
-  .wc:hover { background: var(--row-hover); color: var(--fg); }
+  .wc:hover { background: color-mix(in srgb, var(--accent2) 14%, transparent); color: var(--accent2); }
   .wc.close:hover { background: #e81123; color: #fff; }
 </style>

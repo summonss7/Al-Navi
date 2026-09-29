@@ -34,11 +34,51 @@
 
   // ---- drives ----
   let drives = $state<DriveInfo[]>([]);
+  let driveIdx = $state(-1);
   $effect(() => {
     if (ui.dialog === "drives") {
       drivesList().then((d) => (drives = d)).catch(console.error);
     }
   });
+  // keyboard cursor: first drive once loaded, reset on close
+  $effect(() => {
+    void drives.length;
+    if (ui.dialog === "drives" && drives.length && driveIdx < 0) driveIdx = 0;
+    if (ui.dialog !== "drives" && driveIdx !== -1) driveIdx = -1;
+  });
+  $effect(() => {
+    if (ui.dialog === "drives" && driveIdx >= 0) {
+      document.querySelector(".drive.kbd")?.scrollIntoView({ block: "nearest" });
+    }
+  });
+
+  function onDrivesKey(e: KeyboardEvent) {
+    if (ui.dialog !== "drives" || !drives.length) return;
+    switch (e.key) {
+      case "ArrowDown":
+        driveIdx = (driveIdx + 1) % drives.length;
+        e.preventDefault();
+        break;
+      case "ArrowUp":
+        driveIdx = (driveIdx - 1 + drives.length) % drives.length;
+        e.preventDefault();
+        break;
+      case "Home":
+        driveIdx = 0;
+        e.preventDefault();
+        break;
+      case "End":
+        driveIdx = drives.length - 1;
+        e.preventDefault();
+        break;
+      case "Enter":
+        if (driveIdx >= 0) {
+          e.preventDefault();
+          void pickDrive(drives[driveIdx]);
+        }
+        break;
+    }
+  }
 
   async function pickDrive(d: DriveInfo) {
     const panel = ui.drivesFor === "left" ? panels.left : panels.right;
@@ -74,6 +114,8 @@
     return Math.min(100, Math.round((op.bytesDone / op.bytesTotal) * 100));
   }
 </script>
+
+<svelte:window onkeydown={onDrivesKey} />
 
 {#if ui.dialog === "confirm" && ui.confirmReq}
   <div class="overlay">
@@ -185,8 +227,8 @@
         {i18n.t("drives.title")} — {ui.drivesFor === "left" ? i18n.t("windows.panels") + " 1" : i18n.t("windows.panels") + " 2"}
       </div>
       <div class="dlg-body drives">
-        {#each drives as d (d.mountPoint)}
-          <button class="drive" onclick={() => void pickDrive(d)}>
+        {#each drives as d, i (d.mountPoint)}
+          <button class="drive" class:kbd={i === driveIdx} onclick={() => void pickDrive(d)}>
             <i class="ph-duotone {driveIcon(d.kind)}"></i>
             <span class="d-name" title={d.mountPoint}>{d.name}</span>
             {#if d.totalBytes}
@@ -394,6 +436,11 @@
   }
   .drive:hover { border-color: var(--accent); }
   .drive i { font-size: 22px; color: var(--accent); }
+  .drive.kbd {
+    border-color: var(--accent2);
+    background: color-mix(in srgb, var(--accent2) 10%, var(--bg-panel));
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent2) 55%, transparent);
+  }
   .d-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .d-free { font-size: 10.5px; color: var(--fg-muted); }
 

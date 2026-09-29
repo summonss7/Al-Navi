@@ -142,7 +142,7 @@
   .row.cursor {
     background: var(--row-cursor-bg);
     color: var(--row-cursor-fg);
-    box-shadow: inset 0 0 0 1.5px var(--row-cursor-border), var(--row-cursor-glow);
+    box-shadow: inset 0 0 0 2px var(--row-cursor-border), var(--row-cursor-glow);
   }
   .row.cursor .name, .row.cursor .size, .row.cursor .date, .row.cursor .attr { color: var(--row-cursor-fg); }
   /* solid-cursor themes (dark): recolor icons for contrast; outline cursor keeps file colors */

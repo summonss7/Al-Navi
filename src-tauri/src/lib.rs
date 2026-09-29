@@ -78,9 +78,19 @@ pub unsafe extern "C" fn init_thread_footer(epoch: *mut i32, _frame: *mut u8) {
 pub static mut _Init_thread_epoch: i32 = -1;
 
 pub fn run() {
+    use tauri::Manager;
+
     tauri::Builder::default()
         .manage(ops::OpManager::new())
         .manage(watch::WatchState::new())
+        .setup(|app| {
+            // Windows/WebView2: without this the webview lacks keyboard focus
+            // on startup, so arrow keys/F-keys do nothing until first click
+            if let Some(win) = app.get_webview_window("main") {
+                let _ = win.set_focus();
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             fs::list_dir,
             fs::free_space,

@@ -65,7 +65,7 @@
   --cm-string: #0a7d6c;
   --cm-invalid: #dc2626;
   --cm-date: #0e9bb5;
-  --cm-special: #4b21c8;
+  --cm-special: #9a6700;
 }
 
 :root[data-theme="alnaviDark"] {
@@ -107,7 +107,7 @@
   --cm-string: #98c379;
   --cm-invalid: #ef4444;
   --cm-date: #4dd0e1;
-  --cm-special: #e06c75;
+  --cm-special: #e3b341;
 }
 
 :root[data-theme="midnight"] {
@@ -150,7 +150,7 @@
   --cm-string: #c3e88d;
   --cm-invalid: #ff5370;
   --cm-date: #7fdbca;
-  --cm-special: #f07178;
+  --cm-special: #f0c674;
 }
 
 :root[data-theme="solarized"] {
@@ -192,7 +192,7 @@
   --cm-string: #2aa198;
   --cm-invalid: #dc322f;
   --cm-date: #268bd2;
-  --cm-special: #d33682;
+  --cm-special: #6c71c4;
 }
 
 :root[data-theme="contrast"] {
@@ -234,7 +234,7 @@
   --cm-string: #f1fa8c;
   --cm-invalid: #ff5555;
   --cm-date: #8be9fd;
-  --cm-special: #f1fa8c;
+  --cm-special: #ffd866;
 }
 
 /* ============ CodeMirror cursor line mirrors the panel cursor row ============ */
@@ -254,6 +254,12 @@
 [data-cursor="solid"] .cm-activeLine *,
 [data-cursor="solid"] .cm-activeLineGutter {
   color: var(--row-cursor-fg) !important;
+}
+/* highlighted runs (dates / symbol runs / masks) keep their hue on the
+   inverted cursor line: mix the mark's --tx color toward the line fg instead
+   of flattening it, so the color survives where the cursor rests */
+[data-cursor="solid"] .cm-activeLine .cm-tx {
+  color: color-mix(in srgb, var(--tx) 25%, var(--row-cursor-fg)) !important;
 }
 
 /* selection: CM draws the selection layer below line backgrounds (z-index -1)

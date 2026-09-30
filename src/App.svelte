@@ -10,6 +10,7 @@
   import { editor } from "$lib/stores/editor.svelte";
   import { cmdline } from "$lib/stores/cmdline.svelte";
   import { fileColors } from "$lib/stores/fileColors.svelte";
+  import { textColors } from "$lib/stores/textColors.svelte";
   import { ftpSites } from "$lib/stores/ftpSites.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
 
@@ -148,6 +149,7 @@
         ops.init();
         void cmdline.init();
         void fileColors.init();
+        void textColors.init();
       })
       .catch(() => {
         // outside Tauri (browser preview) panels can't load — chrome still renders

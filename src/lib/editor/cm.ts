@@ -6,6 +6,8 @@ import {
   historyKeymap,
   indentWithTab,
   deleteLine as cmDeleteLine,
+  cursorDocStart,
+  cursorDocEnd,
 } from "@codemirror/commands";
 import {
   searchKeymap,
@@ -223,6 +225,10 @@ export function createView(
       wrapComp.of(settings.s.editorWordWrap ? EditorView.lineWrapping : []),
       readOnlyComp.of(opts.readOnly ? EditorState.readOnly.of(true) : []),
       keymap.of([
+        // FAR: Ctrl+PageUp/PageDown place the caret at the very start / very
+        // end of the text (works in the editor and the read-only viewer)
+        { key: "Ctrl-PageUp", run: cursorDocStart },
+        { key: "Ctrl-PageDown", run: cursorDocEnd },
         ...defaultKeymap,
         ...historyKeymap,
         ...searchKeymap,

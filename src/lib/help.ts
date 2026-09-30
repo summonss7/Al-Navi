@@ -76,6 +76,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       { chord: "Esc", key: "help.cmd.clear" },
       { chord: "Ctrl+E", key: "help.cmd.hist" },
       { chord: "Alt+F8", key: "help.cmd.histDlg" },
+      { chord: "Ctrl+Enter", key: "help.cmd.insName" },
       { chord: "cd <path>", key: "help.cmd.cd" },
     ],
   },

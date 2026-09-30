@@ -104,6 +104,7 @@
       { k: "Ctrl+↑", cmd: "panel.up", label: i18n.t("hint.up") },
       { k: "Ctrl+\\", cmd: "panel.root", label: i18n.t("hint.root") },
       { k: "Ctrl+Ins", cmd: "panel.copyNames", label: i18n.t("hint.copyName") },
+      { k: "Ctrl+Enter", cmd: "cmdline.insertCursorName", label: i18n.t("hint.insertName") },
       { k: "Ctrl+Shift+Ins", cmd: "panel.copyPaths", label: i18n.t("hint.copyPath") },
       { k: "Ctrl+F3", cmd: "panel.sortName", label: i18n.t("hint.sortName") },
       { k: "Ctrl+F5", cmd: "panel.sortMtime", label: i18n.t("hint.sortDate") },

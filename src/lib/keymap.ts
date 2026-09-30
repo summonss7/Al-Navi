@@ -90,6 +90,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     "Ctrl+U": "panel.swap",
     Enter: "panel.enter",
     "Shift+Enter": "panel.enterExternal",
+    "Ctrl+Enter": "cmdline.insertCursorName",
     "Ctrl+PageDown": "panel.intoDir",
     "Ctrl+PageUp": "panel.up",
     "Ctrl+Up": "panel.up",

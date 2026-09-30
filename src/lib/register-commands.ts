@@ -213,6 +213,28 @@ export function registerAllCommands() {
   registerCommand("cmdline.prevHistory", () => {
     cmdline.stepHistory(-1);
   });
+  // FAR-style Ctrl+Enter: append the name under the panel cursor to the
+  // command line; each further press appends the next entry's name
+  registerCommand("cmdline.insertCursorName", () => {
+    const p = A();
+    let e = p.current;
+    if (!e || e.name === "..") {
+      e = p.view.find((x) => x.name !== "..") ?? null;
+    }
+    if (!e) return;
+    // quote names a shell would split (spaces, quotes, cmd metacharacters)
+    const name = /[\s"&^]/.test(e.name) ? `"${e.name}"` : e.name;
+    const base = cmdline.text;
+    cmdline.setText((base && !/\s$/.test(base) ? base + " " : base) + name);
+    cmdline.histIndex = -1;
+    // advance the panel cursor so repeated presses build a list of names
+    for (let i = p.cursor + 1; i < p.view.length; i++) {
+      if (p.view[i].name !== "..") {
+        p.cursor = i;
+        break;
+      }
+    }
+  });
   registerCommand("cmdline.pasteClipboard", async () => {
     try {
       const text = await navigator.clipboard.readText();

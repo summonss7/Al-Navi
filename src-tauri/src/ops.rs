@@ -127,13 +127,13 @@ pub fn copy_paths(
     app: AppHandle,
     state: tauri::State<'_, OpManager>,
     paths: Vec<String>,
-    dest_dir: String,
+    dest: String,
 ) -> Result<u32, String> {
     let (id, h) = state.register();
     let mgr = (*state).clone();
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        run_transfer(app, mgr, id, h, paths, dest_dir, false);
+        run_transfer(app, mgr, id, h, paths, dest, false);
     });
     Ok(id)
 }
@@ -143,15 +143,38 @@ pub fn move_paths(
     app: AppHandle,
     state: tauri::State<'_, OpManager>,
     paths: Vec<String>,
-    dest_dir: String,
+    dest: String,
 ) -> Result<u32, String> {
     let (id, h) = state.register();
     let mgr = (*state).clone();
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        run_transfer(app, mgr, id, h, paths, dest_dir, true);
+        run_transfer(app, mgr, id, h, paths, dest, true);
     });
     Ok(id)
+}
+
+/// Split a user-entered transfer target into (destination directory, optional
+/// new name for a single-item transfer). A trailing separator or an existing
+/// directory keeps the "into that directory" behavior; otherwise the last
+/// path component becomes the new name (FAR-style copy/move with rename).
+fn resolve_dest(dest: &str, path_count: usize) -> (PathBuf, Option<String>) {
+    let trimmed = dest.trim();
+    let dest = PathBuf::from(trimmed);
+    let ends_with_sep = trimmed.ends_with('/') || trimmed.ends_with('\\');
+    if !ends_with_sep && !dest.is_dir() && path_count == 1 {
+        if let Some(name) = dest.file_name() {
+            let name = name.to_string_lossy().to_string();
+            if !name.is_empty() {
+                if let Some(parent) = dest.parent() {
+                    if !parent.as_os_str().is_empty() {
+                        return (parent.to_path_buf(), Some(name));
+                    }
+                }
+            }
+        }
+    }
+    (dest, None)
 }
 
 struct Ctx {
@@ -488,7 +511,7 @@ fn run_transfer(
     id: u32,
     h: Arc<OpHandle>,
     paths: Vec<String>,
-    dest_dir: String,
+    dest: String,
     move_mode: bool,
 ) {
     let mut ctx = new_ctx(app, id, h);
@@ -503,13 +526,21 @@ fn run_transfer(
         return;
     }
 
-    let dest = PathBuf::from(&dest_dir);
+    let (dest, single_name) = resolve_dest(&dest, paths.len());
     for p in &paths {
         if ctx.check_pause_cancel() {
             break;
         }
         let src = PathBuf::from(p);
-        let dstd = dest.join(src.file_name().unwrap_or_default());
+        let dstd = match &single_name {
+            Some(name) => dest.join(name),
+            None => dest.join(src.file_name().unwrap_or_default()),
+        };
+        // target resolved back to the source (both panels in one dir) —
+        // copying or moving an item onto itself is a no-op, not a conflict
+        if dstd == src {
+            continue;
+        }
         ctx.progress("transfer", &src.to_string_lossy());
         if let Err(e) = transfer_one(&src, &dstd, &mut ctx, move_mode) {
             if e.to_string() == "cancelled" {
@@ -581,4 +612,42 @@ pub fn rename_path(old: String, new: String) -> Result<(), String> {
         return Err(format!("already exists: {}", new));
     }
     fs::rename(&from, &to).map_err(|e| format!("{} -> {}: {}", old, new, e))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolve_dest_directory_forms() {
+        let tmp = std::env::temp_dir().join("alnavi_resolve_dest_test");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(tmp.join("dir")).unwrap();
+
+        // trailing separator -> always the "into the directory" form
+        let (d, n) = resolve_dest("C:\\some\\dir\\", 1);
+        assert!(n.is_none());
+        assert_eq!(d, PathBuf::from("C:\\some\\dir\\"));
+
+        // an existing directory keeps it a directory even for a single item
+        let (d, n) = resolve_dest(tmp.join("dir").to_str().unwrap(), 1);
+        assert!(n.is_none());
+        assert_eq!(d, tmp.join("dir"));
+
+        // single item + non-existing target -> dir + new name (rename)
+        let (d, n) = resolve_dest("C:\\some\\newname.txt", 1);
+        assert_eq!(d, PathBuf::from("C:\\some"));
+        assert_eq!(n.as_deref(), Some("newname.txt"));
+
+        // multiple items are never renamed to one name
+        let (_, n) = resolve_dest("C:\\some\\newname.txt", 3);
+        assert!(n.is_none());
+
+        // a root path has no file_name — stays whole
+        let (d, n) = resolve_dest("C:\\", 1);
+        assert!(n.is_none());
+        assert_eq!(d, PathBuf::from("C:\\"));
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
 }

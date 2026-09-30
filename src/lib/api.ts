@@ -28,10 +28,10 @@ export const readHex = (path: string, offset: number, len: number) =>
   invoke<{ data: number[]; fileSize: number }>("read_hex", { path, offset, len });
 
 // ---- Operations ----
-export const copyPaths = (paths: string[], destDir: string) =>
-  invoke<number>("copy_paths", { paths, destDir });
-export const movePaths = (paths: string[], destDir: string) =>
-  invoke<number>("move_paths", { paths, destDir });
+export const copyPaths = (paths: string[], dest: string) =>
+  invoke<number>("copy_paths", { paths, dest });
+export const movePaths = (paths: string[], dest: string) =>
+  invoke<number>("move_paths", { paths, dest });
 export const deletePaths = (paths: string[], permanent: boolean) =>
   invoke<number>("delete_paths", { paths, permanent });
 export const renamePath = (oldPath: string, newPath: string) =>

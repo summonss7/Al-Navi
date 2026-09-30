@@ -97,22 +97,22 @@ class OpsStore {
     return null;
   }
 
-  async startCopy(paths: string[], destDir: string) {
+  async startCopy(paths: string[], dest: string) {
     this.begin(i18n.t("ops.copy"));
     ui.openDialog("progress");
     try {
-      const id = await copyPaths(paths, destDir);
+      const id = await copyPaths(paths, dest);
       if (this.op) this.op.id = id;
     } catch (e) {
       this.op = { ...this.op!, phase: "done", errors: [{ path: "", error: String(e) }] };
     }
   }
 
-  async startMove(paths: string[], destDir: string) {
+  async startMove(paths: string[], dest: string) {
     this.begin(i18n.t("ops.move"));
     ui.openDialog("progress");
     try {
-      const id = await movePaths(paths, destDir);
+      const id = await movePaths(paths, dest);
       if (this.op) this.op.id = id;
     } catch (e) {
       this.op = { ...this.op!, phase: "done", errors: [{ path: "", error: String(e) }] };

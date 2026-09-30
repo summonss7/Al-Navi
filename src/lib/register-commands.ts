@@ -312,12 +312,34 @@ async function startTransfer(kind: "copy" | "move", currentOnly = false) {
     : p.targetEntries;
   if (!entries.length) return;
   const paths = entries.map((e) => joinPath(p.path, e.name));
-  const dest = panels.inactive.path;
+  // single file: prefill the target name as well (FAR-style), so editing it
+  // turns F5/F6 into copy/move-with-rename; pressing Enter unchanged keeps
+  // the old "to the other panel" result
+  const dest = entries.length === 1 && !entries[0].isDir
+    ? joinPath(panels.inactive.path, entries[0].name)
+    : panels.inactive.path;
   const title = kind === "copy" ? i18n.t("ops.copyTo", { n: entries.length }) : i18n.t("ops.moveTo", { n: entries.length });
   const answer = await ui.askInput(title, i18n.t("ops.dst"), dest);
   if (!answer) return;
-  if (kind === "copy") void ops.startCopy(paths, answer);
-  else void ops.startMove(paths, answer);
+  const target = resolveTransferTarget(answer.trim(), p.path);
+  if (!target) return;
+  if (kind === "copy") void ops.startCopy(paths, target);
+  else void ops.startMove(paths, target);
+}
+
+// The transfer target may be a directory ("into it") or, for a single item,
+// a path ending with the new name (FAR-style). Relative input resolves
+// against the active panel dir — a bare name renames in the current folder.
+// A trailing separator must survive the join: the backend reads it as
+// "into this directory" rather than "rename to this name".
+function resolveTransferTarget(input: string, cwd: string): string | null {
+  if (!input) return null;
+  if (/^[A-Za-z]:[\\/]/.test(input) || input.startsWith("\\\\") || input.startsWith("/")) return input;
+  const endsWithSep = /[\\/]$/.test(input);
+  const base = input.replace(/[\\/]+$/, "");
+  if (!base) return null;
+  const joined = joinPath(cwd, base);
+  return endsWithSep ? joined + (joined.includes("\\") ? "\\" : "/") : joined;
 }
 
 async function startDelete(permanent: boolean, currentOnly = false) {

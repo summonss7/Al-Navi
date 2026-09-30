@@ -47,7 +47,8 @@ if [ -d "$PF_DIR" ] || mkdir -p "$PF_DIR" 2>/dev/null; then
     # the exe path never changes, so Explorer keeps serving the icon from its
     # per-path cache — desktop shortcuts would keep showing the old icon even
     # for freshly created ones. ie4uinit -show rebuilds the cache (Win10/11,
-    # no admin, no Explorer restart).
+    # no admin, no Explorer restart). It does NOT touch the small-size caches
+    # the taskbar uses — for a stale taskbar pin run scripts/fix-icon-cache.ps1.
     ie4uinit.exe -show >/dev/null 2>&1 || true
   else
     echo "    FAILED — copy $OUT into C:\\Al-Navi manually"

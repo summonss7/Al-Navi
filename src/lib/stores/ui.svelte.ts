@@ -30,6 +30,9 @@ export interface InputRequest {
   title: string;
   prompt: string;
   value: string;
+  /** name inserted by Shift+Enter (F5/F6 transfer dialogs: rename in place);
+   *  undefined = Shift+Enter does nothing */
+  resetTo?: string;
   resolve: (value: string | null) => void;
 }
 
@@ -86,9 +89,9 @@ class UIStore {
     });
   }
 
-  askInput(title: string, prompt: string, value = ""): Promise<string | null> {
+  askInput(title: string, prompt: string, value = "", resetTo?: string): Promise<string | null> {
     return new Promise((resolve) => {
-      this.inputReq = { title, prompt, value, resolve: (v) => { this.inputReq = null; this.dialog = null; resolve(v); } };
+      this.inputReq = { title, prompt, value, resetTo, resolve: (v) => { this.inputReq = null; this.dialog = null; resolve(v); } };
       this.dialog = "input";
     });
   }

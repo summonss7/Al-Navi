@@ -178,6 +178,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     F11: "ui.plugins",
     "Ctrl+Y": "editor.deleteLine",
     "Ctrl+G": "editor.gotoLine",
+    "Ctrl+Shift+L": "editor.convertLayout",
     F1: "ui.help",
     Esc: "editor.close",
     "Ctrl+Tab": "ui.nextTab",

@@ -257,6 +257,11 @@ export function registerAllCommands() {
     const { deleteLineCmd } = await import("$lib/editor/cm");
     deleteLineCmd();
   });
+  registerCommand("editor.convertLayout", async () => {
+    const { convertLayoutCmd } = await import("$lib/editor/cm");
+    const n = convertLayoutCmd("auto");
+    if (!n) ui.showToast(i18n.t("plug.noSel"));
+  });
   registerCommand("editor.gotoLine", async () => {
     const lineStr = await ui.askInput(i18n.t("editor.gotoLine"), i18n.t("editor.lineNo"), "1");
     if (!lineStr) return;
@@ -319,12 +324,23 @@ async function startTransfer(kind: "copy" | "move", currentOnly = false) {
     ? joinPath(panels.inactive.path, entries[0].name)
     : panels.inactive.path;
   const title = kind === "copy" ? i18n.t("ops.copyTo", { n: entries.length }) : i18n.t("ops.moveTo", { n: entries.length });
-  const answer = await ui.askInput(title, i18n.t("ops.dst"), dest);
+  // single item (file or dir): Shift+Enter in the dialog replaces the field
+  // with this name — a bare name renames/copies-as-new-name in the current
+  // folder; multi-selection has no single name, so the key stays inert there
+  const resetTo = entries.length === 1 ? entries[0].name : undefined;
+  const answer = await ui.askInput(title, i18n.t("ops.dst"), dest, resetTo);
   if (!answer) return;
   const target = resolveTransferTarget(answer.trim(), p.path);
   if (!target) return;
+  // unchanged Shift+Enter target = the item itself: a no-op for files, and
+  // for dirs an existing-dir target would mean "into itself" (recursion)
+  if (resetTo && stripTrailingSep(target) === stripTrailingSep(paths[0])) return;
   if (kind === "copy") void ops.startCopy(paths, target);
   else void ops.startMove(paths, target);
+}
+
+function stripTrailingSep(p: string): string {
+  return p.replace(/[\\/]+$/, "");
 }
 
 // The transfer target may be a directory ("into it") or, for a single item,

@@ -16,7 +16,7 @@
   import { textColors, type BuiltinRule, type MaskRule } from "$lib/stores/textColors.svelte";
   import { ftpSites } from "$lib/stores/ftpSites.svelte";
   import { newFtpSite, type FtpSite } from "$lib/ftp";
-  import { EDITOR_PLUGINS, type CaseMode } from "$lib/plugins";
+  import { EDITOR_PLUGINS, type CaseMode, type LayoutMode } from "$lib/plugins";
   import type { DriveInfo } from "$lib/types";
 
   let appVer = $state<AppInfo | null>(null);
@@ -144,12 +144,30 @@
     return EDITOR_PLUGINS.find((p) => p.id === pluginSel)?.modes ?? [];
   }
 
+  function pluginIcon(): string {
+    return EDITOR_PLUGINS.find((p) => p.id === pluginSel)?.icon ?? "ph-puzzle-piece";
+  }
+
   async function applyCaseMode(mode: CaseMode) {
     ui.closeDialog();
     pluginSel = null;
     const { changeCaseCmd } = await import("$lib/editor/cm");
     const n = changeCaseCmd(mode);
     if (!n) ui.showToast(i18n.t("plug.noSel"));
+  }
+
+  async function applyLayoutMode(mode: LayoutMode) {
+    ui.closeDialog();
+    pluginSel = null;
+    const { convertLayoutCmd } = await import("$lib/editor/cm");
+    const n = convertLayoutCmd(mode);
+    if (!n) ui.showToast(i18n.t("plug.noSel"));
+  }
+
+  /** run the chosen mode of the chosen F11 plugin */
+  function applyPluginMode(pluginId: string, modeId: string) {
+    if (pluginId === "layout") return void applyLayoutMode(modeId as LayoutMode);
+    return void applyCaseMode(modeId as CaseMode);
   }
 
   function listCount(): number {
@@ -210,7 +228,7 @@
           }
         } else {
           const m = pluginModes()[i];
-          if (m) void applyCaseMode(m.id as CaseMode);
+          if (m && pluginSel) applyPluginMode(pluginSel, m.id);
         }
         break;
       }
@@ -353,6 +371,23 @@
     ui.inputReq?.resolve(null);
   }
 
+  // F5/F6 transfer dialogs seed `resetTo` with the current file name —
+  // Shift+Enter clears the field and drops that name in (selected, ready to
+  // be retyped over), so a bare name + Enter renames in the current folder.
+  // In dialogs without a name Shift+Enter is simply swallowed: it must not
+  // submit, or a slipped Shift turns Enter into an accidental transfer.
+  function onInputKey(e: KeyboardEvent) {
+    if (e.key !== "Enter" || !e.shiftKey) return;
+    e.preventDefault(); // stop the implicit form submit
+    const name = ui.inputReq?.resetTo;
+    if (name === undefined) return;
+    inputVal = name;
+    const el = e.currentTarget as HTMLInputElement;
+    el.value = name; // applied now; the binding flush would be too late for select()
+    // a timeout, not rAF: rAF never fires while the window is hidden/minimized
+    setTimeout(() => el.select(), 0);
+  }
+
   // progress helpers
   function pct(op: { bytesDone: number; bytesTotal: number }): number {
     if (!op.bytesTotal) return 0;
@@ -429,7 +464,7 @@
       <div class="dlg-title"><i class="ph-duotone ph-pencil-simple"></i>{ui.inputReq.title}</div>
       <form class="dlg-body" onsubmit={(e) => { e.preventDefault(); submitInput(); }}>
         <label class="lbl">{ui.inputReq.prompt}</label>
-        <input bind:value={inputVal} use:autofocus spellcheck="false" style="width:100%" />
+        <input bind:value={inputVal} use:autofocus spellcheck="false" style="width:100%" onkeydown={onInputKey} />
       </form>
       <div class="dlg-actions">
         <button class="btn" onclick={closeInput}>{i18n.t("common.cancel")}</button>
@@ -706,9 +741,9 @@
             <button
               class="li"
               class:kbd={listIdx === i}
-              onclick={() => void applyCaseMode(m.id as CaseMode)}
+              onclick={() => pluginSel && applyPluginMode(pluginSel, m.id)}
             >
-              <i class="ph-duotone ph-text-aa"></i>{i18n.t(m.labelKey)}
+              <i class="ph-duotone {pluginIcon()}"></i>{i18n.t(m.labelKey)}
             </button>
           {/each}
         {/if}

@@ -21,7 +21,7 @@ import { basicSetup } from "codemirror";
 import { extOf } from "$lib/format";
 import { settings } from "$lib/stores/settings.svelte";
 import { textColors } from "$lib/stores/textColors.svelte";
-import { transformCase, type CaseMode } from "$lib/plugins";
+import { transformCase, convertLayout, type CaseMode, type LayoutMode } from "$lib/plugins";
 
 // language packs
 import { javascript } from "@codemirror/lang-javascript";
@@ -307,6 +307,24 @@ export function changeCaseCmd(mode: CaseMode): number {
       from: r.from,
       to: r.to,
       insert: transformCase(view.state.sliceDoc(r.from, r.to), mode),
+    });
+  }
+  if (changes.length) view.dispatch({ changes });
+  return changes.length;
+}
+
+/** F11 layout plugin: convert every non-empty selection range between the
+ *  Latin and the ЙЦУКЕН layout ("Ghbdtn" <-> "Привет"). Returns the number
+ *  of ranges changed (0 = nothing selected). */
+export function convertLayoutCmd(mode: LayoutMode): number {
+  if (!view) return 0;
+  const changes: { from: number; to: number; insert: string }[] = [];
+  for (const r of view.state.selection.ranges) {
+    if (r.empty) continue;
+    changes.push({
+      from: r.from,
+      to: r.to,
+      insert: convertLayout(view.state.sliceDoc(r.from, r.to), mode),
     });
   }
   if (changes.length) view.dispatch({ changes });

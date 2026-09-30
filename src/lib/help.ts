@@ -103,6 +103,7 @@ export const HELP_SECTIONS: HelpSection[] = [
     title: "help.dlg",
     items: [
       { chord: "↑ ↓ ← →", key: "help.dlg.nav" },
+      { chord: "↑ ↓ · F5/F6", key: "help.dlg.variants" },
       { chord: "Enter", key: "help.dlg.ok" },
       { chord: "Esc", key: "help.dlg.close" },
       { chord: "C:, D: …", key: "help.dlg.drive" },

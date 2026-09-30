@@ -1,6 +1,6 @@
 import { registerCommand } from "$lib/commands";
-import { mkdir, renamePath, openPath, homePath, ftpMkdir } from "$lib/api";
-import { joinPath, sortArrow } from "$lib/format";
+import { mkdir, renamePath, openPath, homePath, ftpMkdir, pathExists, loadJson, saveJson } from "$lib/api";
+import { joinPath, sortArrow, parentOf, pathKey } from "$lib/format";
 import { isFtpPath } from "$lib/ftp";
 import { panels } from "$lib/stores/panels.svelte";
 import { ui } from "$lib/stores/ui.svelte";
@@ -302,6 +302,53 @@ function setSort(mode: "name" | "ext" | "mtime" | "size" | "unsorted") {
   ui.showToast(i18n.t(`panel.sort${label}`) + arrow);
 }
 
+// ---- F5/F6 destination variants ----
+// the transfer dialog offers preset targets cycled with ↑/↓: the opposite
+// panel, "..", home, C:\temp and the drive root (each only if it exists),
+// followed by recently used absolute targets, persisted like cmd-history.json
+const XFER_HISTORY_MAX = 8;
+let xferHistory: string[] | null = null; // null = not loaded yet
+
+async function transferVariants(activePath: string, inactivePath: string): Promise<string[]> {
+  const home = await homePath().catch(() => null);
+  const driveRoot = /^[A-Za-z]:/.exec(activePath)?.[0] + "\\" || null;
+  const candidates = [
+    inactivePath,
+    parentOf(activePath), // ".."
+    home,
+    "C:\\temp",
+    driveRoot,
+  ].filter((v): v is string => !!v && pathKey(v) !== pathKey(activePath));
+  const exists = await Promise.all(candidates.map((c) => pathExists(c).catch(() => false)));
+  const seen = new Set<string>();
+  const variants: string[] = [];
+  candidates.forEach((c, i) => {
+    if (!exists[i]) return;
+    const k = pathKey(c);
+    if (seen.has(k)) return;
+    seen.add(k);
+    variants.push(c);
+  });
+  if (!xferHistory) xferHistory = (await loadJson<string[]>("xfer-history.json").catch(() => null)) ?? [];
+  for (const h of xferHistory) {
+    const k = pathKey(h);
+    if (!seen.has(k)) {
+      seen.add(k);
+      variants.push(h);
+    }
+  }
+  return variants;
+}
+
+// only absolute targets are meaningful history — a bare name is a rename
+function rememberTransferTarget(input: string) {
+  if (!/^[A-Za-z]:[\\/]/.test(input) && !input.startsWith("\\\\") && !input.startsWith("/")) return;
+  const key = pathKey(input);
+  const rest = (xferHistory ?? []).filter((h) => pathKey(h) !== key);
+  xferHistory = [input, ...rest].slice(0, XFER_HISTORY_MAX);
+  saveJson("xfer-history.json", xferHistory).catch(() => {});
+}
+
 async function startTransfer(kind: "copy" | "move", currentOnly = false) {
   const p = panels.active;
   // the copy engine is local-only; FTP panels can view/edit but not yet
@@ -328,13 +375,15 @@ async function startTransfer(kind: "copy" | "move", currentOnly = false) {
   // with this name — a bare name renames/copies-as-new-name in the current
   // folder; multi-selection has no single name, so the key stays inert there
   const resetTo = entries.length === 1 ? entries[0].name : undefined;
-  const answer = await ui.askInput(title, i18n.t("ops.dst"), dest, resetTo);
+  const variants = await transferVariants(p.path, panels.inactive.path);
+  const answer = await ui.askInput(title, i18n.t("ops.dst"), dest, resetTo, variants);
   if (!answer) return;
   const target = resolveTransferTarget(answer.trim(), p.path);
   if (!target) return;
   // unchanged Shift+Enter target = the item itself: a no-op for files, and
   // for dirs an existing-dir target would mean "into itself" (recursion)
   if (resetTo && stripTrailingSep(target) === stripTrailingSep(paths[0])) return;
+  rememberTransferTarget(answer.trim());
   if (kind === "copy") void ops.startCopy(paths, target);
   else void ops.startMove(paths, target);
 }

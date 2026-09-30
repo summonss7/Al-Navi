@@ -78,6 +78,11 @@ export function isRootPath(p: string): boolean {
   return parentOf(p) === null;
 }
 
+/** comparison key: trailing separators and case don't change a path's identity */
+export function pathKey(p: string): string {
+  return p.replace(/[\\/]+$/, "").toLowerCase();
+}
+
 /** Direction mark for the active sort column. dir=1 is the natural order of
  *  the mode (name/ext A→Z, mtime newest first, size largest first), so for
  *  date/size dir=1 reads as descending. */

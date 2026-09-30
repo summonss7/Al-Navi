@@ -10,7 +10,7 @@
   import { LOCALES, type Locale } from "$lib/stores/i18n.svelte";
   import { drivesList, appInfo, ftpConnect, type AppInfo } from "$lib/api";
   import { latinKeyOf } from "$lib/keymap";
-  import { formatSize } from "$lib/format";
+  import { formatSize, pathKey } from "$lib/format";
   import { HELP_SECTIONS } from "$lib/help";
   import { fileColors } from "$lib/stores/fileColors.svelte";
   import { textColors, type BuiltinRule, type MaskRule } from "$lib/stores/textColors.svelte";
@@ -30,14 +30,30 @@
   function autofocus(node: HTMLElement) {
     setTimeout(() => node.focus(), 0);
   }
+  // input dialogs open with the whole value selected — typing then overtypes
+  // it; placing the caret by hand (click, arrows, Home/End) unselects and
+  // inserts instead
+  let inputEl: HTMLInputElement | null = null;
+  function focusSelect(node: HTMLInputElement) {
+    inputEl = node;
+    // a timeout, not rAF: rAF never fires while the window is hidden/minimized
+    setTimeout(() => { node.focus(); node.select(); }, 0);
+    return { destroy: () => { inputEl = null; } };
+  }
 
   // ---- confirm ----
   let confirmVal = $state(false);
 
   // ---- input ----
   let inputVal = $state("");
+  // highlighted destination variant; -1 = hand-edited field (or the initial
+  // value isn't a variant, e.g. a single file's dest+name prefill)
+  let variantIdx = $state(-1);
   $effect(() => {
-    if (ui.inputReq) inputVal = ui.inputReq.value;
+    const req = ui.inputReq;
+    if (!req) return;
+    inputVal = req.value;
+    variantIdx = req.variants?.findIndex((v) => pathKey(v) === pathKey(req.value)) ?? -1;
   });
 
   // ---- drives ----
@@ -376,17 +392,49 @@
   // be retyped over), so a bare name + Enter renames in the current folder.
   // In dialogs without a name Shift+Enter is simply swallowed: it must not
   // submit, or a slipped Shift turns Enter into an accidental transfer.
+  // With destination variants, bare ↑/↓ cycle them (wrapping like the list
+  // dialogs), the field takes the variant — selected for overtype, like open.
   function onInputKey(e: KeyboardEvent) {
+    const el = e.currentTarget as HTMLInputElement;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      const vars = ui.inputReq?.variants;
+      if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey || !vars?.length) return;
+      e.preventDefault(); // keep the native caret jump to start/end out
+      const n = vars.length;
+      variantIdx = variantIdx < 0
+        ? (e.key === "ArrowDown" ? 0 : n - 1)
+        : (variantIdx + (e.key === "ArrowDown" ? 1 : -1) + n) % n;
+      inputVal = vars[variantIdx];
+      el.value = vars[variantIdx]; // applied now; the binding flush would be too late for select()
+      setTimeout(() => el.select(), 0);
+      return;
+    }
     if (e.key !== "Enter" || !e.shiftKey) return;
     e.preventDefault(); // stop the implicit form submit
     const name = ui.inputReq?.resetTo;
     if (name === undefined) return;
     inputVal = name;
-    const el = e.currentTarget as HTMLInputElement;
     el.value = name; // applied now; the binding flush would be too late for select()
-    // a timeout, not rAF: rAF never fires while the window is hidden/minimized
     setTimeout(() => el.select(), 0);
   }
+
+  // clicking a variant = cycling onto it: the field takes it, overtype-ready
+  function pickVariant(i: number) {
+    const v = ui.inputReq?.variants?.[i];
+    if (v === undefined) return;
+    variantIdx = i;
+    inputVal = v;
+    if (inputEl) {
+      inputEl.value = v;
+      inputEl.focus();
+      setTimeout(() => inputEl?.select(), 0);
+    }
+  }
+
+  $effect(() => {
+    void variantIdx;
+    document.querySelector(".variants .li.kbd")?.scrollIntoView({ block: "nearest" });
+  });
 
   // progress helpers
   function pct(op: { bytesDone: number; bytesTotal: number }): number {
@@ -464,7 +512,16 @@
       <div class="dlg-title"><i class="ph-duotone ph-pencil-simple"></i>{ui.inputReq.title}</div>
       <form class="dlg-body" onsubmit={(e) => { e.preventDefault(); submitInput(); }}>
         <label class="lbl">{ui.inputReq.prompt}</label>
-        <input bind:value={inputVal} use:autofocus spellcheck="false" style="width:100%" onkeydown={onInputKey} />
+        <input bind:value={inputVal} use:focusSelect spellcheck="false" style="width:100%" onkeydown={onInputKey} oninput={() => { variantIdx = -1; }} />
+        {#if ui.inputReq.variants?.length}
+          <div class="variants">
+            {#each ui.inputReq.variants as v, i}
+              <button type="button" class="li" class:kbd={i === variantIdx} title={v} onclick={() => pickVariant(i)}>
+                <i class="ph-duotone ph-folder-simple"></i>{v}
+              </button>
+            {/each}
+          </div>
+        {/if}
       </form>
       <div class="dlg-actions">
         <button class="btn" onclick={closeInput}>{i18n.t("common.cancel")}</button>
@@ -1195,6 +1252,10 @@
     box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent2) 55%, transparent);
   }
   .none { color: var(--fg-muted); text-align: center; padding: 14px; }
+
+  /* F5/F6 destination variants under the transfer dialog input */
+  .variants { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; max-height: 200px; overflow-y: auto; }
+  .variants .li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
 
   .grp { color: var(--fg-muted); font-size: calc(11.5px * var(--fs-scale)); text-transform: uppercase; letter-spacing: 0.6px; margin: 12px 0 8px; }
   .grp:first-child { margin-top: 0; }

@@ -227,7 +227,7 @@
     border: 1px solid var(--border);
     background: var(--bg-panel);
     color: var(--fg-dim);
-    font-size: 12px;
+    font-size: calc(12px * var(--fs-scale));
     font-weight: 600;
     white-space: nowrap;
     flex: 1;
@@ -245,11 +245,11 @@
   .fkey.chip {
     flex: 0 0 auto;
     padding: 3px 9px;
-    font-size: 11px;
+    font-size: calc(11px * var(--fs-scale));
     gap: 6px;
   }
   .fkey.chip kbd {
     min-width: 0;
-    font-size: 10.5px;
+    font-size: calc(10.5px * var(--fs-scale));
   }
 </style>

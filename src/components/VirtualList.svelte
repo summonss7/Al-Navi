@@ -149,7 +149,7 @@
     gap: 8px;
     margin-inline: 5px;
     padding-inline: 4px;
-    font-size: 13px;
+    font-size: calc(13px * var(--fs-scale));
     cursor: default;
     white-space: nowrap;
     border-radius: 8px;
@@ -182,7 +182,7 @@
   :global([data-cursor="solid"]) .row.cursor .name { color: var(--row-cursor-fg) !important; }
 
   .row i {
-    font-size: 17px;
+    font-size: calc(17px * var(--fs-scale));
     flex-shrink: 0;
     width: 19px;
     text-align: center;
@@ -196,23 +196,23 @@
   }
   .dir .name { font-weight: 600; }
   .size {
-    width: 78px;
+    width: calc(78px * var(--fs-scale));
     text-align: end;
     color: var(--fg-dim);
-    font-size: 12px;
+    font-size: calc(12px * var(--fs-scale));
     flex-shrink: 0;
   }
   .date {
-    width: 128px;
+    width: calc(128px * var(--fs-scale));
     color: var(--fg-dim);
-    font-size: 12px;
+    font-size: calc(12px * var(--fs-scale));
     flex-shrink: 0;
     text-align: center;
   }
   .attr {
-    width: 68px;
+    width: calc(68px * var(--fs-scale));
     color: var(--fg-muted);
-    font-size: 11.5px;
+    font-size: calc(11.5px * var(--fs-scale));
     flex-shrink: 0;
     text-align: center;
     font-family: "JetBrains Mono", monospace;

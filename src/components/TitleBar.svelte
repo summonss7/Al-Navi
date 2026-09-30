@@ -35,9 +35,10 @@
   };
 
   // brand compass mark (images/icon.jpg): 8-point star — east half orange,
-  // west half lime; NE needle crosses the broken lime ring
-  const LIME = "#8EE53F";
-  const ORANGE = "#F97316";
+  // west half lime; NE needle crosses the broken lime ring.
+  // CSS vars so the mark follows user highlight-color overrides
+  const LIME = "var(--accent)";
+  const ORANGE = "var(--accent2)";
   function kite(aDeg: number, tipR: number, w: number) {
     const a = (aDeg * Math.PI) / 180;
     const pt = (r: number, ang: number) =>
@@ -183,7 +184,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 16px;
+    font-size: calc(16px * var(--fs-scale));
     letter-spacing: 0.2px;
   }
   .brand-name .al { color: var(--accent-ink); }
@@ -191,7 +192,7 @@
   .brand-name b { font-weight: 800; }
 
   .version {
-    font-size: 11px;
+    font-size: calc(11px * var(--fs-scale));
     color: var(--fg-muted);
     font-family: "JetBrains Mono", Consolas, monospace;
     white-space: nowrap;
@@ -214,7 +215,7 @@
     border-radius: var(--r-tab);
     color: var(--fg-dim);
     border: 1px solid transparent;
-    font-size: 12.5px;
+    font-size: calc(12.5px * var(--fs-scale));
     font-weight: 600;
     max-width: 180px;
   }
@@ -232,7 +233,7 @@
   .win-tab-close {
     border-radius: 4px;
     padding: 0 3px;
-    font-size: 10px;
+    font-size: calc(10px * var(--fs-scale));
     color: var(--fg-muted);
   }
   .win-tab-close:hover { background: var(--danger); color: #fff; }
@@ -245,11 +246,11 @@
     padding: 5px 11px;
     border-radius: var(--r-tab);
     color: var(--fg-dim);
-    font-size: 12.5px;
+    font-size: calc(12.5px * var(--fs-scale));
     font-weight: 600;
   }
   .tb-btn:hover { background: var(--row-hover); color: var(--fg); }
-  .tb-btn i { font-size: 16px; }
+  .tb-btn i { font-size: calc(16px * var(--fs-scale)); }
 
   .op-indicator i { animation: spin 1.1s linear infinite; color: var(--accent2); }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -262,7 +263,7 @@
     align-items: center;
     justify-content: center;
     color: var(--accent2);
-    font-size: 15px;
+    font-size: calc(15px * var(--fs-scale));
   }
   .wc:hover { background: color-mix(in srgb, var(--accent2) 14%, transparent); color: var(--accent2); }
   .wc.close:hover { background: #e81123; color: #fff; }

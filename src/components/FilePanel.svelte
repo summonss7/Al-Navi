@@ -6,9 +6,13 @@
   import { i18n } from "$lib/stores/i18n.svelte";
   import { formatSize, formatCount, basename, sortArrow } from "$lib/format";
   import { ftpAuthority, isFtpPath } from "$lib/ftp";
+  import { settings, BASE_FONT_PX } from "$lib/stores/settings.svelte";
   import VirtualList from "./VirtualList.svelte";
 
   let { panel }: { panel: PanelState } = $props();
+
+  // row height tracks the font-size setting so bigger text still fits its rows
+  const rowHeight = $derived(Math.round((26 * settings.s.fontSize) / BASE_FONT_PX));
 
   const active = $derived(panels.active === panel);
   const stats = $derived.by(() => {
@@ -148,7 +152,7 @@
   </div>
 
   <div class="list-wrap">
-    <VirtualList {panel} />
+    <VirtualList {panel} {rowHeight} />
     {#if panel.error}
       <div class="overlay-msg">
         <i class="ph-duotone ph-warning"></i>
@@ -234,13 +238,13 @@
     padding: 3px 12px;
     border-radius: var(--r-tab);
     color: var(--fg-dim);
-    font-size: 12px;
+    font-size: calc(12px * var(--fs-scale));
     font-weight: 600;
     max-width: 160px;
     border: 1px solid transparent;
     flex-shrink: 0;
   }
-  .tab i { font-size: 14px; }
+  .tab i { font-size: calc(14px * var(--fs-scale)); }
   .tab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tab:hover { color: var(--fg); background: var(--row-hover); }
   .tab.on {
@@ -254,7 +258,7 @@
     padding: 3px 7px;
     border-radius: var(--r-tab);
     color: var(--fg-muted);
-    font-size: 14px;
+    font-size: calc(14px * var(--fs-scale));
   }
   .mini:hover { color: var(--fg); background: var(--row-hover); }
 
@@ -279,7 +283,7 @@
     padding: 1px 4px;
     border-radius: 6px;
     color: var(--fg-dim);
-    font-size: 12.5px;
+    font-size: calc(12.5px * var(--fs-scale));
     font-weight: 600;
     flex-shrink: 0;
   }
@@ -292,7 +296,7 @@
   .crumb:hover { color: var(--accent-ink); background: var(--row-hover); }
   .crumb.last { color: var(--fg); font-weight: 700; }
   .panel.active .crumb.last { color: var(--accent-ink); }
-  .crumb-sep { color: var(--fg-muted); font-size: 11.5px; flex-shrink: 0; }
+  .crumb-sep { color: var(--fg-muted); font-size: calc(11.5px * var(--fs-scale)); flex-shrink: 0; }
   .qjump {
     display: inline-flex;
     align-items: center;
@@ -302,12 +306,12 @@
     background: var(--row-cursor-bg);
     border: 1px solid var(--row-cursor-border);
     color: var(--accent2);
-    font-size: 11.5px;
+    font-size: calc(11.5px * var(--fs-scale));
     font-weight: 700;
     flex-shrink: 0;
     direction: ltr;
   }
-  .qjump i { font-size: 12px; }
+  .qjump i { font-size: calc(12px * var(--fs-scale)); }
   .qjump b { font-weight: 800; }
 
   .list-wrap { position: relative; flex: 1; min-height: 0; }
@@ -320,7 +324,7 @@
     gap: 8px;
     margin-inline: 5px;
     padding-inline: 4px;
-    height: 22px;
+    height: calc(22px * var(--fs-scale));
     color: var(--fg-muted);
     border-bottom: 1px solid var(--border);
     background: var(--bg-header);
@@ -332,7 +336,7 @@
   .col {
     padding: 0;
     color: var(--fg-muted);
-    font-size: 11px;
+    font-size: calc(11px * var(--fs-scale));
     font-weight: 700;
     letter-spacing: 0.2px;
     white-space: nowrap;
@@ -340,9 +344,9 @@
   .col:hover { color: var(--fg); }
   .col.on { color: var(--accent2); }
   .col.name { flex: 1; min-width: 0; text-align: start; }
-  .col.size { width: 78px; text-align: end; }
-  .col.date { width: 128px; text-align: center; }
-  .col.attr { width: 68px; text-align: center; }
+  .col.size { width: calc(78px * var(--fs-scale)); text-align: end; }
+  .col.date { width: calc(128px * var(--fs-scale)); text-align: center; }
+  .col.attr { width: calc(68px * var(--fs-scale)); text-align: center; }
   [dir="rtl"] .col.size { text-align: start; }
 
   .overlay-msg {
@@ -360,7 +364,7 @@
     text-align: center;
     word-break: break-all;
   }
-  .overlay-msg i { font-size: 34px; }
+  .overlay-msg i { font-size: calc(34px * var(--fs-scale)); }
   .overlay-msg.soft { color: var(--fg-muted); }
 
   .p-foot {
@@ -368,7 +372,7 @@
     align-items: center;
     gap: 8px;
     padding: 5px 12px;
-    font-size: 11.5px;
+    font-size: calc(11.5px * var(--fs-scale));
     color: var(--fg-dim);
     border-top: 1px solid var(--border);
     background: var(--bg-header);

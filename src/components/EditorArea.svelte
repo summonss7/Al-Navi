@@ -155,7 +155,7 @@
     gap: 12px;
     padding: 5px 12px;
     background: var(--bg-header);
-    font-size: 11.5px;
+    font-size: calc(11.5px * var(--fs-scale));
     color: var(--fg-dim);
     flex-shrink: 0;
   }
@@ -178,7 +178,7 @@
     padding: 3px 10px;
     border-radius: var(--r-tab);
     color: var(--fg-dim);
-    font-size: 12px;
+    font-size: calc(12px * var(--fs-scale));
     font-weight: 600;
     max-width: 180px;
     border: 1px solid transparent;
@@ -190,12 +190,12 @@
     color: var(--accent-ink);
   }
   .doc-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .dot { color: var(--accent2); font-size: 10px; }
+  .dot { color: var(--accent2); font-size: calc(10px * var(--fs-scale)); }
   .x {
     padding: 0 3px;
     border-radius: 5px;
     color: var(--fg-muted);
-    font-size: 13px;
+    font-size: calc(13px * var(--fs-scale));
     line-height: 1;
   }
   .x:hover { color: var(--danger); background: var(--row-hover); }
@@ -206,7 +206,7 @@
   .dim { color: var(--fg-muted); }
   label { display: inline-flex; align-items: center; gap: 6px; }
   select {
-    font-size: 11.5px;
+    font-size: calc(11.5px * var(--fs-scale));
     padding: 2px 6px;
     border-radius: 5px;
     background: var(--bg);
@@ -221,6 +221,6 @@
     align-items: center;
     justify-content: center;
     color: var(--fg-muted);
-    font-size: 44px;
+    font-size: calc(44px * var(--fs-scale));
   }
 </style>

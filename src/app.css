@@ -14,6 +14,12 @@
   --r-card: 16px;   /* panel / dialog cards */
   --r-btn: 10px;    /* buttons, inputs */
   --r-tab: 999px;   /* pill tabs / chips */
+  /* global font scale: font-size setting = BASE_FONT_PX * this; 1 = default */
+  --fs-scale: 1;
+  /* selection hue: every row-selection / cursor tint derives from it, so a
+     single override (settings colors) recolors the whole highlight family.
+     Themes may override with their own identity (midnight = sky blue). */
+  --sel: var(--accent2);
 }
 
 /* default (pre-JS) = brand light theme */
@@ -37,12 +43,12 @@
   --border-strong: #d2cfc6;
   --row-hover: #f3f2ed;
   /* cursor = orange rounded-rect selection with glow (design.jpg) */
-  --row-cursor-bg: rgba(249, 115, 22, 0.18);
+  --row-cursor-bg: color-mix(in srgb, var(--sel) 18%, transparent);
   --row-cursor-fg: #26251f;
-  --row-cursor-border: #f97316;
-  --row-cursor-glow: 0 2px 12px rgba(249, 115, 22, 0.35);
-  --row-selected: rgba(249, 115, 22, 0.12);
-  --row-selected-border: rgba(249, 115, 22, 0.5);
+  --row-cursor-border: var(--sel);
+  --row-cursor-glow: 0 2px 12px color-mix(in srgb, var(--sel) 35%, transparent);
+  --row-selected: color-mix(in srgb, var(--sel) 12%, transparent);
+  --row-selected-border: color-mix(in srgb, var(--sel) 50%, transparent);
   --shadow: rgba(56, 54, 42, 0.22);
   --card-shadow: 0 8px 26px rgba(56, 54, 42, 0.1);
   --danger: #dc2626;
@@ -58,6 +64,8 @@
   --cm-comment: #8b949e;
   --cm-string: #0a7d6c;
   --cm-invalid: #dc2626;
+  --cm-date: #0e9bb5;
+  --cm-special: #4b21c8;
 }
 
 :root[data-theme="alnaviDark"] {
@@ -73,17 +81,17 @@
   --fg-muted: #6b7178;
   --accent: #8ee53f;
   --accent-fg: #10240a;
-  --accent-ink: #8ee53f;
+  --accent-ink: var(--accent);
   --accent2: #f97316;
   --border: #2a2e36;
   --border-strong: #3a3f49;
   --row-hover: #232830;
-  --row-cursor-bg: #8ee53f;
+  --row-cursor-bg: var(--accent);
   --row-cursor-fg: #10240a;
   --row-cursor-border: transparent;
   --row-cursor-glow: none;
-  --row-selected: rgba(249, 115, 22, 0.18);
-  --row-selected-border: rgba(249, 115, 22, 0.55);
+  --row-selected: color-mix(in srgb, var(--sel) 18%, transparent);
+  --row-selected-border: color-mix(in srgb, var(--sel) 55%, transparent);
   --shadow: rgba(0, 0, 0, 0.45);
   --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
   --danger: #ef4444;
@@ -98,6 +106,8 @@
   --cm-comment: #7d8590;
   --cm-string: #98c379;
   --cm-invalid: #ef4444;
+  --cm-date: #4dd0e1;
+  --cm-special: #e06c75;
 }
 
 :root[data-theme="midnight"] {
@@ -113,17 +123,18 @@
   --fg-muted: #5b7089;
   --accent: #8ee53f;
   --accent-fg: #10240a;
-  --accent-ink: #8ee53f;
+  --accent-ink: var(--accent);
   --accent2: #f97316;
+  --sel: #38bdf8;
   --border: #1d2c47;
   --border-strong: #2c405f;
   --row-hover: #16233c;
-  --row-cursor-bg: #8ee53f;
+  --row-cursor-bg: var(--accent);
   --row-cursor-fg: #10240a;
   --row-cursor-border: transparent;
   --row-cursor-glow: none;
-  --row-selected: rgba(56, 189, 248, 0.16);
-  --row-selected-border: rgba(56, 189, 248, 0.5);
+  --row-selected: color-mix(in srgb, var(--sel) 16%, transparent);
+  --row-selected-border: color-mix(in srgb, var(--sel) 50%, transparent);
   --shadow: rgba(2, 8, 20, 0.6);
   --card-shadow: 0 10px 30px rgba(2, 8, 20, 0.5);
   --danger: #f87171;
@@ -138,6 +149,8 @@
   --cm-comment: #676e95;
   --cm-string: #c3e88d;
   --cm-invalid: #ff5370;
+  --cm-date: #7fdbca;
+  --cm-special: #f07178;
 }
 
 :root[data-theme="solarized"] {
@@ -153,17 +166,17 @@
   --fg-muted: #93a1a1;
   --accent: #859900;
   --accent-fg: #fdf6e3;
-  --accent-ink: #859900;
+  --accent-ink: var(--accent);
   --accent2: #cb4b16;
   --border: #e2dcc8;
   --border-strong: #cdc6b0;
   --row-hover: #eee8d5;
-  --row-cursor-bg: #859900;
+  --row-cursor-bg: var(--accent);
   --row-cursor-fg: #fdf6e3;
   --row-cursor-border: transparent;
   --row-cursor-glow: none;
-  --row-selected: rgba(203, 75, 22, 0.15);
-  --row-selected-border: rgba(203, 75, 22, 0.5);
+  --row-selected: color-mix(in srgb, var(--sel) 15%, transparent);
+  --row-selected-border: color-mix(in srgb, var(--sel) 50%, transparent);
   --shadow: rgba(88, 110, 117, 0.25);
   --card-shadow: 0 8px 24px rgba(88, 110, 117, 0.18);
   --danger: #dc322f;
@@ -178,6 +191,8 @@
   --cm-comment: #93a1a1;
   --cm-string: #2aa198;
   --cm-invalid: #dc322f;
+  --cm-date: #268bd2;
+  --cm-special: #d33682;
 }
 
 :root[data-theme="contrast"] {
@@ -193,17 +208,17 @@
   --fg-muted: #909090;
   --accent: #aaff2b;
   --accent-fg: #000000;
-  --accent-ink: #aaff2b;
+  --accent-ink: var(--accent);
   --accent2: #ff8c2b;
   --border: #444444;
   --border-strong: #707070;
   --row-hover: #1c1c1c;
-  --row-cursor-bg: #aaff2b;
+  --row-cursor-bg: var(--accent);
   --row-cursor-fg: #000000;
   --row-cursor-border: transparent;
   --row-cursor-glow: none;
-  --row-selected: rgba(255, 140, 43, 0.25);
-  --row-selected-border: #ff8c2b;
+  --row-selected: color-mix(in srgb, var(--sel) 25%, transparent);
+  --row-selected-border: var(--sel);
   --shadow: rgba(0, 0, 0, 0.8);
   --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
   --danger: #ff5555;
@@ -218,6 +233,8 @@
   --cm-comment: #9aa0c8;
   --cm-string: #f1fa8c;
   --cm-invalid: #ff5555;
+  --cm-date: #8be9fd;
+  --cm-special: #f1fa8c;
 }
 
 /* ============ CodeMirror cursor line mirrors the panel cursor row ============ */
@@ -268,7 +285,7 @@ html, body {
 
 body {
   font-family: "Nunito Variable", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--fs-scale));
   background: var(--bg);
   color: var(--fg);
   -webkit-font-smoothing: antialiased;
@@ -381,7 +398,7 @@ input:focus, select:focus { border-color: var(--accent); }
 
 kbd {
   font-family: "JetBrains Mono", monospace;
-  font-size: 11px;
+  font-size: calc(11px * var(--fs-scale));
   background: var(--bg-elev);
   border: 1px solid var(--border-strong);
   border-bottom-width: 2px;

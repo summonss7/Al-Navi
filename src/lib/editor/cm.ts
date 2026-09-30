@@ -1,5 +1,5 @@
-import { EditorView, keymap, highlightActiveLine, lineNumbers, drawSelection, highlightSpecialChars } from "@codemirror/view";
-import { EditorState, Compartment } from "@codemirror/state";
+import { EditorView, keymap, highlightActiveLine, lineNumbers, drawSelection, highlightSpecialChars, ViewPlugin, Decoration, type DecorationSet, type ViewUpdate } from "@codemirror/view";
+import { EditorState, Compartment, RangeSetBuilder } from "@codemirror/state";
 import {
   defaultKeymap,
   history,
@@ -40,6 +40,64 @@ let view: EditorView | null = null;
 const langComp = new Compartment();
 const wrapComp = new Compartment();
 const readOnlyComp = new Compartment();
+const decorComp = new Compartment();
+
+/* ============ date & special-run highlighting (F4, any file incl. .txt) ============
+ * A ViewPlugin painting Decoration marks over the visible ranges — no parser
+ * needed, so plain-text notes/logs get the same treatment as code. */
+
+const dateMark = Decoration.mark({ class: "cm-date" });
+const specMark = Decoration.mark({ class: "cm-specrun" });
+
+// ISO / dotted / slashed dates with an optional HH:MM(:SS) tail, then bare times
+const DATE_RES: RegExp[] = [
+  /\d{4}-\d{2}-\d{2}(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?/g,
+  /\d{1,2}\.\d{1,2}\.\d{4}(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?/g,
+  /\d{1,2}\/\d{1,2}\/\d{4}(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?/g,
+  /\d{1,2}:\d{2}(?::\d{2})?(?:[.,]\d+)?/g,
+];
+// 3+ consecutive non-letter/non-digit/non-space chars: === --- ### >>> …
+const SPEC_RE = /[^\p{L}\p{N}\s]{3,}/gu;
+
+function buildDecors(v: EditorView): DecorationSet {
+  const taken: Array<[number, number]> = [];
+  const marks: Array<{ from: number; to: number; deco: Decoration }> = [];
+  const scan = (re: RegExp, deco: Decoration, from: number, text: string) => {
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text))) {
+      const s = from + m.index;
+      const e = s + m[0].length;
+      if (taken.some(([ts, te]) => s < te && e > ts)) continue; // earlier match wins
+      marks.push({ from: s, to: e, deco });
+      taken.push([s, e]);
+    }
+  };
+  // DATE_RES order matters: full dates claim their HH:MM tail before the bare
+  // time pattern gets a chance to overlap it
+  for (const { from, to } of v.visibleRanges) {
+    const text = v.state.sliceDoc(from, to);
+    for (const re of DATE_RES) scan(re, dateMark, from, text);
+    scan(SPEC_RE, specMark, from, text);
+  }
+  marks.sort((a, b) => a.from - b.from || a.to - b.to);
+  const b = new RangeSetBuilder<Decoration>();
+  for (const m of marks) b.add(m.from, m.to, m.deco);
+  return b.finish();
+}
+
+const decorPlugin = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+    constructor(v: EditorView) {
+      this.decorations = buildDecors(v);
+    }
+    update(u: ViewUpdate) {
+      if (u.docChanged || u.viewportChanged) this.decorations = buildDecors(u.view);
+    }
+  },
+  { decorations: (v) => v.decorations },
+);
 
 /** Al-Navi syntax colors driven by theme CSS variables.
  *  Every role gets its own hue per theme (--cm-*); definition names share the
@@ -134,6 +192,7 @@ export function createView(
       bracketMatching(),
       highlightSelectionMatches(),
       syntaxHighlighting(alnaviHighlight),
+      decorComp.of(settings.s.editorDecor ? decorPlugin : []),
       langComp.of(lang ? [lang] : []),
       wrapComp.of(settings.s.editorWordWrap ? EditorView.lineWrapping : []),
       readOnlyComp.of(opts.readOnly ? EditorState.readOnly.of(true) : []),
@@ -147,11 +206,13 @@ export function createView(
         if (u.docChanged) opts.onChange?.(u.state.doc.toString());
       }),
       EditorView.theme({
-        "&": { height: "100%", fontSize: "13.5px" },
+        "&": { height: "100%", fontSize: "calc(13.5px * var(--fs-scale))" },
         ".cm-scroller": {
           fontFamily: "'JetBrains Mono', 'Cascadia Mono', Consolas, monospace",
           lineHeight: "1.55",
         },
+        ".cm-date": { color: "var(--cm-date)", fontWeight: "700" },
+        ".cm-specrun": { color: "var(--cm-special)" },
         ".cm-content": { caretColor: "var(--accent2)" },
         "&.cm-focused": { outline: "none" },
         ".cm-gutters": {
@@ -242,7 +303,15 @@ export function setStateFor(v: EditorView, text: string, path: string | null, re
       langComp.reconfigure(lang ? [lang] : []),
       wrapComp.reconfigure(settings.s.editorWordWrap ? EditorView.lineWrapping : []),
       readOnlyComp.reconfigure(readOnly ? EditorState.readOnly.of(true) : []),
+      decorComp.reconfigure(settings.s.editorDecor ? decorPlugin : []),
     ],
+  });
+}
+
+/** Toggle date/special-run decorations on the active editor (F9 checkbox). */
+export function applyEditorDecor() {
+  view?.dispatch({
+    effects: decorComp.reconfigure(settings.s.editorDecor ? decorPlugin : []),
   });
 }
 

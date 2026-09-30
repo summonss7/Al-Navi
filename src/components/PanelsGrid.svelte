@@ -37,6 +37,6 @@
     align-items: center;
     justify-content: center;
     color: var(--fg-muted);
-    font-size: 40px;
+    font-size: calc(40px * var(--fs-scale));
   }
 </style>

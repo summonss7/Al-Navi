@@ -126,8 +126,8 @@
         return () => p.pageMove(1, p.viewportRows);
       case "ArrowLeft":
         return () => p.pageMove(-1, p.viewportRows);
-      case "PageDown": return () => p.pageMove(1, 25);
-      case "PageUp": return () => p.pageMove(-1, 25);
+      case "PageDown": return () => p.pageMove(1, p.viewportRows);
+      case "PageUp": return () => p.pageMove(-1, p.viewportRows);
       case "Home": return () => (p.cursor = 0);
       case "End": return () => (p.cursor = rows - 1);
       default: return null;

@@ -378,8 +378,125 @@ fn copy_dir_recursive(src: &Path, dst: &Path, ctx: &mut Ctx, move_mode: bool) ->
         }
     }
     if move_mode {
-        fs::remove_dir_all(src)?;
+        remove_tree(src)?;
     }
+    Ok(())
+}
+
+/// Remove a directory tree even when entries are read-only — a plain
+/// remove_dir_all fails on the first read-only file and used to leave a
+/// fully copied source behind after cross-volume moves.
+fn remove_tree(p: &Path) -> std::io::Result<()> {
+    if !p.is_dir() {
+        ensure_writable(p);
+        return fs::remove_file(p);
+    }
+    for entry in fs::read_dir(p)? {
+        remove_tree(&entry?.path())?;
+    }
+    ensure_writable(p);
+    fs::remove_dir(p)
+}
+
+/// What to do with one source entry while merging a directory move.
+#[derive(PartialEq, Eq, Debug)]
+enum EntryPlan {
+    /// destination is free — a single rename moves it instantly
+    Rename,
+    /// both sides are directories — merge them recursively
+    MergeDirs,
+    /// destination is taken by something else — copy flow (asks on conflict)
+    CopyEntry,
+}
+
+fn plan_entry(src_entry: &Path, target: &Path) -> EntryPlan {
+    if !target.exists() {
+        EntryPlan::Rename
+    } else if src_entry.is_dir() && target.is_dir() {
+        EntryPlan::MergeDirs
+    } else {
+        EntryPlan::CopyEntry
+    }
+}
+
+/// Move one file onto an existing target: honor the conflict answer, and
+/// remove the source only when it was actually copied (skip keeps it).
+fn move_one_file(src: &Path, dst: &Path, ctx: &mut Ctx) -> std::io::Result<()> {
+    if dst.exists() {
+        match ctx.ask_conflict(src, dst, false).as_str() {
+            "skip" => {
+                let sz = fs::metadata(src).map(|m| m.len()).unwrap_or(0);
+                ctx.bytes_done += sz;
+                ctx.files_done += 1;
+                return Ok(());
+            }
+            "rename" => {
+                let alt = auto_rename(dst);
+                copy_one_file_no_conflict(src, &alt, ctx)?;
+                ensure_writable(src);
+                fs::remove_file(src)?;
+                return Ok(());
+            }
+            _ => {}
+        }
+    }
+    copy_one_file_no_conflict(src, dst, ctx)?;
+    ensure_writable(src);
+    fs::remove_file(src)
+}
+
+/// Directory move with FAR-like speed: renaming is a metadata operation, so
+/// entries with a free destination are renamed one by one; only genuinely
+/// conflicting files go through the copy flow, and a failed rename (locked
+/// entry, other volume) degrades to copying that single entry — never the
+/// whole tree. The source dir is removed only if the merge emptied it.
+fn move_dir_merge(src: &Path, dst: &Path, ctx: &mut Ctx) -> std::io::Result<()> {
+    // free destination (e.g. after an auto-rename): one rename moves the
+    // entire tree; on failure fall through to the per-entry merge below
+    if !dst.exists() && rename_with_parent(src, dst) {
+        let (bytes, files) = walk_stats(std::iter::once(dst));
+        ctx.bytes_done += bytes;
+        ctx.files_done += files;
+        return Ok(());
+    }
+    fs::create_dir_all(dst)?;
+    for entry in fs::read_dir(src)? {
+        if ctx.check_pause_cancel() {
+            return Err(std::io::Error::other("cancelled"));
+        }
+        let entry = entry?;
+        let sp = entry.path();
+        let dp = dst.join(entry.file_name());
+        ctx.progress("transfer", &sp.to_string_lossy());
+        match plan_entry(&sp, &dp) {
+            EntryPlan::Rename => {
+                if rename_with_parent(&sp, &dp) {
+                    let (bytes, files) = walk_stats(std::iter::once(dp.as_path()));
+                    ctx.bytes_done += bytes;
+                    ctx.files_done += files;
+                } else if sp.is_dir() {
+                    // locked or cross-volume: copy just this entry
+                    copy_dir_recursive(&sp, &dp, ctx, true)?;
+                } else {
+                    copy_one_file_no_conflict(&sp, &dp, ctx)?;
+                    ensure_writable(&sp);
+                    fs::remove_file(&sp)?;
+                }
+            }
+            EntryPlan::MergeDirs => {
+                move_dir_merge(&sp, &dp, ctx)?;
+            }
+            EntryPlan::CopyEntry => {
+                if sp.is_dir() {
+                    copy_dir_recursive(&sp, &dp, ctx, true)?;
+                } else {
+                    move_one_file(&sp, &dp, ctx)?;
+                }
+            }
+        }
+    }
+    // skipped entries stay in the source, like FAR
+    let _ = fs::remove_dir(src);
     Ok(())
 }
 
@@ -410,7 +527,11 @@ fn transfer_one(src: &Path, dst: &Path, ctx: &mut Ctx, move_mode: bool) -> std::
             });
             return Ok(());
         }
-        copy_dir_recursive(src, &dst, ctx, move_mode)?;
+        if move_mode {
+            move_dir_merge(src, &dst, ctx)?;
+        } else {
+            copy_dir_recursive(src, &dst, ctx, false)?;
+        }
     } else if move_mode {
         match fs::rename(src, &dst) {
             Ok(()) => {
@@ -515,6 +636,22 @@ fn rename_with_parent(src: &Path, dst: &Path) -> bool {
     false
 }
 
+/// Windows paths are case-insensitive: D:\A and d:\a are the same
+/// directory, so a plain PathBuf comparison misses self-targets.
+fn same_path(a: &Path, b: &Path) -> bool {
+    if a == b {
+        return true;
+    }
+    #[cfg(windows)]
+    {
+        a.to_string_lossy().eq_ignore_ascii_case(&b.to_string_lossy())
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
+}
+
 fn run_transfer(
     app: AppHandle,
     mgr: OpManager,
@@ -536,7 +673,7 @@ fn run_transfer(
             Some(name) => dest.join(name),
             None => dest.join(src.file_name().unwrap_or_default()),
         };
-        if dstd != src {
+        if !same_path(&dstd, &src) {
             pairs.push((src, dstd));
         }
     }
@@ -573,7 +710,8 @@ fn run_transfer(
     }
 
     // Phase B — full transfer with prescan (copies, cross-volume moves,
-    // conflicts with an existing destination)
+    // conflicts with an existing destination: dir moves merge per entry —
+    // renames where possible, copies only what really conflicts)
     ctx.progress("scan", "");
     let (bytes, files) = walk_stats(pairs.iter().map(|(s, _)| s.as_path()));
     ctx.bytes_total = bytes;

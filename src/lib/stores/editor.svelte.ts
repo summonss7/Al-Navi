@@ -1,5 +1,5 @@
-import { readText, writeText, ftpReadText, ftpWriteText, loadJson, saveJson } from "$lib/api";
-import { basename } from "$lib/format";
+import { readText, writeText, ftpReadText, ftpWriteText, loadJson, saveJson, pathExists } from "$lib/api";
+import { basename, isAbsolutePath, joinPath } from "$lib/format";
 import { isFtpPath } from "$lib/ftp";
 import { ui } from "./ui.svelte";
 import { i18n } from "./i18n.svelte";
@@ -37,7 +37,14 @@ let seq = 1;
 /** last known positions per file path, persisted across restarts */
 const POS_FILE = "editor-state.json";
 const POS_MAX = 100;
-let savedPos: Record<string, EditorPos> | null = null;
+/** persisted entry with a recency stamp — a plain position record is the
+ *  pre-1.7.1 format; the stamp keeps the trim below truly newest-first
+ *  (Rust's serde round-trip re-orders JSON object keys alphabetically) */
+interface SavedEntry {
+  pos: EditorPos;
+  ts: number;
+}
+let savedPos: Record<string, SavedEntry> | null = null;
 
 /** local or FTP read with the same auto-detect settings */
 function readTextAny(path: string) {
@@ -55,11 +62,20 @@ class EditorStore {
 
   /** load remembered caret positions (used when a file is opened again) */
   async init() {
-    savedPos = (await loadJson<Record<string, EditorPos>>(POS_FILE).catch(() => null)) ?? {};
+    const raw = await loadJson<Record<string, EditorPos | SavedEntry>>(POS_FILE).catch(() => null);
+    savedPos = {};
+    if (raw) {
+      for (const [k, v] of Object.entries(raw)) {
+        // entries without a stamp are the pre-1.7.1 bare-position format
+        savedPos[k] = v && typeof (v as SavedEntry).ts === "number" && (v as SavedEntry).pos
+          ? (v as SavedEntry)
+          : { pos: v as EditorPos, ts: 0 };
+      }
+    }
   }
 
   private savedPosFor(path: string): EditorPos | undefined {
-    return savedPos?.[path];
+    return savedPos?.[path]?.pos;
   }
 
   /** remember the caret/scroll of an open editor doc (tab switch / remount) */
@@ -75,21 +91,23 @@ class EditorStore {
   }
 
   /** merge the positions of everything still open (plus recently closed ones)
-   *  into editor-state.json, capped, newest first */
-  persistAll() {
+   *  into editor-state.json, keeping the most recent POS_MAX paths */
+  async persistAll(): Promise<void> {
     if (!savedPos) return;
-    for (const d of this.docs) if (d.path && d.pos) savedPos[d.path] = d.pos;
-    for (const d of this.viewDocs) if (d.pos) savedPos[d.path] = d.pos;
+    const now = Date.now();
+    for (const d of this.docs) if (d.path && d.pos) savedPos[d.path] = { pos: d.pos, ts: now };
+    for (const d of this.viewDocs) if (d.pos) savedPos[d.path] = { pos: d.pos, ts: now };
     const entries = Object.entries(savedPos);
     if (entries.length > POS_MAX) {
-      savedPos = Object.fromEntries(entries.slice(entries.length - POS_MAX));
+      entries.sort((a, b) => b[1].ts - a[1].ts);
+      savedPos = Object.fromEntries(entries.slice(0, POS_MAX));
     }
-    saveJson(POS_FILE, savedPos).catch(() => {});
+    await saveJson(POS_FILE, savedPos).catch(() => {});
   }
 
   /** keep a position of a doc being closed so a reopen restores it */
   private keepOnClose(path: string | null, pos: EditorPos | undefined) {
-    if (path && pos && savedPos) savedPos[path] = pos;
+    if (path && pos && savedPos) savedPos[path] = { pos, ts: Date.now() };
   }
 
   get active(): EditorDoc | null {
@@ -131,22 +149,38 @@ class EditorStore {
     }
   }
 
+  /** Shift+F4 (FAR-style): ask for the name up front with an empty field,
+   *  create the empty file right in the given directory (or wherever the
+   *  entered absolute path points) and open it; an existing file just opens */
   async newFile(dir?: string): Promise<void> {
-    const doc: EditorDoc = {
-      id: seq++,
-      path: null,
-      name: i18n.t("editor.untitled"),
-      dirty: false,
-      encoding: "utf-8",
-      eol: "lf",
-      truncated: false,
-      text: "",
-    };
-    // keep optional target dir for first save
-    (doc as EditorDoc & { dir?: string }).dir = dir;
-    this.docs = [...this.docs, doc];
-    this.activeId = doc.id;
-    ui.setMode("editor");
+    const name = await ui.askInput(i18n.t("editor.newFileTitle"), i18n.t("editor.fileNamePrompt"), "");
+    const trimmed = name?.trim();
+    if (!trimmed) return;
+    const target = isAbsolutePath(trimmed) || isFtpPath(trimmed) ? trimmed : joinPath(dir ?? "", trimmed);
+    try {
+      if (!isFtpPath(target) && await pathExists(target)) {
+        await this.open(target);
+        return;
+      }
+      if (isFtpPath(target)) await ftpWriteText(target, "", "utf-8", "lf");
+      else await writeText(target, "", "utf-8", "lf");
+      const doc: EditorDoc = {
+        id: seq++,
+        path: target,
+        name: basename(target),
+        dirty: false,
+        encoding: "utf-8",
+        eol: "lf",
+        truncated: false,
+        text: "",
+        pos: this.savedPosFor(target),
+      };
+      this.docs = [...this.docs, doc];
+      this.activeId = doc.id;
+      ui.setMode("editor");
+    } catch (e) {
+      ui.showError(String(e));
+    }
   }
 
   activate(id: number) {
@@ -218,10 +252,14 @@ class EditorStore {
   async saveAs(id = this.activeId): Promise<boolean> {
     const d = this.docs.find((x) => x.id === id);
     if (!d) return false;
-    const dir = (d as EditorDoc & { dir?: string }).dir;
-    const suggestion = d.path ?? (dir ? `${dir}${dir.endsWith("\\") || dir.endsWith("/") ? "" : "/"}new-file.txt` : "new-file.txt");
-    const target = await ui.askInput(i18n.t("editor.saveAs"), i18n.t("rename.prompt"), suggestion);
+    const oldPath = d.path;
+    const target = await ui.askInput(i18n.t("editor.saveAs"), i18n.t("rename.prompt"), oldPath ?? "new-file.txt");
     if (!target) return false;
+    // carry the remembered caret position over to the new path
+    if (savedPos && oldPath && oldPath !== target && savedPos[oldPath]) {
+      savedPos[target] = savedPos[oldPath];
+      delete savedPos[oldPath];
+    }
     d.path = target;
     d.name = basename(target);
     return this.save(id);

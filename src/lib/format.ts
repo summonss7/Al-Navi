@@ -53,6 +53,12 @@ export function joinPath(dir: string, name: string): string {
   return dir + sep + name;
 }
 
+/** absolute local path: drive root (X:\ or X:/) or UNC (\\server\...);
+ *  ftp:// paths are detected by isFtpPath separately */
+export function isAbsolutePath(p: string): boolean {
+  return /^([a-zA-Z]:[\\/]|\\\\)/.test(p);
+}
+
 export function parentOf(p: string): string | null {
   // FTP: "ftp://user@host:port/a/b" -> "ftp://user@host:port/a", root -> null
   if (p.startsWith("ftp://")) {

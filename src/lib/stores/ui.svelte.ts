@@ -73,6 +73,8 @@ class UIStore {
 
   closeDialog() {
     this.dialog = null;
+    // the errors dialog's text must not outlive the dialog itself
+    this.errorText = null;
   }
 
   setMode(m: UIMode) {

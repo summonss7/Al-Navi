@@ -39,6 +39,15 @@
     const chord = chordOf(e);
     if (!chord) return;
 
+    // a finished operation is a result dialog: Esc/Enter close it (while
+    // the op is still running the progress dialog stays keyboard-transparent)
+    if (ui.dialog === "progress" && ops.op?.phase === "done" && (chord === "Enter" || chord === "Esc")) {
+      e.preventDefault();
+      e.stopPropagation();
+      ops.finishOp();
+      return;
+    }
+
     if (ctx !== "panel") {
       const cmdId = defaultKeymap[ctx]?.[chord];
       if (cmdId) {
@@ -149,7 +158,9 @@
         await panels.init();
         ops.init();
         void searchStore.init();
-        void editor.init();
+        // awaited: an F4 in the first moments after launch must find the
+        // remembered positions, not an empty map
+        await editor.init();
         void cmdline.init();
         void fileColors.init();
         void textColors.init();
@@ -165,6 +176,21 @@
       editor.persistAll();
     };
     window.addEventListener("beforeunload", beforeUnload);
+
+    // native X close: persist editor/viewer caret positions before the
+    // webview dies — beforeunload doesn't fire reliably on a Tauri close
+    import("@tauri-apps/api/window")
+      .then(({ getCurrentWindow }) =>
+        getCurrentWindow().onCloseRequested(async (e) => {
+          e.preventDefault();
+          panels.saveSession();
+          await editor.persistAll();
+          await getCurrentWindow().destroy();
+        }),
+      )
+      .catch(() => {
+        /* browser preview: no native window */
+      });
 
     return () => {
       window.removeEventListener("keydown", onKeyDown, { capture: true });

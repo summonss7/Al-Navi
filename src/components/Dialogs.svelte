@@ -678,7 +678,7 @@
           <button class="btn" onclick={() => ops.toBackground()}>{i18n.t("ops.background")}</button>
           <button class="btn danger" onclick={() => ops.cancel()}>{i18n.t("ops.cancel")}</button>
         {:else}
-          <button class="btn primary" onclick={() => ops.finishOp()}>{i18n.t("common.close")}</button>
+          <button class="btn primary" use:autofocus onclick={() => ops.finishOp()}>{i18n.t("common.close")}</button>
         {/if}
       </div>
     </div>
@@ -1282,7 +1282,7 @@
       <div class="dlg-title err-t"><i class="ph-duotone ph-warning-octagon"></i>{i18n.t("errors.access")}</div>
       <div class="dlg-body mono err-body">{ui.errorText}</div>
       <div class="dlg-actions">
-        <button class="btn primary" onclick={() => { ui.errorText = null; ui.closeDialog(); }}>{i18n.t("common.close")}</button>
+        <button class="btn primary" use:autofocus onclick={() => { ui.errorText = null; ui.closeDialog(); }}>{i18n.t("common.close")}</button>
       </div>
     </div>
   </div>

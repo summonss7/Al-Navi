@@ -217,7 +217,9 @@ export function registerAllCommands() {
   registerCommand("app.quit", async () => {
     if (await ui.askConfirm(i18n.t("menu.quitConfirm"))) {
       panels.saveSession();
-      editor.persistAll();
+      void editor.persistAll();
+      // close() raises the close-requested event: its handler (App.svelte)
+      // persists the positions again and destroys the window
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       void getCurrentWindow().close();
     }

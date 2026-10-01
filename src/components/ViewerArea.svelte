@@ -22,12 +22,20 @@
   let hexOffset = $state(0);
   let hexRows = $state<{ off: number; bytes: number[] }[]>([]);
   let hexFileSize = $state(0);
+  let lastHexId = -1;
   const PAGE = 4096;
 
   $effect(() => {
     const d = editor.activeViewer;
     if (d && d.mode === "hex") {
+      if (d.id !== lastHexId) {
+        // reopen where the file was last read (position memory)
+        hexOffset = d.pos?.hexOffset ?? 0;
+        lastHexId = d.id;
+      }
       void loadHex(d.path, hexOffset);
+    } else {
+      lastHexId = -1;
     }
   });
 
@@ -48,6 +56,9 @@
   function hexPage(delta: number) {
     const next = Math.max(0, Math.min(hexOffset + delta * PAGE, hexFileSize - 1));
     hexOffset = Math.floor(next / 16) * 16;
+    // remember the page for the next open of this file
+    const d = editor.activeViewer;
+    if (d) editor.saveViewPos(d.id, { ...(d.pos ?? { anchor: 0, head: 0, scrollTop: 0 }), hexOffset });
   }
 
   const hex = (b: number) => b.toString(16).padStart(2, "0").toUpperCase();

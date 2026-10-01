@@ -361,6 +361,8 @@ export interface EditorPos {
   anchor: number;
   head: number;
   scrollTop: number;
+  /** hex viewer page offset (viewer docs only) */
+  hexOffset?: number;
 }
 
 export function capturePos(v: EditorView): EditorPos {

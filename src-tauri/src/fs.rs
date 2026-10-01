@@ -81,8 +81,7 @@ fn mtime_ms(md: &fs::Metadata) -> i64 {
         .unwrap_or(0)
 }
 
-fn build_entry(path: &Path, name: String) -> Option<EntryDto> {
-    let md = fs::symlink_metadata(path).ok()?;
+fn build_entry(path: &Path, md: &fs::Metadata, name: String) -> Option<EntryDto> {
     let is_symlink = md.file_type().is_symlink();
     // For symlinks follow the target to know whether it points to a directory
     let is_dir = if is_symlink {
@@ -112,17 +111,40 @@ fn build_entry(path: &Path, name: String) -> Option<EntryDto> {
     })
 }
 
+/// Free/total space of the filesystem that contains `path`.
+#[cfg(windows)]
+fn free_total(path: &Path) -> (u64, u64) {
+    use std::os::windows::ffi::OsStrExt;
+    #[link(name = "kernel32")]
+    extern "system" {
+        // one direct volume query for the path — unlike a full disk-list
+        // enumeration it can't stall on a stale network drive
+        fn GetDiskFreeSpaceExW(
+            directory: *const u16,
+            free_to_caller: *mut u64,
+            total: *mut u64,
+            total_free: *mut u64,
+        ) -> i32;
+    }
+    let mut wide: Vec<u16> = path.as_os_str().encode_wide().collect();
+    wide.push(0);
+    let (mut free, mut total) = (0u64, 0u64);
+    let ok =
+        unsafe { GetDiskFreeSpaceExW(wide.as_ptr(), &mut free, &mut total, std::ptr::null_mut()) };
+    if ok != 0 {
+        (free, total)
+    } else {
+        (0, 0)
+    }
+}
+
 /// Free/total space of the filesystem that contains `path` (via sysinfo mount points).
-fn sysinfo_free_total(path: &Path) -> (u64, u64) {
+#[cfg(unix)]
+fn free_total(path: &Path) -> (u64, u64) {
     use sysinfo::Disks;
     let disks = Disks::new_with_refreshed_list();
-    // canonicalize() yields a \\?\-prefixed verbatim path on Windows, which never
-    // component-matches plain mount points like "C:\" — strip the prefix
     let canon = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
-    let abs = match canon.to_str().and_then(|s| s.strip_prefix(r"\\?\")) {
-        Some(s) => PathBuf::from(s),
-        None => canon,
-    };
+    let abs = canon.to_path_buf();
     let mut best: Option<(usize, u64, u64)> = None; // (mount length, free, total)
     for d in disks.list() {
         let mp = d.mount_point();
@@ -146,12 +168,16 @@ fn list_dir_blocking(path: String) -> Result<DirListing, String> {
     for item in rd {
         let Ok(item) = item else { continue };
         let Ok(raw_name) = item.file_name().into_string() else { continue };
-        if let Some(e) = build_entry(&item.path(), raw_name) {
-            entries.push(e);
+        // DirEntry::metadata comes free with the directory read on Windows
+        // (no second stat per entry, unlike symlink_metadata(path))
+        if let Ok(md) = item.metadata() {
+            if let Some(e) = build_entry(&item.path(), &md, raw_name) {
+                entries.push(e);
+            }
         }
     }
     // ".." is added by the frontend; sorting is locale-aware on the JS side
-    let (free, total) = sysinfo_free_total(&p);
+    let (free, total) = free_total(&p);
     Ok(DirListing {
         path,
         entries,
@@ -199,7 +225,7 @@ pub fn dir_sizes(app: tauri::AppHandle, paths: Vec<String>) {
 
 #[tauri::command]
 pub async fn free_space(path: String) -> Result<(u64, u64), String> {
-    tauri::async_runtime::spawn_blocking(move || sysinfo_free_total(&PathBuf::from(path)))
+    tauri::async_runtime::spawn_blocking(move || free_total(&PathBuf::from(path)))
         .await
         .map_err(|e| e.to_string())
 }

@@ -315,12 +315,10 @@ fn copy_file_c(src: &Path, dst: &Path, ctx: &mut Ctx) -> std::io::Result<()> {
         ctx.bytes_done += n as u64;
         ctx.progress("transfer", &src.to_string_lossy());
     }
-    // preserve modification time
-    if let Ok(meta) = fs::metadata(src) {
-        if let Ok(mtime) = meta.modified() {
-            let ft = filetime::FileTime::from_system_time(mtime);
-            let _ = filetime::set_file_times(dst, ft, ft);
-        }
+    // preserve modification time (from the already-open handle, no extra stat)
+    if let Ok(mtime) = inf.metadata().and_then(|m| m.modified()) {
+        let ft = filetime::FileTime::from_system_time(mtime);
+        let _ = filetime::set_file_times(dst, ft, ft);
     }
     Ok(())
 }
@@ -433,11 +431,10 @@ fn transfer_one(src: &Path, dst: &Path, ctx: &mut Ctx, move_mode: bool) -> std::
     Ok(())
 }
 
-fn walk_stats(paths: &[String]) -> (u64, u64) {
+fn walk_stats<'a>(paths: impl IntoIterator<Item = &'a Path>) -> (u64, u64) {
     let mut bytes = 0u64;
     let mut files = 0u64;
-    for p in paths {
-        let pb = PathBuf::from(p);
+    for pb in paths {
         if pb.is_dir() {
             for e in walkdir::WalkDir::new(&pb).follow_links(false) {
                 let Ok(e) = e else { continue };
@@ -505,6 +502,19 @@ fn emit_done(ctx: &Ctx) {
     );
 }
 
+/// Rename, creating the destination parent first if needed (one retry).
+fn rename_with_parent(src: &Path, dst: &Path) -> bool {
+    if fs::rename(src, dst).is_ok() {
+        return true;
+    }
+    if let Some(parent) = dst.parent() {
+        if fs::create_dir_all(parent).is_ok() && fs::rename(src, dst).is_ok() {
+            return true;
+        }
+    }
+    false
+}
+
 fn run_transfer(
     app: AppHandle,
     mgr: OpManager,
@@ -516,33 +526,65 @@ fn run_transfer(
 ) {
     let mut ctx = new_ctx(app, id, h);
 
-    ctx.progress("scan", "");
-    let (bytes, files) = walk_stats(&paths);
-    ctx.bytes_total = bytes;
-    ctx.files_total = files;
-    if ctx.cancelled {
-        emit_done(&ctx);
-        mgr.finish(id);
-        return;
-    }
-
     let (dest, single_name) = resolve_dest(&dest, paths.len());
+    // (src, dst) pairs; a target resolved back to the source (both panels in
+    // one dir) — copying or moving an item onto itself is a no-op, not a conflict
+    let mut pairs: Vec<(PathBuf, PathBuf)> = Vec::new();
     for p in &paths {
-        if ctx.check_pause_cancel() {
-            break;
-        }
         let src = PathBuf::from(p);
         let dstd = match &single_name {
             Some(name) => dest.join(name),
             None => dest.join(src.file_name().unwrap_or_default()),
         };
-        // target resolved back to the source (both panels in one dir) —
-        // copying or moving an item onto itself is a no-op, not a conflict
-        if dstd == src {
-            continue;
+        if dstd != src {
+            pairs.push((src, dstd));
+        }
+    }
+
+    // Phase A — instant same-volume renames (move only): a same-volume move
+    // is a metadata operation no matter how many files the tree holds, so
+    // try fs::rename before any scanning or copying. Items whose destination
+    // exists (conflict flow) or which live on another volume fall through to
+    // the full transfer below.
+    if move_mode {
+        let mut rest: Vec<(PathBuf, PathBuf)> = Vec::new();
+        let mut renamed: u64 = 0;
+        for (src, dstd) in pairs {
+            if ctx.check_pause_cancel() || dstd.exists() {
+                rest.push((src, dstd));
+                continue;
+            }
+            if rename_with_parent(&src, &dstd) {
+                renamed += 1;
+                ctx.progress("transfer", &src.to_string_lossy());
+            } else {
+                rest.push((src, dstd));
+            }
+        }
+        if rest.is_empty() || ctx.cancelled {
+            // counters reflect top-level items when no copying happened
+            ctx.files_done = renamed;
+            ctx.files_total = renamed + rest.len() as u64;
+            emit_done(&ctx);
+            mgr.finish(id);
+            return;
+        }
+        pairs = rest;
+    }
+
+    // Phase B — full transfer with prescan (copies, cross-volume moves,
+    // conflicts with an existing destination)
+    ctx.progress("scan", "");
+    let (bytes, files) = walk_stats(pairs.iter().map(|(s, _)| s.as_path()));
+    ctx.bytes_total = bytes;
+    ctx.files_total = files;
+
+    for (src, dstd) in &pairs {
+        if ctx.check_pause_cancel() {
+            break;
         }
         ctx.progress("transfer", &src.to_string_lossy());
-        if let Err(e) = transfer_one(&src, &dstd, &mut ctx, move_mode) {
+        if let Err(e) = transfer_one(src, dstd, &mut ctx, move_mode) {
             if e.to_string() == "cancelled" {
                 ctx.cancelled = true;
                 break;
@@ -569,7 +611,9 @@ pub fn delete_paths(
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let mut ctx = new_ctx(app.clone(), id, h);
-        ctx.bytes_total = paths.iter().map(|p| walk_size(Path::new(p))).sum();
+        // no recursive pre-walk: the delete itself walks the tree, so a
+        // pre-scan only doubled the cost on large directories — progress is
+        // counted per selected path (bytes stay 0, the UI falls back to counts)
         ctx.files_total = paths.len() as u64;
         for (i, p) in paths.iter().enumerate() {
             if ctx.check_pause_cancel() {
@@ -594,7 +638,6 @@ pub fn delete_paths(
                 });
             }
             ctx.files_done = (i + 1) as u64;
-            ctx.bytes_done = ctx.bytes_total * ctx.files_done / ctx.files_total.max(1);
         }
         emit_done(&ctx);
         mgr.finish(id);

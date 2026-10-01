@@ -32,10 +32,10 @@ class OpsStore {
   }
 
   private onProgress(p: OpProgress) {
-    if (!this.op || this.op.id !== p.id) {
-      if (p.phase !== "done") return;
-      return;
-    }
+    // events can beat the invoke that returns the op id (an instant rename
+    // may be finished before the frontend knows its id) — the -1 placeholder
+    // accepts events from the op it was created for
+    if (!this.op || (this.op.id !== p.id && this.op.id !== -1)) return;
     if (p.phase === "done") {
       // keep result visible until user closes (or auto-close when clean)
       this.op = { ...this.op, ...p, paused: false };

@@ -11,7 +11,15 @@ pub struct DriveDto {
 }
 
 #[tauri::command]
-pub fn drives_list() -> Vec<DriveDto> {
+pub async fn drives_list() -> Result<Vec<DriveDto>, String> {
+    // volume enumeration can stall on stale network drives — keep it off the
+    // IPC thread
+    tauri::async_runtime::spawn_blocking(drives_list_blocking)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+fn drives_list_blocking() -> Vec<DriveDto> {
     let mut out: Vec<DriveDto> = Vec::new();
 
     #[cfg(windows)]

@@ -18,6 +18,9 @@ export interface TabState {
 }
 
 const UP_NAME = "..";
+/** a child dir modified this recently is still being written — its size would
+ *  be wrong anyway, so no walk is started (it would be invalidated at once) */
+const DIR_JUST_MODIFIED_MS = 5000;
 let tabSeq = 1;
 
 function newTab(path: string, history: string[] = [], historyIndex = -1): TabState {
@@ -185,14 +188,19 @@ export class PanelState {
     if (this.reloadTimer) return;
     this.reloadTimer = setTimeout(() => {
       this.reloadTimer = null;
-      // watcher fired: the dir really changed, so recompute children sizes too
-      this.refresh(true);
+      // sizes are revalidated by mtime in requestDirSizes — a forced recompute
+      // of every child here re-walked whole trees on each watcher event, even
+      // while a transfer into the watched dir was still running
+      this.refresh();
     }, 250);
   }
 
   /**
    * Show cached folder sizes instantly, then recompute stale ones in background.
-   * Results arrive via `dirsize` events and land in applyDirSize().
+   * A child dir whose own mtime is newer than its cached entry (direct content
+   * changed) is recomputed too — unless it was modified moments ago, which
+   * means it is still being written. Results arrive via `dirsize` events and
+   * land in applyDirSize().
    */
   private requestDirSizes(force: boolean) {
     // FTP: no cheap recursive sizes — skip (dirs show no size, like FAR)
@@ -200,14 +208,20 @@ export class PanelState {
       this.dirSizes = new Map();
       return;
     }
-    const names = this.raw.filter((e) => e.isDir).map((e) => e.name);
+    const now = Date.now();
     const next = new Map<string, number>();
     const stale: string[] = [];
-    for (const name of names) {
-      const p = joinPath(this.path, name);
+    for (const e of this.raw) {
+      if (!e.isDir) continue;
+      const p = joinPath(this.path, e.name);
       const cached = dirSizeCache.peek(p);
       if (cached !== undefined) next.set(p, cached);
-      if (force || dirSizeCache.isStale(p)) stale.push(p);
+      const at = dirSizeCache.peekAt(p);
+      const changedSinceCache = at !== undefined && e.mtime > at;
+      const beingWritten = now - e.mtime < DIR_JUST_MODIFIED_MS;
+      if (force || dirSizeCache.isStale(p) || (changedSinceCache && !beingWritten)) {
+        stale.push(p);
+      }
     }
     this.dirSizes = next;
     if (stale.length) computeDirSizes(stale).catch(() => {});

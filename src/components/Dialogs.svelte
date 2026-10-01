@@ -436,10 +436,16 @@
     document.querySelector(".variants .li.kbd")?.scrollIntoView({ block: "nearest" });
   });
 
-  // progress helpers
-  function pct(op: { bytesDone: number; bytesTotal: number }): number {
-    if (!op.bytesTotal) return 0;
-    return Math.min(100, Math.round((op.bytesDone / op.bytesTotal) * 100));
+  // progress helpers — byte-based when the op reports bytes, otherwise
+  // file/item-count based (instant renames, deletes without a pre-scan)
+  function pct(op: { bytesDone: number; bytesTotal: number; filesDone: number; filesTotal: number }): number {
+    if (op.bytesTotal) {
+      return Math.min(100, Math.round((op.bytesDone / op.bytesTotal) * 100));
+    }
+    if (op.filesTotal) {
+      return Math.min(100, Math.round((op.filesDone / op.filesTotal) * 100));
+    }
+    return 0;
   }
 
   // file-color rules: a small colored sample of the first mask ("*.jpg" -> "sample.jpg")
@@ -552,8 +558,10 @@
           </div>
           <div class="prow">
             <span class="mono">{pct(ops.op)}%</span>
-            <span class="mono">{formatSize(ops.op.bytesDone)} / {formatSize(ops.op.bytesTotal)}</span>
-            {#if ops.op.speed}<span class="mono dim">{formatSize(ops.op.speed)}/s</span>{/if}
+            {#if ops.op.bytesTotal}
+              <span class="mono">{formatSize(ops.op.bytesDone)} / {formatSize(ops.op.bytesTotal)}</span>
+              {#if ops.op.speed}<span class="mono dim">{formatSize(ops.op.speed)}/s</span>{/if}
+            {/if}
           </div>
           <div class="pfiles mono">
             {ops.op.filesDone} / {ops.op.filesTotal}

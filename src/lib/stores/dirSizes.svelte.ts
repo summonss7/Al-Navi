@@ -40,6 +40,11 @@ class DirSizeCache {
     return this.map.get(norm(path))?.size;
   }
 
+  /** timestamp of the cached entry (epoch ms), undefined when not cached */
+  peekAt(path: string): number | undefined {
+    return this.map.get(norm(path))?.at;
+  }
+
   isStale(path: string): boolean {
     const e = this.map.get(norm(path));
     return !e || Date.now() - e.at > TTL_MS;

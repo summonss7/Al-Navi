@@ -81,7 +81,7 @@ fn mtime_ms(md: &fs::Metadata) -> i64 {
         .unwrap_or(0)
 }
 
-fn build_entry(path: &Path, md: &fs::Metadata, name: String) -> Option<EntryDto> {
+pub(crate) fn build_entry(path: &Path, md: &fs::Metadata, name: String) -> Option<EntryDto> {
     let is_symlink = md.file_type().is_symlink();
     // For symlinks follow the target to know whether it points to a directory
     let is_dir = if is_symlink {

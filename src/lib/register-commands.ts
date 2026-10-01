@@ -1,6 +1,6 @@
 import { registerCommand } from "$lib/commands";
 import { mkdir, renamePath, openPath, homePath, ftpMkdir, pathExists, loadJson, saveJson } from "$lib/api";
-import { joinPath, sortArrow, parentOf, pathKey } from "$lib/format";
+import { joinPath, sortArrow, parentOf, pathKey, basename } from "$lib/format";
 import { isFtpPath } from "$lib/ftp";
 import { panels } from "$lib/stores/panels.svelte";
 import { ui } from "$lib/stores/ui.svelte";
@@ -9,6 +9,11 @@ import { ops } from "$lib/stores/ops.svelte";
 import { i18n } from "$lib/stores/i18n.svelte";
 import { settings } from "$lib/stores/settings.svelte";
 import { cmdline } from "$lib/stores/cmdline.svelte";
+import { isSearchPath, searchStore } from "$lib/stores/search.svelte";
+import type { FileEntry } from "$lib/types";
+
+/** real path of a panel entry — search results carry their own full path */
+const entryPath = (p: { path: string }, e: FileEntry): string => e.fullPath ?? joinPath(p.path, e.name);
 
 export function registerAllCommands() {
   const A = () => panels.active;
@@ -39,6 +44,8 @@ export function registerAllCommands() {
     panels.refreshView();
   });
   registerCommand("panel.escape", () => {
+    // Esc on a running search cancels it first (FAR find-list behavior)
+    if (searchStore.cancel()) return;
     const p = A();
     if (p.quickJumpPrefix !== null) {
       p.clearQuickJump();
@@ -88,7 +95,7 @@ export function registerAllCommands() {
   registerCommand("viewer.open", () => {
     const p = A();
     for (const e of p.targetEntries) {
-      void editor.view(joinPath(p.path, e.name));
+      void editor.view(entryPath(p, e));
     }
   });
   registerCommand("viewer.toEditor", () => editor.toEditorActive());
@@ -99,9 +106,13 @@ export function registerAllCommands() {
   registerCommand("editor.open", () => {
     const p = A();
     const first = p.targetEntries[0];
-    if (first) void editor.open(joinPath(p.path, first.name));
+    if (first) void editor.open(entryPath(p, first));
   });
-  registerCommand("editor.newFile", () => void editor.newFile(A().path));
+  registerCommand("editor.newFile", () => {
+    const p = A();
+    const dir = isSearchPath(p.path) ? searchStore.originPath ?? p.path : p.path;
+    void editor.newFile(dir);
+  });
 
   // ---------- file operations ----------
   registerCommand("fs.copy", () => startTransfer("copy"));
@@ -115,10 +126,15 @@ export function registerAllCommands() {
       ui.showError(i18n.t("ftp.opsUnsupported"));
       return;
     }
-    const nn = await ui.askInput(i18n.t("rename.title"), i18n.t("rename.prompt"), cur.name);
-    if (!nn || nn === cur.name) return;
+    // works on the find list too: the row carries its real full path, the
+    // dialog prefills and renames within the file's own directory
+    const oldPath = entryPath(p, cur);
+    const oldName = basename(oldPath);
+    const dir = parentOf(oldPath) ?? p.path;
+    const nn = await ui.askInput(i18n.t("rename.title"), i18n.t("rename.prompt"), oldName);
+    if (!nn || nn === oldName) return;
     try {
-      await renamePath(joinPath(p.path, cur.name), joinPath(p.path, nn));
+      await renamePath(oldPath, joinPath(dir, nn));
       p.refresh();
     } catch (e) {
       ui.showError(String(e));
@@ -126,6 +142,10 @@ export function registerAllCommands() {
   });
   registerCommand("fs.mkdir", async () => {
     const p = A();
+    if (isSearchPath(p.path)) {
+      ui.showError(i18n.t("search.notHere"));
+      return;
+    }
     const name = await ui.askInput(i18n.t("mkdir.title"), i18n.t("mkdir.prompt"), "");
     if (!name) return;
     try {
@@ -197,6 +217,7 @@ export function registerAllCommands() {
   registerCommand("app.quit", async () => {
     if (await ui.askConfirm(i18n.t("menu.quitConfirm"))) {
       panels.saveSession();
+      editor.persistAll();
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       void getCurrentWindow().close();
     }
@@ -272,10 +293,12 @@ export function registerAllCommands() {
     }
   });
 
+  // ---------- find files ----------
+  registerCommand("search.openDialog", () => ui.openDialog("search"));
+
   // ---------- stubs for future milestones ----------
   const stub = (featureKey: string) => () =>
     ui.showToast(i18n.t("misc.comingSoon", { feature: i18n.t(featureKey) }));
-  registerCommand("stub.search", stub("misc.feature.search"));
   registerCommand("stub.pack", stub("misc.feature.pack"));
   registerCommand("stub.unpack", stub("misc.feature.unpack"));
   registerCommand("stub.attrs", stub("misc.feature.attrs"));
@@ -357,28 +380,38 @@ async function startTransfer(kind: "copy" | "move", currentOnly = false) {
     ui.showError(i18n.t("ftp.opsUnsupported"));
     return;
   }
+  // a search-results panel on the passive side is not a writable target —
+  // fall back to where that search started
+  const destBase = isSearchPath(panels.inactive.path)
+    ? searchStore.originPath ?? panels.active.path
+    : panels.inactive.path;
   const entries = currentOnly
     ? p.current && p.current.name !== ".."
       ? [p.current]
       : []
     : p.targetEntries;
   if (!entries.length) return;
-  const paths = entries.map((e) => joinPath(p.path, e.name));
+  const paths = entries.map((e) => entryPath(p, e));
+  // search rows display the full path as their name — the prefill needs the
+  // bare file name
+  const firstRealName = entries.length ? basename(entryPath(p, entries[0])) : "";
   // single file: prefill the target name as well (FAR-style), so editing it
   // turns F5/F6 into copy/move-with-rename; pressing Enter unchanged keeps
   // the old "to the other panel" result
   const dest = entries.length === 1 && !entries[0].isDir
-    ? joinPath(panels.inactive.path, entries[0].name)
-    : panels.inactive.path;
+    ? joinPath(destBase, firstRealName)
+    : destBase;
   const title = kind === "copy" ? i18n.t("ops.copyTo", { n: entries.length }) : i18n.t("ops.moveTo", { n: entries.length });
   // single item (file or dir): Shift+Enter in the dialog replaces the field
   // with this name — a bare name renames/copies-as-new-name in the current
   // folder; multi-selection has no single name, so the key stays inert there
-  const resetTo = entries.length === 1 ? entries[0].name : undefined;
-  const variants = await transferVariants(p.path, panels.inactive.path);
+  const resetTo = entries.length === 1 ? firstRealName : undefined;
+  const variants = await transferVariants(p.path, destBase);
   const answer = await ui.askInput(title, i18n.t("ops.dst"), dest, resetTo, variants);
   if (!answer) return;
-  const target = resolveTransferTarget(answer.trim(), p.path);
+  // a bare name typed on the find list renames in the file's own directory
+  const resolveCwd = isSearchPath(p.path) ? parentOf(paths[0]) ?? destBase : p.path;
+  const target = resolveTransferTarget(answer.trim(), resolveCwd);
   if (!target) return;
   // unchanged Shift+Enter target = the item itself: a no-op for files, and
   // for dirs an existing-dir target would mean "into itself" (recursion)
@@ -419,7 +452,7 @@ async function startDelete(permanent: boolean, currentOnly = false) {
       : []
     : p.targetEntries;
   if (!entries.length) return;
-  const paths = entries.map((e) => joinPath(p.path, e.name));
+  const paths = entries.map((e) => entryPath(p, e));
   const msg = `${permanent ? i18n.t("ops.deletePermanent") : i18n.t("ops.toTrash")}: ${i18n.t("ops.deleteConfirm", { n: entries.length })}`;
   if (settings.s.confirmDelete && !(await ui.askConfirm(msg))) return;
   void ops.startDelete(paths, permanent);

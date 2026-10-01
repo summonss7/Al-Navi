@@ -1,7 +1,8 @@
 import { listDir, ftpList, ftpConnect, watchSet, onWatchChanged, onDirSize, computeDirSizes, loadJson, saveJson, homePath, openPath } from "$lib/api";
 import type { FileEntry, SortMode } from "$lib/types";
-import { extOf, joinPath, parentOf } from "$lib/format";
+import { extOf, joinPath, parentOf, basename } from "$lib/format";
 import { ftpAuthority, ftpRootOf, isFtpPath } from "$lib/ftp";
+import { isSearchPath, searchStore } from "./search.svelte";
 import { cyrillicOfLatin } from "$lib/keymap";
 import { i18n } from "./i18n.svelte";
 import { settings } from "./settings.svelte";
@@ -57,6 +58,8 @@ export class PanelState {
   private raw: FileEntry[] = [];
   private loadSeq = 0;
   private reloadTimer: ReturnType<typeof setTimeout> | null = null;
+  /** set before a chdir to place the cursor on this entry name after load */
+  pendingFocusName: string | null = null;
 
   constructor(side: "left" | "right", path: string) {
     this.side = side;
@@ -89,6 +92,24 @@ export class PanelState {
   // ---------- data ----------
 
   async load(path: string, opts: { push?: boolean; forceSizes?: boolean } = {}) {
+    // search results are served from the search store, not the backend
+    if (isSearchPath(path)) {
+      this.loading = false;
+      this.error = null;
+      this.raw = searchStore.entries();
+      this.free = 0;
+      this.total = 0;
+      const t = this.tab;
+      if (t.path !== path) {
+        t.path = path;
+        if (opts.push !== false) {
+          t.history = [...t.history.slice(0, t.historyIndex + 1), path];
+          t.historyIndex = t.history.length - 1;
+        }
+      }
+      this.rebuild();
+      return;
+    }
     const seq = ++this.loadSeq;
     this.loading = true;
     this.error = null;
@@ -132,8 +153,17 @@ export class PanelState {
   }
 
   rebuild() {
-    const prevName = this.current?.name;
-    const showHidden = settings.s.showHidden;
+    if (isSearchPath(this.tab.path)) {
+      // search results keep found-order: no hidden/system filter, no sorting
+      this.view = [
+        { name: UP_NAME, isDir: true, size: 0, mtime: 0, attrs: "", isSymlink: false, isHidden: false },
+        ...this.raw,
+      ];
+      this.restoreCursor();
+      this.version++;
+      return;
+    }
+    const prevName = this.current?.name;    const showHidden = settings.s.showHidden;
     const showSystem = settings.s.showSystem;
     let list = this.raw.filter((e) => {
       if (e.name === UP_NAME) return true;
@@ -171,14 +201,27 @@ export class PanelState {
       }
     }
     this.view = [{ name: UP_NAME, isDir: true, size: 0, mtime: 0, attrs: "", isSymlink: false, isHidden: false }, ...list];
-    // restore cursor position by name
-    let idx = prevName ? this.view.findIndex((e) => e.name === prevName) : -1;
-    if (idx < 0) {
-      // keep cursor clamped
-      idx = Math.min(this.cursor, this.view.length - 1);
-    }
+    this.restoreCursor(prevName);
+    this.version++;
+  }
+
+  /** place the cursor on pendingFocusName (set by search jump-to-location),
+   *  falling back to the previous entry name, else keep it clamped */
+  private restoreCursor(prevName?: string) {
+    const focus = this.pendingFocusName ?? prevName;
+    this.pendingFocusName = null;
+    let idx = focus ? this.view.findIndex((e) => e.name === focus) : -1;
+    if (idx < 0) idx = Math.min(this.cursor, Math.max(0, this.view.length - 1));
     this.tab.cursor = Math.max(0, idx);
-    this.version++;  }
+  }
+
+  /** streaming search results: append without re-filtering/re-sorting */
+  appendSearchHits(entries: FileEntry[]) {
+    if (!isSearchPath(this.tab.path) || !entries.length) return;
+    this.raw = [...this.raw, ...entries];
+    this.view = [...this.view, ...entries];
+    this.version++;
+  }
 
   refresh(forceSizes = false) {
     void this.load(this.path, { push: false, forceSizes });
@@ -254,7 +297,23 @@ export class PanelState {
     if (!cur) return;
     if (cur.name === UP_NAME) {
       await this.up();
-    } else if (cur.isDir) {
+      return;
+    }
+    if (isSearchPath(this.path)) {
+      const fp = cur.fullPath ?? cur.name;
+      if (cur.isDir) {
+        await this.chdir(fp);
+      } else {
+        // FAR find-list Enter: jump to the file's location, cursor on the file
+        const parent = parentOf(fp);
+        if (parent) {
+          this.pendingFocusName = basename(fp);
+          await this.chdir(parent);
+        }
+      }
+      return;
+    }
+    if (cur.isDir) {
       await this.chdir(joinPath(this.path, cur.name));
     } else if (isFtpPath(this.path)) {
       // files on FTP can't go to the OS shell — open the built-in viewer
@@ -266,6 +325,11 @@ export class PanelState {
   }
 
   async up() {
+    if (isSearchPath(this.path)) {
+      // leave the find list back to where the search started
+      await this.chdir(searchStore.originPath ?? (await homePath().catch(() => "/")));
+      return;
+    }
     const p = parentOf(this.path);
     if (p) await this.chdir(p);
   }
@@ -276,6 +340,16 @@ export class PanelState {
     if (isFtpPath(this.path)) return; // no local shell for remote paths
     const cur = this.current;
     if (!cur) return;
+    if (isSearchPath(this.path)) {
+      // result rows carry real local paths — hand them to the OS shell
+      if (cur.name === UP_NAME) {
+        const origin = searchStore.originPath;
+        if (origin) await panels.openExternally(origin);
+        return;
+      }
+      await panels.openExternally(cur.fullPath ?? cur.name);
+      return;
+    }
     if (cur.name === UP_NAME) {
       const p = parentOf(this.path);
       if (p) await panels.openExternally(p);
@@ -287,6 +361,10 @@ export class PanelState {
   async root() {
     // drive root on Windows ("/" of the drive) or filesystem root
     const path = this.path;
+    if (isSearchPath(path)) {
+      await this.up();
+      return;
+    }
     if (isFtpPath(path)) {
       await this.chdir(ftpAuthority(path));
       return;
@@ -299,7 +377,9 @@ export class PanelState {
 
   async intoDir() {
     const cur = this.current;
-    if (cur?.isDir && cur.name !== UP_NAME) await this.chdir(joinPath(this.path, cur.name));
+    if (cur?.isDir && cur.name !== UP_NAME) {
+      await this.chdir(isSearchPath(this.path) ? cur.fullPath ?? cur.name : joinPath(this.path, cur.name));
+    }
   }
 
   async historyBack() {
@@ -436,7 +516,7 @@ export class PanelState {
   }
 
   get targetPaths(): string[] {
-    return this.targetEntries.map((e) => joinPath(this.path, e.name));
+    return this.targetEntries.map((e) => e.fullPath ?? joinPath(this.path, e.name));
   }
 
   get stats(): { files: number; dirs: number; selFiles: number; selDirs: number; selBytes: number } {
@@ -599,8 +679,11 @@ class PanelsStore {
   notifyWatch() {
     if (this.watchTimer) clearTimeout(this.watchTimer);
     this.watchTimer = setTimeout(() => {
-      // the OS watcher is local-only — FTP paths are refreshed via Ctrl+R
-      const paths = [this.left.path, this.right.path].filter((p) => p && !isFtpPath(p));
+      // the OS watcher is local-only — FTP and search-result paths are
+      // refreshed via Ctrl+R
+      const paths = [this.left.path, this.right.path].filter(
+        (p) => p && !isFtpPath(p) && !isSearchPath(p),
+      );
       if (paths.length) watchSet(paths).catch(() => {});
     }, 400);
   }
@@ -626,9 +709,11 @@ class PanelsStore {
   }
 
   sessionData() {
+    // a search-results panel restores as the directory the search started in
+    const real = (p: string) => (isSearchPath(p) ? searchStore.originPath || "" : p);
     return {
-      leftPath: this.left.path,
-      rightPath: this.right.path,
+      leftPath: real(this.left.path),
+      rightPath: real(this.right.path),
       shortcuts: this.shortcuts,
     };
   }

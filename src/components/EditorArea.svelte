@@ -6,6 +6,8 @@
     setStateFor,
     lineColOf,
     setActiveView,
+    capturePos,
+    restorePos,
   } from "$lib/editor/cm";
   import { editor } from "$lib/stores/editor.svelte";
   import { ui } from "$lib/stores/ui.svelte";
@@ -15,6 +17,9 @@
   let view: EditorView | null = null;
   let pos = $state({ line: 1, col: 1, sel: 0 });
   let lastDocId = -1;
+  /** true while a programmatic doc swap runs — its change events must not
+   *  mark the target document dirty */
+  let switching = false;
 
   const ENCODINGS = ["utf-8", "utf-16le", "utf-16be", "windows-1251", "koi8-r", "cp866", "iso-8859-5"];
   const EOLS = [
@@ -30,7 +35,7 @@
     if (!host) return;
     view = createView(host, doc?.text ?? "", doc?.path ?? null, {
       onChange: (text) => {
-        if (!editor.activeId) return;
+        if (!editor.activeId || switching) return;
         editor.setText(editor.activeId, text);
         editor.markDirty(editor.activeId, true);
         pos = lineColOf(view!);
@@ -38,13 +43,23 @@
     });
     setActiveView(view);
     lastDocId = editor.activeId ?? -1;
+    // returning to the editor (or a doc reopened after restart): put the
+    // caret and scroll back where they were
+    if (doc?.pos) restorePos(view, doc.pos);
 
     const trackPos = setInterval(() => {
-      if (view) pos = lineColOf(view);
+      if (!view) return;
+      pos = lineColOf(view);
+      // keep the stored position fresh so a quit/beforeunload persists it
+      // without waiting for a tab switch
+      if (editor.activeId) editor.savePos(editor.activeId, capturePos(view));
     }, 300);
 
     return () => {
       clearInterval(trackPos);
+      // remember the caret position before the view is torn down — the
+      // component remounts on every mode switch
+      if (view && editor.activeId) editor.savePos(editor.activeId, capturePos(view));
       view?.destroy();
       setActiveView(null);
     };
@@ -63,8 +78,12 @@
     const d = editor.active;
     if (!view || !d) return;
     if (id === lastDocId) return;
+    if (lastDocId !== -1) editor.savePos(lastDocId, capturePos(view));
     lastDocId = id;
+    switching = true;
     setStateFor(view, d.text, d.path);
+    switching = false;
+    if (d.pos) restorePos(view, d.pos);
     view.focus();
   });
 

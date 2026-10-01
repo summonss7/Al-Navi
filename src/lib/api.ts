@@ -4,6 +4,9 @@ import type {
   DirListing,
   DriveInfo,
   OpProgress,
+  SearchDoneEvent,
+  SearchHitsEvent,
+  SearchParams,
   TextContent,
 } from "./types";
 
@@ -61,6 +64,10 @@ export const ftpReadHex = (path: string, offset: number, len: number) =>
   invoke<{ data: number[]; fileSize: number }>("ftp_read_hex", { path, offset, len });
 export const ftpMkdir = (path: string) => invoke<void>("ftp_mkdir", { path });
 
+// ---- Search ----
+export const searchStart = (params: SearchParams) => invoke<number>("search_start", { params });
+export const searchCancel = (id: number) => invoke<void>("search_cancel", { id });
+
 // ---- Config persistence ----
 export const loadJson = <T>(name: string) => invoke<T | null>("load_json", { name });
 export const saveJson = (name: string, data: unknown) =>
@@ -84,3 +91,7 @@ export const onWatchChanged = (cb: (path: string) => void): Promise<UnlistenFn> 
   listen<{ path: string }>("watch:changed", (e) => cb(e.payload.path));
 export const onDirSize = (cb: (p: { path: string; size: number }) => void): Promise<UnlistenFn> =>
   listen<{ path: string; size: number }>("dirsize", (e) => cb(e.payload));
+export const onSearchHit = (cb: (e: SearchHitsEvent) => void): Promise<UnlistenFn> =>
+  listen<SearchHitsEvent>("search:hit", (e) => cb(e.payload));
+export const onSearchDone = (cb: (e: SearchDoneEvent) => void): Promise<UnlistenFn> =>
+  listen<SearchDoneEvent>("search:done", (e) => cb(e.payload));

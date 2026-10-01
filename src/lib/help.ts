@@ -51,6 +51,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       { chord: "F7", key: "help.ops.mkdir" },
       { chord: "F8", key: "help.ops.delete" },
       { chord: "Shift+Del", key: "help.ops.wipe" },
+      { chord: "Alt+F7", key: "help.ops.find" },
       { chord: "Ctrl+R / L", key: "help.ops.refresh" },
     ],
   },

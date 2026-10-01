@@ -128,7 +128,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     "Shift+Delete": "fs.deletePermanent",
     "Alt+F5": "stub.pack",
     "Alt+F6": "stub.unpack",
-    "Alt+F7": "stub.search",
+    "Alt+F7": "search.openDialog",
     "Ctrl+Insert": "panel.copyNames",
     "Ctrl+Shift+Insert": "panel.copyPaths",
     "Shift+Insert": "cmdline.pasteClipboard",

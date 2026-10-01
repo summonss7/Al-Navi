@@ -4,6 +4,7 @@ mod fs;
 mod ftp;
 mod meta;
 mod ops;
+mod search;
 mod textio;
 mod watch;
 
@@ -85,6 +86,7 @@ pub fn run() {
         .manage(ops::OpManager::new())
         .manage(watch::WatchState::new())
         .manage(ftp::FtpState::new())
+        .manage(search::SearchManager::new())
         .setup(|app| {
             // Windows/WebView2: without this the webview lacks keyboard focus
             // on startup, so arrow keys/F-keys do nothing until first click
@@ -122,6 +124,8 @@ pub fn run() {
             ftp::ftp_mkdir,
             config::load_json,
             config::save_json,
+            search::search_start,
+            search::search_cancel,
             meta::app_info,
         ])
         .run(tauri::generate_context!())

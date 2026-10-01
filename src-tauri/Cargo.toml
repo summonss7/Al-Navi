@@ -1,6 +1,6 @@
 [package]
 name = "al-navi"
-version = "1.6.2"
+version = "1.7.0"
 description = "Al-Navi — modern dual-panel file manager"
 edition = "2021"
 
@@ -31,6 +31,9 @@ dirs = "6"
 sysinfo = "0.37"
 filetime = "0.2"
 suppaftp = { version = "12", default-features = false, features = ["tokio"] }
+# 1.13.1 is already in Cargo.lock as a transitive dep, so this resolves
+# from the local cargo cache without network access
+regex = "1.13.1"
 
 [profile.release]
 codegen-units = 1

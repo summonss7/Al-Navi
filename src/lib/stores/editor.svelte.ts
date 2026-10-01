@@ -1,9 +1,10 @@
-import { readText, writeText, ftpReadText, ftpWriteText } from "$lib/api";
+import { readText, writeText, ftpReadText, ftpWriteText, loadJson, saveJson } from "$lib/api";
 import { basename } from "$lib/format";
 import { isFtpPath } from "$lib/ftp";
 import { ui } from "./ui.svelte";
 import { i18n } from "./i18n.svelte";
 import { settings } from "./settings.svelte";
+import type { EditorPos } from "$lib/editor/cm";
 
 export interface EditorDoc {
   id: number;
@@ -15,6 +16,8 @@ export interface EditorDoc {
   truncated: boolean;
   /** CodeMirror Text state — non-reactive, lives outside Svelte */
   text: string;
+  /** remembered caret/scroll — restored on tab switch and remount */
+  pos?: EditorPos;
 }
 
 export interface ViewerDoc {
@@ -26,9 +29,15 @@ export interface ViewerDoc {
   eol: string;
   truncated: boolean;
   text: string;
+  pos?: EditorPos;
 }
 
 let seq = 1;
+
+/** last known positions per file path, persisted across restarts */
+const POS_FILE = "editor-state.json";
+const POS_MAX = 100;
+let savedPos: Record<string, EditorPos> | null = null;
 
 /** local or FTP read with the same auto-detect settings */
 function readTextAny(path: string) {
@@ -43,6 +52,45 @@ class EditorStore {
   loading = $state(false);
   viewDocs = $state<ViewerDoc[]>([]);
   activeViewId = $state<number | null>(null);
+
+  /** load remembered caret positions (used when a file is opened again) */
+  async init() {
+    savedPos = (await loadJson<Record<string, EditorPos>>(POS_FILE).catch(() => null)) ?? {};
+  }
+
+  private savedPosFor(path: string): EditorPos | undefined {
+    return savedPos?.[path];
+  }
+
+  /** remember the caret/scroll of an open editor doc (tab switch / remount) */
+  savePos(id: number, pos: EditorPos) {
+    const d = this.docs.find((x) => x.id === id);
+    if (d) d.pos = pos;
+  }
+
+  /** same for a viewer doc */
+  saveViewPos(id: number, pos: EditorPos) {
+    const d = this.viewDocs.find((x) => x.id === id);
+    if (d) d.pos = pos;
+  }
+
+  /** merge the positions of everything still open (plus recently closed ones)
+   *  into editor-state.json, capped, newest first */
+  persistAll() {
+    if (!savedPos) return;
+    for (const d of this.docs) if (d.path && d.pos) savedPos[d.path] = d.pos;
+    for (const d of this.viewDocs) if (d.pos) savedPos[d.path] = d.pos;
+    const entries = Object.entries(savedPos);
+    if (entries.length > POS_MAX) {
+      savedPos = Object.fromEntries(entries.slice(entries.length - POS_MAX));
+    }
+    saveJson(POS_FILE, savedPos).catch(() => {});
+  }
+
+  /** keep a position of a doc being closed so a reopen restores it */
+  private keepOnClose(path: string | null, pos: EditorPos | undefined) {
+    if (path && pos && savedPos) savedPos[path] = pos;
+  }
 
   get active(): EditorDoc | null {
     return this.docs.find((d) => d.id === this.activeId) ?? null;
@@ -71,6 +119,7 @@ class EditorStore {
         eol: c.eol === "mixed" ? "keep" : c.eol,
         truncated: c.truncated,
         text: c.text,
+        pos: this.savedPosFor(path),
       };
       this.docs = [...this.docs, doc];
       this.activeId = doc.id;
@@ -188,6 +237,8 @@ class EditorStore {
         if (!ok) return;
       }
     }
+    this.keepOnClose(d.path, d.pos);
+    this.persistAll();
     this.docs = this.docs.filter((x) => x.id !== id);
     if (this.activeId === id) {
       const rest = this.docs[this.docs.length - 1];
@@ -238,6 +289,7 @@ class EditorStore {
           eol: c.eol,
           truncated: c.truncated,
           text: bin ? "" : c.text,
+          pos: this.savedPosFor(path),
         };
       }
       this.viewDocs = [...this.viewDocs, doc];
@@ -263,6 +315,9 @@ class EditorStore {
   }
 
   async closeViewer(id = this.activeViewId) {
+    const d = this.viewDocs.find((x) => x.id === id);
+    this.keepOnClose(d?.path ?? null, d?.pos);
+    this.persistAll();
     this.viewDocs = this.viewDocs.filter((x) => x.id !== id);
     if (this.activeViewId === id) {
       const rest = this.viewDocs[this.viewDocs.length - 1];

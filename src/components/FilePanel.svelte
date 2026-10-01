@@ -6,6 +6,7 @@
   import { i18n } from "$lib/stores/i18n.svelte";
   import { formatSize, formatCount, basename, sortArrow } from "$lib/format";
   import { ftpAuthority, isFtpPath } from "$lib/ftp";
+  import { isSearchPath, searchStore } from "$lib/stores/search.svelte";
   import { settings, BASE_FONT_PX } from "$lib/stores/settings.svelte";
   import VirtualList from "./VirtualList.svelte";
 
@@ -29,6 +30,7 @@
   });
 
   function tabTitle(t: { path: string }) {
+    if (isSearchPath(t.path)) return i18n.t("search.tab");
     return basename(t.path) || t.path;
   }
 
@@ -37,6 +39,12 @@
     void panel.path;
     const p = panel.path;
     const out: { label: string; path: string }[] = [];
+    if (isSearchPath(p)) {
+      // one crumb summarizing the running search
+      const m = searchStore.params?.mask || "*";
+      out.push({ label: `${i18n.t("search.tab")}: ${m}`, path: p });
+      return out;
+    }
     if (isFtpPath(p)) {
       // "ftp://user@host:port" crumb + one crumb per remote folder
       const auth = ftpAuthority(p);
@@ -94,9 +102,13 @@
             class="tab"
             class:on={t.id === panel.activeTabId}
             onclick={() => panel.activateTab(t.id)}
-            title={t.path}
+            title={isSearchPath(t.path) ? i18n.t("search.tab") : t.path}
           >
-            <i class="ph-duotone ph-folder-simple"></i>
+            {#if isSearchPath(t.path)}
+              <i class="ph-duotone ph-magnifying-glass"></i>
+            {:else}
+              <i class="ph-duotone ph-folder-simple"></i>
+            {/if}
             <span class="tab-name">{tabTitle(t)}</span>
           </button>
         {/each}
@@ -123,7 +135,7 @@
           {#if qjCyr}<b>{qjCyr}</b> · {/if}{panel.quickJumpPrefix.toLowerCase()}
         </span>
       {/if}
-      <nav class="crumbs" title={panel.path}>
+      <nav class="crumbs" title={isSearchPath(panel.path) ? undefined : panel.path}>
         {#each crumbs as c, i (c.path + i)}
           {#if i > 0}<span class="crumb-sep">/</span>{/if}
           <button
@@ -159,7 +171,13 @@
         <span>{panel.error}</span>
       </div>
     {:else if panel.view.length <= 1}
-      <div class="overlay-msg soft">{i18n.t("panel.empty")}</div>
+      <div class="overlay-msg soft">
+        {#if isSearchPath(panel.path)}
+          {searchStore.running ? i18n.t("search.searching") : i18n.t("search.nothing")}
+        {:else}
+          {i18n.t("panel.empty")}
+        {/if}
+      </div>
     {/if}
   </div>
 
@@ -180,6 +198,19 @@
     {#if panel.free}
       <span class="free">
         {i18n.t("panel.free")} {formatSize(panel.free)} / {i18n.t("panel.total")} {formatSize(panel.total)}
+      </span>
+    {:else if isSearchPath(panel.path)}
+      <span class="free search-st">
+        {#if searchStore.running}
+          <i class="ph ph-spinner-gap"></i>
+          {i18n.t("search.scannedN", { n: formatCount(searchStore.scanned, i18n.locale) })}
+          · {i18n.t("search.foundN", { n: formatCount(searchStore.hits.length, i18n.locale) })}
+          · <b>Esc</b>
+        {:else}
+          {i18n.t("search.foundN", { n: formatCount(searchStore.hits.length, i18n.locale) })}
+          {#if searchStore.cancelled} · {i18n.t("search.cancelled")}{/if}
+          {#if searchStore.elapsedMs} · {(searchStore.elapsedMs / 1000).toFixed(1)}s{/if}
+        {/if}
       </span>
     {/if}
   </footer>
@@ -384,4 +415,13 @@
   .sep { width: 1px; height: 12px; background: var(--border); }
   .grow { flex: 1; }
   .free { color: var(--fg-muted); }
+  .search-st i {
+    display: inline-block;
+    animation: search-spin 1s linear infinite;
+    vertical-align: -2px;
+  }
+  .search-st b { font-weight: 800; }
+  @keyframes search-spin {
+    to { transform: rotate(360deg); }
+  }
 </style>

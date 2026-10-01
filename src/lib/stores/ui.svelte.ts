@@ -18,6 +18,7 @@ export type DialogId =
   | "plugins"
   | "ftp"
   | "ftpSite"
+  | "search"
   | "errors"
   | null;
 

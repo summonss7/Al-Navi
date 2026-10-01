@@ -6,6 +6,9 @@ export interface FileEntry {
   attrs: string;
   isSymlink: boolean;
   isHidden: boolean;
+  /** absolute path when the entry is not a plain child of the panel's dir
+   *  (search results: full real path, name holds the display path) */
+  fullPath?: string;
 }
 
 export interface DirListing {
@@ -58,6 +61,45 @@ export interface TextContent {
 }
 
 export type SortMode = "name" | "ext" | "mtime" | "size" | "unsorted";
+
+export interface SearchParams {
+  root: string;
+  mask: string;
+  useRegex: boolean;
+  text: string | null;
+  textCaseSensitive: boolean;
+  dateFrom: number | null; // ms epoch, file mtime >=
+  dateTo: number | null;
+  sizeFrom: number | null; // bytes
+  sizeTo: number | null;
+  findDirs: boolean;
+}
+
+export interface SearchHit {
+  path: string;
+  name: string;
+  isDir: boolean;
+  size: number;
+  mtime: number;
+  attrs: string;
+  isSymlink: boolean;
+  isHidden: boolean;
+}
+
+export interface SearchHitsEvent {
+  id: number;
+  hits: SearchHit[];
+  scanned: number;
+}
+
+export interface SearchDoneEvent {
+  id: number;
+  cancelled: boolean;
+  errors: string[];
+  scanned: number;
+  hits: number;
+  elapsedMs: number;
+}
 
 export interface PanelTab {
   id: number;

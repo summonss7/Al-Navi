@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { EditorView } from "@codemirror/view";
-  import { createView, setStateFor, setActiveView } from "$lib/editor/cm";
+  import { createView, setStateFor, setActiveView, capturePos, restorePos } from "$lib/editor/cm";
   import { readHex, ftpReadHex } from "$lib/api";
   import { convertFileSrc } from "@tauri-apps/api/core";
   import { editor } from "$lib/stores/editor.svelte";
@@ -12,6 +12,9 @@
   let host: HTMLDivElement | undefined = $state();
   let view: EditorView | null = null;
   let lastDocId = -1;
+  /** last known text scroll offset — the effect that saves the position runs
+   *  after the DOM teardown, when a detached scroller already reads 0 */
+  let lastScrollTop = 0;
 
   const doc = $derived(editor.activeViewer);
 
@@ -51,7 +54,16 @@
   const offFmt = (o: number) => o.toString(16).padStart(8, "0").toUpperCase();
 
   onMount(() => {
+    // keep the scroll offset fresh: scroll events don't fire reliably on the
+    // CodeMirror scroller, and the save happens after the DOM teardown
+    const track = setInterval(() => {
+      if (view) lastScrollTop = view.scrollDOM.scrollTop;
+    }, 300);
     return () => {
+      clearInterval(track);
+      if (view && lastDocId !== -1) {
+        editor.saveViewPos(lastDocId, { ...capturePos(view), scrollTop: lastScrollTop });
+      }
       view?.destroy();
       setActiveView(null);
     };
@@ -66,12 +78,24 @@
         view = createView(host, d.text, d.path, { readOnly: true });
         setActiveView(view);
         lastDocId = d.id;
+        lastScrollTop = d.pos?.scrollTop ?? 0;
+        if (d.pos) restorePos(view, d.pos);
       } else if (view) {
         if (d.id !== lastDocId) {
+          if (lastDocId !== -1) editor.saveViewPos(lastDocId, { ...capturePos(view), scrollTop: lastScrollTop });
           lastDocId = d.id;
           setStateFor(view, d.text, d.path, true);
+          if (d.pos) restorePos(view, d.pos);
         }
       }
+    } else if (view) {
+      // leaving text mode: remember the position, release the stale view (its
+      // host div is gone) so the next text doc builds a fresh one
+      if (lastDocId !== -1) editor.saveViewPos(lastDocId, { ...capturePos(view), scrollTop: lastScrollTop });
+      view.destroy();
+      view = null;
+      setActiveView(null);
+      lastDocId = -1;
     }
   });
 </script>

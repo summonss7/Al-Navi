@@ -12,6 +12,7 @@
   import { fileColors } from "$lib/stores/fileColors.svelte";
   import { textColors } from "$lib/stores/textColors.svelte";
   import { ftpSites } from "$lib/stores/ftpSites.svelte";
+  import { searchStore } from "$lib/stores/search.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
 
   import TitleBar from "$comp/TitleBar.svelte";
@@ -147,6 +148,8 @@
         void ftpSites.init();
         await panels.init();
         ops.init();
+        void searchStore.init();
+        void editor.init();
         void cmdline.init();
         void fileColors.init();
         void textColors.init();
@@ -157,13 +160,17 @@
 
     window.addEventListener("keydown", onKeyDown, { capture: true });
 
-    const beforeUnload = () => panels.saveSession();
+    const beforeUnload = () => {
+      panels.saveSession();
+      editor.persistAll();
+    };
     window.addEventListener("beforeunload", beforeUnload);
 
     return () => {
       window.removeEventListener("keydown", onKeyDown, { capture: true });
       window.removeEventListener("beforeunload", beforeUnload);
       ops.dispose();
+      searchStore.dispose();
     };
   });
 

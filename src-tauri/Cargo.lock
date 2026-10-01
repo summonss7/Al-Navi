@@ -19,13 +19,14 @@ dependencies = [
 
 [[package]]
 name = "al-navi"
-version = "1.6.2"
+version = "1.7.0"
 dependencies = [
  "dirs 6.0.0",
  "encoding_rs",
  "filetime",
  "notify",
  "notify-debouncer-full",
+ "regex",
  "serde",
  "serde_json",
  "suppaftp",

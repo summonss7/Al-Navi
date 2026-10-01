@@ -356,6 +356,50 @@ export function setStateFor(v: EditorView, text: string, path: string | null, re
   });
 }
 
+/** remembered caret/scroll of a document (FAR-like position memory) */
+export interface EditorPos {
+  anchor: number;
+  head: number;
+  scrollTop: number;
+}
+
+export function capturePos(v: EditorView): EditorPos {
+  const sel = v.state.selection.main;
+  return { anchor: sel.anchor, head: sel.head, scrollTop: v.scrollDOM.scrollTop };
+}
+
+/** Apply a remembered position, clamped to the current doc. The exact scroll
+ *  offset needs a measured layout, and CodeMirror measures a freshly built
+ *  view later than two rAFs — hence the retry. */
+export function restorePos(v: EditorView, pos: Partial<EditorPos>) {
+  const len = v.state.doc.length;
+  const anchor = Math.max(0, Math.min(pos.anchor ?? 0, len));
+  const head = Math.max(0, Math.min(pos.head ?? anchor, len));
+  if (pos.anchor !== undefined || pos.head !== undefined) {
+    const restoreScroll = pos.scrollTop !== undefined && pos.scrollTop > 0;
+    v.dispatch({
+      selection: { anchor, head },
+      // the precise offset is applied below; scrolling the cursor line into
+      // view first would only fight that restore
+      effects: restoreScroll ? [] : EditorView.scrollIntoView(anchor, { y: "start" }),
+    });
+  }
+  if (pos.scrollTop !== undefined && pos.scrollTop > 0) {
+    const top = pos.scrollTop;
+    const apply = () => {
+      try {
+        v.scrollDOM.scrollTop = top;
+      } catch {
+        /* view destroyed meanwhile */
+      }
+    };
+    // CodeMirror re-measures/re-resets the viewport of a freshly swapped doc
+    // at various delays, so keep re-asserting the offset for a while
+    requestAnimationFrame(() => requestAnimationFrame(apply));
+    for (const ms of [120, 300, 600]) setTimeout(apply, ms);
+  }
+}
+
 /** Rebuild decorations on the active editor (F9 toggle or rule/color edit). */
 export function applyEditorDecor() {
   view?.dispatch({

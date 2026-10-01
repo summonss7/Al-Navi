@@ -3,6 +3,7 @@
   import { iconFor, UP_ICON } from "$lib/fileIcons";
   import { formatSize, formatDate } from "$lib/format";
   import { fileColors } from "$lib/stores/fileColors.svelte";
+  import { settings } from "$lib/stores/settings.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
 
   let { panel, rowHeight = 26 }: { panel: PanelState; rowHeight?: number } = $props();
@@ -80,7 +81,7 @@
         if (en && en.name !== "..") next.add(en.name);
       }
       panel.selected = next;
-      panel.selVersion++;
+      panel.selectionChanged();
     } else if (e.ctrlKey) {
       panel.toggleAt(i, false);
     } else {
@@ -111,6 +112,7 @@
         class="row"
         class:cursor={i === panel.cursor}
         class:selected
+        class:marked-first={settings.s.markedFirst}
         class:dir={e.isDir && !up}
         style="height:{rowHeight}px"
         role="option"
@@ -168,6 +170,11 @@
   .row.selected { background: var(--row-selected); }
   /* per-extension name colors are inline styles — beat them where readability wins */
   .row.selected .name { color: var(--fg) !important; }
+
+  /* markedFirst option: marked rows take the lime identity tint, apart from the
+     orange cursor family; the cursor rule below still wins on the cursor row */
+  .row.marked-first.selected { background: var(--row-marked); }
+  .row.marked-first .marker.on { background: var(--accent); }
 
   /* cursor: solid bar in dark themes; orange rounded-rect + glow in light */
   .row.cursor {

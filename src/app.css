@@ -49,6 +49,8 @@
   --row-cursor-glow: 0 2px 12px color-mix(in srgb, var(--sel) 35%, transparent);
   --row-selected: color-mix(in srgb, var(--sel) 12%, transparent);
   --row-selected-border: color-mix(in srgb, var(--sel) 50%, transparent);
+  /* marked rows (markedFirst option): lime identity, apart from the orange cursor family */
+  --row-marked: color-mix(in srgb, var(--accent) 18%, transparent);
   --shadow: rgba(56, 54, 42, 0.22);
   --card-shadow: 0 8px 26px rgba(56, 54, 42, 0.1);
   --danger: #dc2626;
@@ -92,6 +94,7 @@
   --row-cursor-glow: none;
   --row-selected: color-mix(in srgb, var(--sel) 18%, transparent);
   --row-selected-border: color-mix(in srgb, var(--sel) 55%, transparent);
+  --row-marked: color-mix(in srgb, var(--accent) 20%, transparent);
   --shadow: rgba(0, 0, 0, 0.45);
   --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
   --danger: #ef4444;
@@ -135,6 +138,7 @@
   --row-cursor-glow: none;
   --row-selected: color-mix(in srgb, var(--sel) 16%, transparent);
   --row-selected-border: color-mix(in srgb, var(--sel) 50%, transparent);
+  --row-marked: color-mix(in srgb, var(--accent) 20%, transparent);
   --shadow: rgba(2, 8, 20, 0.6);
   --card-shadow: 0 10px 30px rgba(2, 8, 20, 0.5);
   --danger: #f87171;
@@ -177,6 +181,7 @@
   --row-cursor-glow: none;
   --row-selected: color-mix(in srgb, var(--sel) 15%, transparent);
   --row-selected-border: color-mix(in srgb, var(--sel) 50%, transparent);
+  --row-marked: color-mix(in srgb, var(--accent) 18%, transparent);
   --shadow: rgba(88, 110, 117, 0.25);
   --card-shadow: 0 8px 24px rgba(88, 110, 117, 0.18);
   --danger: #dc322f;
@@ -219,6 +224,7 @@
   --row-cursor-glow: none;
   --row-selected: color-mix(in srgb, var(--sel) 25%, transparent);
   --row-selected-border: var(--sel);
+  --row-marked: color-mix(in srgb, var(--accent) 32%, transparent);
   --shadow: rgba(0, 0, 0, 0.8);
   --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
   --danger: #ff5555;

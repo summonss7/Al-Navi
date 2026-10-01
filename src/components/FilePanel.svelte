@@ -170,7 +170,7 @@
         <i class="ph-duotone ph-warning"></i>
         <span>{panel.error}</span>
       </div>
-    {:else if panel.view.length <= 1}
+    {:else if panel.view.length === 0 || (panel.view.length === 1 && panel.view[0].name === "..")}
       <div class="overlay-msg soft">
         {#if isSearchPath(panel.path)}
           {searchStore.running ? i18n.t("search.searching") : i18n.t("search.nothing")}

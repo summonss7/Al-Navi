@@ -546,7 +546,7 @@
     return p.replace(/^\*/, "sample").replace(/\*/g, "");
   }
 
-  function setViewFlag(patch: Partial<{ dirsFirst: boolean; showHidden: boolean; showSystem: boolean }>) {
+  function setViewFlag(patch: Partial<{ dirsFirst: boolean; showHidden: boolean; showSystem: boolean; markedFirst: boolean }>) {
     settings.set(patch);
     panels.refreshView();
   }
@@ -974,6 +974,14 @@
               onchange={(e) => setViewFlag({ dirsFirst: e.currentTarget.checked })}
             />
             <span>{i18n.t("menu.dirsFirst")}</span>
+          </label>
+          <label class="check">
+            <input
+              type="checkbox"
+              checked={settings.s.markedFirst}
+              onchange={(e) => setViewFlag({ markedFirst: e.currentTarget.checked })}
+            />
+            <span>{i18n.t("menu.markedFirst")}</span>
           </label>
           <label class="check">
             <input

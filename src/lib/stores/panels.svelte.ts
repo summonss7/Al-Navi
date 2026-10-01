@@ -1,6 +1,6 @@
 import { listDir, ftpList, ftpConnect, watchSet, onWatchChanged, onDirSize, computeDirSizes, loadJson, saveJson, homePath, openPath } from "$lib/api";
 import type { FileEntry, SortMode } from "$lib/types";
-import { extOf, joinPath, parentOf, basename } from "$lib/format";
+import { extOf, joinPath, parentOf, basename, isRootPath } from "$lib/format";
 import { ftpAuthority, ftpRootOf, isFtpPath } from "$lib/ftp";
 import { isSearchPath, searchStore } from "./search.svelte";
 import { cyrillicOfLatin } from "$lib/keymap";
@@ -19,6 +19,8 @@ export interface TabState {
 }
 
 const UP_NAME = "..";
+/** the synthetic ".." row prepended to the view (real entries come from the backend without it) */
+const UP_ENTRY: FileEntry = { name: UP_NAME, isDir: true, size: 0, mtime: 0, attrs: "", isSymlink: false, isHidden: false };
 /** a child dir modified this recently is still being written — its size would
  *  be wrong anyway, so no walk is started (it would be invalidated at once) */
 const DIR_JUST_MODIFIED_MS = 5000;
@@ -155,10 +157,7 @@ export class PanelState {
   rebuild() {
     if (isSearchPath(this.tab.path)) {
       // search results keep found-order: no hidden/system filter, no sorting
-      this.view = [
-        { name: UP_NAME, isDir: true, size: 0, mtime: 0, attrs: "", isSymlink: false, isHidden: false },
-        ...this.raw,
-      ];
+      this.view = [UP_ENTRY, ...this.raw];
       this.restoreCursor();
       this.version++;
       return;
@@ -200,7 +199,16 @@ export class PanelState {
         list = [...dirs, ...list.filter((e) => !e.isDir)];
       }
     }
-    this.view = [{ name: UP_NAME, isDir: true, size: 0, mtime: 0, attrs: "", isSymlink: false, isHidden: false }, ...list];
+    if (settings.s.markedFirst && this.selected.size) {
+      // stable partition: marked entries float to the top, keeping sort order within both halves
+      const marked = list.filter((e) => this.selected.has(e.name));
+      if (marked.length && marked.length < list.length) {
+        list = [...marked, ...list.filter((e) => !this.selected.has(e.name))];
+      }
+    }
+    // no ".." in a drive root — an empty slot above the first entry marks the root
+    const up = isRootPath(this.path) ? [] : [UP_ENTRY];
+    this.view = [...up, ...list];
     this.restoreCursor(prevName);
     this.version++;
   }
@@ -469,6 +477,23 @@ export class PanelState {
     else next.add(e.name);
     this.selected = next;
     this.selVersion++;
+    if (settings.s.markedFirst) {
+      // the row floats to the top (or back into place) — remember the next
+      // unmarked row in the old order so serial Ins keeps walking down like FAR
+      let follow: string | undefined;
+      if (advance) {
+        for (let k = i + 1; k < this.view.length; k++) {
+          const en = this.view[k];
+          if (en.name !== UP_NAME && !next.has(en.name)) { follow = en.name; break; }
+        }
+      }
+      this.rebuild();
+      if (follow) {
+        const idx = this.view.findIndex((v) => v.name === follow);
+        if (idx >= 0) this.cursor = idx;
+      }
+      return;
+    }
     if (advance) this.cursor = i + 1;
   }
 
@@ -484,6 +509,7 @@ export class PanelState {
     }
     this.selected = next;
     this.selVersion++;
+    if (settings.s.markedFirst) this.rebuild();
   }
 
   invertSelection() {
@@ -494,13 +520,21 @@ export class PanelState {
     }
     this.selected = next;
     this.selVersion++;
+    if (settings.s.markedFirst) this.rebuild();
   }
 
   clearSelection() {
     if (this.selected.size) {
       this.selected = new Set();
       this.selVersion++;
+      if (settings.s.markedFirst) this.rebuild();
     }
+  }
+
+  /** UI-side selection change (shift-click range): bump and re-float marked rows */
+  selectionChanged() {
+    this.selVersion++;
+    if (settings.s.markedFirst) this.rebuild();
   }
 
   get selectedEntries(): FileEntry[] {

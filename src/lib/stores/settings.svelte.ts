@@ -22,6 +22,7 @@ export interface Settings {
   showHidden: boolean;
   showSystem: boolean;
   dirsFirst: boolean;
+  markedFirst: boolean;
   editorTabSize: number;
   editorWordWrap: boolean;
   confirmDelete: boolean;
@@ -40,6 +41,7 @@ const DEFAULTS: Settings = {
   showHidden: false,
   showSystem: true,
   dirsFirst: true,
+  markedFirst: false,
   editorTabSize: 4,
   editorWordWrap: false,
   confirmDelete: true,

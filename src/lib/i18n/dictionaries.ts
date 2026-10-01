@@ -218,7 +218,8 @@ const en: Record<string, string> = {
   "ftp.password": "Password",
   "ftp.hint": "Passwords are stored as plain text in ftp-sites.json",
   "ftp.hostMissing": "Enter the server host first",
-  "ftp.opsUnsupported": "File operations with FTP (copy/move/delete/rename) are coming in the next version — viewing (F3) and editing (F4) work",
+  "ftp.renameSameServer": "Renaming is only possible within one server",
+  "ftp.notConnected": "FTP server is not connected — open it in a panel first or save it in the FTP manager",
 
   "help.nav": "Panels: navigation",
   "help.nav.cursor": "Move the cursor one row",
@@ -545,7 +546,8 @@ const ru: Record<string, string> = {
   "ftp.password": "Пароль",
   "ftp.hint": "Пароли хранятся открытым текстом в ftp-sites.json",
   "ftp.hostMissing": "Сначала укажите адрес сервера",
-  "ftp.opsUnsupported": "Файловые операции с FTP (копирование/перенос/удаление/переименование) появятся в следующей версии — просмотр (F3) и правка (F4) работают",
+  "ftp.renameSameServer": "Переименование возможно только в пределах одного сервера",
+  "ftp.notConnected": "FTP-сервер не подключён — сначала откройте его в панели или сохраните в FTP-менеджере",
 
   "help.nav": "Панели: навигация",
   "help.nav.cursor": "Сдвинуть курсор на строку",

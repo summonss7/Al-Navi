@@ -21,15 +21,15 @@ const OP_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_FTP_BYTES: usize = 64 * 1024 * 1024;
 
 #[derive(Clone)]
-struct FtpCreds {
-    host: String,
-    port: u16,
-    user: String,
-    password: String,
+pub(crate) struct FtpCreds {
+    pub(crate) host: String,
+    pub(crate) port: u16,
+    pub(crate) user: String,
+    pub(crate) password: String,
 }
 
 impl FtpCreds {
-    fn key(&self) -> String {
+    pub(crate) fn key(&self) -> String {
         format!("{}@{}:{}", self.user, self.host, self.port)
     }
     /// panel path of the server root
@@ -39,13 +39,15 @@ impl FtpCreds {
 }
 
 pub struct FtpSession {
-    stream: AsyncFtpStream,
-    creds: FtpCreds,
+    pub(crate) stream: AsyncFtpStream,
+    pub(crate) creds: FtpCreds,
 }
 
-#[derive(Default)]
+/// Clone so an operation can carry a handle into its worker task; the map
+/// itself stays shared (a transfer opens its own connections from the creds).
+#[derive(Clone, Default)]
 pub struct FtpState {
-    sessions: Mutex<HashMap<String, Arc<Mutex<FtpSession>>>>,
+    sessions: Arc<Mutex<HashMap<String, Arc<Mutex<FtpSession>>>>>,
 }
 
 impl FtpState {
@@ -71,12 +73,20 @@ impl FtpState {
     async fn remove(&self, key: &str) {
         self.sessions.lock().await.remove(key);
     }
+
+    /// credentials of a live session, without touching its connection —
+    /// used to open the dedicated transfer connections in ftp_ops
+    pub(crate) async fn creds_for(&self, key: &str) -> Option<FtpCreds> {
+        let sess = self.sessions.lock().await.get(key).cloned()?;
+        let creds = sess.lock().await.creds.clone();
+        Some(creds)
+    }
 }
 
 /// "ftp://user@host:port/a/b" -> (creds for the session key, remote dir "/a/b").
 /// The password read from the path is always empty — reconnects use the
 /// credentials stored in the live session instead.
-fn parse_ftp_path(path: &str) -> Result<(FtpCreds, String), String> {
+pub(crate) fn parse_ftp_path(path: &str) -> Result<(FtpCreds, String), String> {
     let rest = path
         .strip_prefix("ftp://")
         .ok_or_else(|| format!("FTP: not an ftp path: {path}"))?;
@@ -109,14 +119,14 @@ fn parse_ftp_path(path: &str) -> Result<(FtpCreds, String), String> {
 }
 
 /// split "/a/b/file.txt" -> ("/a/b", "file.txt")
-fn split_remote(dir: &str) -> (String, String) {
+pub(crate) fn split_remote(dir: &str) -> (String, String) {
     let name = dir.rsplit('/').next().unwrap_or("").to_string();
     let parent = &dir[..dir.len() - name.len()];
     let parent = if parent.is_empty() { "/".to_string() } else { parent.to_string() };
     (parent, name)
 }
 
-async fn connect_session(creds: &FtpCreds) -> Result<FtpSession, String> {
+pub(crate) async fn connect_session(creds: &FtpCreds) -> Result<FtpSession, String> {
     let addr = format!("{}:{}", creds.host, creds.port);
     let mut stream = tokio::time::timeout(CONNECT_TIMEOUT, AsyncFtpStream::connect(&addr))
         .await
@@ -211,15 +221,7 @@ pub async fn ftp_list(path: String, state: tauri::State<'_, FtpState>) -> Result
     let (creds, dir) = parse_ftp_path(&path)?;
     let dir_clone = dir.clone();
     let entries = with_retry(&state, &creds.key(), async move |s: &mut FtpSession| {
-        s.stream.cwd(&dir_clone).await?;
-        // MLSD is machine-readable; fall back to parsing human LIST output
-        match s.stream.mlsd(None).await {
-            Ok(lines) => Ok(lines.iter().filter_map(|l| parse_entry_line(l, true)).collect()),
-            Err(_) => {
-                let lines = s.stream.list(None).await?;
-                Ok(lines.iter().filter_map(|l| parse_entry_line(l, false)).collect())
-            }
-        }
+        list_remote(s, &dir_clone).await
     })
     .await?;
     Ok(DirListing {
@@ -228,6 +230,19 @@ pub async fn ftp_list(path: String, state: tauri::State<'_, FtpState>) -> Result
         free_bytes: 0,
         total_bytes: 0,
     })
+}
+
+/// cwd to `dir` and list it: MLSD when the server supports it, human LIST
+/// output parsed as a fallback. Shared by the panel listing and ftp_ops walks.
+pub(crate) async fn list_remote(s: &mut FtpSession, dir: &str) -> FtpResult<Vec<EntryDto>> {
+    s.stream.cwd(dir).await?;
+    match s.stream.mlsd(None).await {
+        Ok(lines) => Ok(lines.iter().filter_map(|l| parse_entry_line(l, true)).collect()),
+        Err(_) => {
+            let lines = s.stream.list(None).await?;
+            Ok(lines.iter().filter_map(|l| parse_entry_line(l, false)).collect())
+        }
+    }
 }
 
 #[tauri::command]
@@ -299,6 +314,35 @@ pub async fn ftp_mkdir(path: String, state: tauri::State<'_, FtpState>) -> Resul
     }
     with_retry(&state, &creds.key(), async move |s: &mut FtpSession| {
         s.stream.mkdir(&dir).await
+    })
+    .await
+}
+
+/// RNFR/RNTO on one server (Shift+F6 on an FTP panel)
+#[tauri::command]
+pub async fn ftp_rename(old: String, new: String, state: tauri::State<'_, FtpState>) -> Result<(), String> {
+    let (from_creds, from) = parse_ftp_path(&old)?;
+    let (to_creds, to) = parse_ftp_path(&new)?;
+    if from_creds.key() != to_creds.key() {
+        return Err("FTP: rename must stay on the same server".to_string());
+    }
+    if from == to {
+        return Ok(());
+    }
+    let key = from_creds.key();
+    // RNTO replaces the target silently on unix-ish servers — refuse instead
+    let (parent, name) = split_remote(&to);
+    let taken = with_retry(&state, &key, async move |s: &mut FtpSession| {
+        list_remote(s, &parent).await.map(|v| v.iter().any(|e| e.name == name))
+    })
+    .await
+    .unwrap_or(false);
+    if taken {
+        return Err(format!("already exists: {}", new));
+    }
+    let (from_clone, to_clone) = (from.clone(), to.clone());
+    with_retry(&state, &key, async move |s: &mut FtpSession| {
+        s.stream.rename(&from_clone, &to_clone).await
     })
     .await
 }

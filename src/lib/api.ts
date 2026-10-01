@@ -63,6 +63,8 @@ export const ftpWriteText = (path: string, content: string, encoding: string, eo
 export const ftpReadHex = (path: string, offset: number, len: number) =>
   invoke<{ data: number[]; fileSize: number }>("ftp_read_hex", { path, offset, len });
 export const ftpMkdir = (path: string) => invoke<void>("ftp_mkdir", { path });
+export const ftpRename = (oldPath: string, newPath: string) =>
+  invoke<void>("ftp_rename", { old: oldPath, new: newPath });
 
 // ---- Search ----
 export const searchStart = (params: SearchParams) => invoke<number>("search_start", { params });

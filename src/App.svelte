@@ -153,8 +153,9 @@
     void settings.init()
       .then(async () => {
         // FTP sites must load first: panels reconnect to saved servers
-        // when the restored session points into ftp://
-        void ftpSites.init();
+        // when the restored session points into ftp://, and a cmdline
+        // ftp:// typed right after launch needs the saved credentials
+        await ftpSites.init();
         await panels.init();
         ops.init();
         void searchStore.init();

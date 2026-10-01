@@ -1,7 +1,19 @@
 import { registerCommand } from "$lib/commands";
-import { mkdir, renamePath, openPath, homePath, ftpMkdir, pathExists, loadJson, saveJson } from "$lib/api";
+import {
+  mkdir,
+  renamePath,
+  openPath,
+  homePath,
+  ftpMkdir,
+  ftpRename,
+  ftpList,
+  ftpConnect,
+  pathExists,
+  loadJson,
+  saveJson,
+} from "$lib/api";
 import { joinPath, sortArrow, parentOf, pathKey, basename } from "$lib/format";
-import { isFtpPath } from "$lib/ftp";
+import { ftpAuthority, ftpRootOf, isFtpPath } from "$lib/ftp";
 import { panels } from "$lib/stores/panels.svelte";
 import { ui } from "$lib/stores/ui.svelte";
 import { editor } from "$lib/stores/editor.svelte";
@@ -9,6 +21,7 @@ import { ops } from "$lib/stores/ops.svelte";
 import { i18n } from "$lib/stores/i18n.svelte";
 import { settings } from "$lib/stores/settings.svelte";
 import { cmdline } from "$lib/stores/cmdline.svelte";
+import { ftpSites } from "$lib/stores/ftpSites.svelte";
 import { isSearchPath, searchStore } from "$lib/stores/search.svelte";
 import type { FileEntry } from "$lib/types";
 
@@ -122,10 +135,6 @@ export function registerAllCommands() {
     const p = A();
     const cur = p.current;
     if (!cur || cur.name === "..") return;
-    if (isFtpPath(p.path)) {
-      ui.showError(i18n.t("ftp.opsUnsupported"));
-      return;
-    }
     // works on the find list too: the row carries its real full path, the
     // dialog prefills and renames within the file's own directory
     const oldPath = entryPath(p, cur);
@@ -133,8 +142,19 @@ export function registerAllCommands() {
     const dir = parentOf(oldPath) ?? p.path;
     const nn = await ui.askInput(i18n.t("rename.title"), i18n.t("rename.prompt"), oldName);
     if (!nn || nn === oldName) return;
+    const newPath = joinPath(dir, nn);
     try {
-      await renamePath(oldPath, joinPath(dir, nn));
+      if (isFtpPath(oldPath)) {
+        // RNFR/RNTO only works within one server — a hand-typed foreign
+        // target is refused by the backend anyway, say it up front
+        if (ftpAuthority(newPath) !== ftpAuthority(oldPath)) {
+          ui.showError(i18n.t("ftp.renameSameServer"));
+          return;
+        }
+        await ftpRename(oldPath, newPath);
+      } else {
+        await renamePath(oldPath, newPath);
+      }
       p.refresh();
     } catch (e) {
       ui.showError(String(e));
@@ -344,7 +364,10 @@ async function transferVariants(activePath: string, inactivePath: string): Promi
     "C:\\temp",
     driveRoot,
   ].filter((v): v is string => !!v && pathKey(v) !== pathKey(activePath));
-  const exists = await Promise.all(candidates.map((c) => pathExists(c).catch(() => false)));
+  // an FTP variant is the live folder of the other panel — no local check
+  const exists = await Promise.all(
+    candidates.map((c) => (isFtpPath(c) ? Promise.resolve(true) : pathExists(c).catch(() => false))),
+  );
   const seen = new Set<string>();
   const variants: string[] = [];
   candidates.forEach((c, i) => {
@@ -367,21 +390,33 @@ async function transferVariants(activePath: string, inactivePath: string): Promi
 
 // only absolute targets are meaningful history — a bare name is a rename
 function rememberTransferTarget(input: string) {
-  if (!/^[A-Za-z]:[\\/]/.test(input) && !input.startsWith("\\\\") && !input.startsWith("/")) return;
+  if (!/^[A-Za-z]:[\\/]/.test(input) && !input.startsWith("\\\\") && !input.startsWith("/") && !input.startsWith("ftp://"))
+    return;
   const key = pathKey(input);
   const rest = (xferHistory ?? []).filter((h) => pathKey(h) !== key);
   xferHistory = [input, ...rest].slice(0, XFER_HISTORY_MAX);
   saveJson("xfer-history.json", xferHistory).catch(() => {});
 }
 
+// the transfer backend opens its own connection from the credentials of the
+// live session — make sure one exists for a typed FTP target (reconnect from
+// a saved site, like the panel listing does after a restart)
+async function ensureFtpTarget(target: string): Promise<boolean> {
+  if (!isFtpPath(target)) return true;
+  const root = ftpAuthority(target);
+  if (await ftpList(root).then(() => true, () => false)) return true;
+  const site = ftpSites.sites.find((s) => ftpRootOf(s) === root);
+  if (!site) return false;
+  try {
+    await ftpConnect(site.host, site.port || 21, site.user, site.password);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function startTransfer(kind: "copy" | "move", currentOnly = false) {
   const p = panels.active;
-  // the copy engine is local-only; FTP panels can view/edit but not yet
-  // take part in transfers
-  if (isFtpPath(p.path) || isFtpPath(panels.inactive.path)) {
-    ui.showError(i18n.t("ftp.opsUnsupported"));
-    return;
-  }
   // a search-results panel on the passive side is not a writable target —
   // fall back to where that search started
   const destBase = isSearchPath(panels.inactive.path)
@@ -418,6 +453,12 @@ async function startTransfer(kind: "copy" | "move", currentOnly = false) {
   // unchanged Shift+Enter target = the item itself: a no-op for files, and
   // for dirs an existing-dir target would mean "into itself" (recursion)
   if (resetTo && stripTrailingSep(target) === stripTrailingSep(paths[0])) return;
+  // an FTP target needs a live session the backend can borrow the
+  // credentials from — reconnect from a saved site if it went stale
+  if (!(await ensureFtpTarget(target))) {
+    ui.showError(i18n.t("ftp.notConnected"));
+    return;
+  }
   rememberTransferTarget(answer.trim());
   if (kind === "copy") void ops.startCopy(paths, target);
   else void ops.startMove(paths, target);
@@ -434,7 +475,8 @@ function stripTrailingSep(p: string): string {
 // "into this directory" rather than "rename to this name".
 function resolveTransferTarget(input: string, cwd: string): string | null {
   if (!input) return null;
-  if (/^[A-Za-z]:[\\/]/.test(input) || input.startsWith("\\\\") || input.startsWith("/")) return input;
+  if (/^[A-Za-z]:[\\/]/.test(input) || input.startsWith("\\\\") || input.startsWith("/") || input.startsWith("ftp://"))
+    return input;
   const endsWithSep = /[\\/]$/.test(input);
   const base = input.replace(/[\\/]+$/, "");
   if (!base) return null;
@@ -444,10 +486,8 @@ function resolveTransferTarget(input: string, cwd: string): string | null {
 
 async function startDelete(permanent: boolean, currentOnly = false) {
   const p = panels.active;
-  if (isFtpPath(p.path)) {
-    ui.showError(i18n.t("ftp.opsUnsupported"));
-    return;
-  }
+  // there is no trash on a server — remote deletes are always permanent
+  const perm = permanent || isFtpPath(p.path);
   const entries = currentOnly
     ? p.current && p.current.name !== ".."
       ? [p.current]
@@ -455,7 +495,7 @@ async function startDelete(permanent: boolean, currentOnly = false) {
     : p.targetEntries;
   if (!entries.length) return;
   const paths = entries.map((e) => entryPath(p, e));
-  const msg = `${permanent ? i18n.t("ops.deletePermanent") : i18n.t("ops.toTrash")}: ${i18n.t("ops.deleteConfirm", { n: entries.length })}`;
+  const msg = `${perm ? i18n.t("ops.deletePermanent") : i18n.t("ops.toTrash")}: ${i18n.t("ops.deleteConfirm", { n: entries.length })}`;
   if (settings.s.confirmDelete && !(await ui.askConfirm(msg))) return;
-  void ops.startDelete(paths, permanent);
+  void ops.startDelete(paths, perm);
 }

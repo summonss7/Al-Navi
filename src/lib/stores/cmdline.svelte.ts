@@ -75,7 +75,8 @@ class CmdlineStore {
 
 export const cmdline = new CmdlineStore();
 
-/** Execute a command line: builtin cd changes panel path, otherwise OS shell. */
+/** Execute a command line: builtin cd changes panel path, ftp:// connects
+ * the active panel to a server, otherwise the OS shell. */
 export async function runCommand(cmdlineText: string): Promise<void> {
   const cmd = cmdlineText.trim();
   if (!cmd) return;
@@ -92,12 +93,64 @@ export async function runCommand(cmdlineText: string): Promise<void> {
     }
     return;
   }
+  if (cmd.startsWith("ftp://")) {
+    await connectFtpUrl(cmd);
+    return;
+  }
   const { runShell } = await import("$lib/api");
   try {
     await runShell(cmd);
     panels.active.refresh();
   } catch (e) {
     const { ui } = await import("./ui.svelte");
+    ui.showError(String(e));
+  }
+}
+
+/** "ftp://user@host:port/dir" typed on the command line connects the active
+ * panel, FAR-style. Credentials come from a saved site with the same
+ * address; without one the URL's own user (anonymous by default) connects
+ * with an empty password. The panel then opens the URL's folder. */
+async function connectFtpUrl(url: string) {
+  const { ftpConnect } = await import("$lib/api");
+  const { ftpAuthority, ftpRootOf, isFtpPath } = await import("$lib/ftp");
+  const { ftpSites } = await import("./ftpSites.svelte");
+  const { ui } = await import("./ui.svelte");
+  if (!isFtpPath(url)) return;
+  const auth = ftpAuthority(url);
+  const site = ftpSites.sites.find((s) => ftpRootOf(s) === auth);
+  // parse user@host:port out of the URL when no saved site matches
+  let host = "";
+  let port = 21;
+  let user = "anonymous";
+  if (!site) {
+    const rest = url.slice("ftp://".length);
+    const slash = rest.indexOf("/");
+    const at = rest.lastIndexOf("@", slash < 0 ? rest.length : slash);
+    const hostport = slash < 0 ? rest : rest.slice(0, slash);
+    if (at >= 0) {
+      user = rest.slice(0, at) || "anonymous";
+      host = rest.slice(at + 1, slash < 0 ? rest.length : slash);
+    } else {
+      host = hostport;
+    }
+    const colon = host.lastIndexOf(":");
+    if (colon >= 0) {
+      const maybePort = parseInt(host.slice(colon + 1), 10);
+      if (Number.isFinite(maybePort) && maybePort > 0) {
+        port = maybePort;
+        host = host.slice(0, colon);
+      }
+    }
+  }
+  try {
+    if (site) await ftpConnect(site.host, site.port || 21, site.user, site.password);
+    else await ftpConnect(host, port, user, "");
+    // parse_ftp_path applies the same anonymous/21 defaults as above, so the
+    // URL as typed addresses the session that was just opened
+    await panels.active.chdir(url);
+    panels.pushDirHistory(panels.active.path);
+  } catch (e) {
     ui.showError(String(e));
   }
 }

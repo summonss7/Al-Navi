@@ -68,7 +68,7 @@ impl OpManager {
         }
     }
 
-    fn register(&self) -> (u32, Arc<OpHandle>) {
+    pub(crate) fn register(&self) -> (u32, Arc<OpHandle>) {
         let id = self.inner.next_id.fetch_add(1, Ordering::Relaxed);
         let h = Arc::new(OpHandle {
             pause: Arc::new(AtomicBool::new(false)),
@@ -83,7 +83,7 @@ impl OpManager {
         self.inner.handles.lock().unwrap().get(&id).cloned()
     }
 
-    fn finish(&self, id: u32) {
+    pub(crate) fn finish(&self, id: u32) {
         self.inner.handles.lock().unwrap().remove(&id);
     }
 }
@@ -126,15 +126,23 @@ pub fn resolve_conflict(
 pub fn copy_paths(
     app: AppHandle,
     state: tauri::State<'_, OpManager>,
+    ftp: tauri::State<'_, crate::ftp::FtpState>,
     paths: Vec<String>,
     dest: String,
 ) -> Result<u32, String> {
     let (id, h) = state.register();
     let mgr = (*state).clone();
     let app = app.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        run_transfer(app, mgr, id, h, paths, dest, false);
-    });
+    if crate::ftp_ops::involves_ftp(&paths, &dest) {
+        let ftp = ftp.inner().clone();
+        tauri::async_runtime::spawn(async move {
+            crate::ftp_ops::run_transfer(app, mgr, id, h, ftp, paths, dest, false).await;
+        });
+    } else {
+        tauri::async_runtime::spawn_blocking(move || {
+            run_transfer(app, mgr, id, h, paths, dest, false);
+        });
+    }
     Ok(id)
 }
 
@@ -142,15 +150,23 @@ pub fn copy_paths(
 pub fn move_paths(
     app: AppHandle,
     state: tauri::State<'_, OpManager>,
+    ftp: tauri::State<'_, crate::ftp::FtpState>,
     paths: Vec<String>,
     dest: String,
 ) -> Result<u32, String> {
     let (id, h) = state.register();
     let mgr = (*state).clone();
     let app = app.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        run_transfer(app, mgr, id, h, paths, dest, true);
-    });
+    if crate::ftp_ops::involves_ftp(&paths, &dest) {
+        let ftp = ftp.inner().clone();
+        tauri::async_runtime::spawn(async move {
+            crate::ftp_ops::run_transfer(app, mgr, id, h, ftp, paths, dest, true).await;
+        });
+    } else {
+        tauri::async_runtime::spawn_blocking(move || {
+            run_transfer(app, mgr, id, h, paths, dest, true);
+        });
+    }
     Ok(id)
 }
 
@@ -158,7 +174,7 @@ pub fn move_paths(
 /// new name for a single-item transfer). A trailing separator or an existing
 /// directory keeps the "into that directory" behavior; otherwise the last
 /// path component becomes the new name (FAR-style copy/move with rename).
-fn resolve_dest(dest: &str, path_count: usize) -> (PathBuf, Option<String>) {
+pub(crate) fn resolve_dest(dest: &str, path_count: usize) -> (PathBuf, Option<String>) {
     let trimmed = dest.trim();
     let dest = PathBuf::from(trimmed);
     let ends_with_sep = trimmed.ends_with('/') || trimmed.ends_with('\\');
@@ -177,22 +193,22 @@ fn resolve_dest(dest: &str, path_count: usize) -> (PathBuf, Option<String>) {
     (dest, None)
 }
 
-struct Ctx {
-    app: AppHandle,
-    id: u32,
-    h: Arc<OpHandle>,
-    bytes_done: u64,
-    bytes_total: u64,
-    files_done: u64,
-    files_total: u64,
-    speed: u64,
+pub(crate) struct Ctx {
+    pub(crate) app: AppHandle,
+    pub(crate) id: u32,
+    pub(crate) h: Arc<OpHandle>,
+    pub(crate) bytes_done: u64,
+    pub(crate) bytes_total: u64,
+    pub(crate) files_done: u64,
+    pub(crate) files_total: u64,
+    pub(crate) speed: u64,
     last_emit: Instant,
     last_bytes: u64,
     last_speed_at: Instant,
-    overwrite_all: bool,
-    skip_all: bool,
-    errors: Vec<OpError>,
-    cancelled: bool,
+    pub(crate) overwrite_all: bool,
+    pub(crate) skip_all: bool,
+    pub(crate) errors: Vec<OpError>,
+    pub(crate) cancelled: bool,
 }
 
 impl Ctx {
@@ -211,7 +227,7 @@ impl Ctx {
         false
     }
 
-    fn progress(&mut self, phase: &str, current: &str) {
+    pub(crate) fn progress(&mut self, phase: &str, current: &str) {
         let now = Instant::now();
         if now.duration_since(self.last_speed_at).as_millis() >= 500 {
             let db = self.bytes_done.saturating_sub(self.last_bytes);
@@ -277,7 +293,7 @@ impl Ctx {
 }
 
 /// "report.txt" -> "report (1).txt", bumping until free
-fn auto_rename(dst: &Path) -> PathBuf {
+pub(crate) fn auto_rename(dst: &Path) -> PathBuf {
     if !dst.exists() {
         return dst.to_path_buf();
     }
@@ -323,7 +339,7 @@ fn copy_file_c(src: &Path, dst: &Path, ctx: &mut Ctx) -> std::io::Result<()> {
     Ok(())
 }
 
-fn ensure_writable(p: &Path) {
+pub(crate) fn ensure_writable(p: &Path) {
     if let Ok(meta) = fs::metadata(p) {
         let mut perms = meta.permissions();
         if perms.readonly() {
@@ -552,7 +568,7 @@ fn transfer_one(src: &Path, dst: &Path, ctx: &mut Ctx, move_mode: bool) -> std::
     Ok(())
 }
 
-fn walk_stats<'a>(paths: impl IntoIterator<Item = &'a Path>) -> (u64, u64) {
+pub(crate) fn walk_stats<'a>(paths: impl IntoIterator<Item = &'a Path>) -> (u64, u64) {
     let mut bytes = 0u64;
     let mut files = 0u64;
     for pb in paths {
@@ -572,7 +588,7 @@ fn walk_stats<'a>(paths: impl IntoIterator<Item = &'a Path>) -> (u64, u64) {
     (bytes, files)
 }
 
-fn walk_size(p: &Path) -> u64 {
+pub(crate) fn walk_size(p: &Path) -> u64 {
     if p.is_dir() {
         walkdir::WalkDir::new(p)
             .into_iter()
@@ -585,7 +601,7 @@ fn walk_size(p: &Path) -> u64 {
     }
 }
 
-fn new_ctx(app: AppHandle, id: u32, h: Arc<OpHandle>) -> Ctx {
+pub(crate) fn new_ctx(app: AppHandle, id: u32, h: Arc<OpHandle>) -> Ctx {
     Ctx {
         app,
         id,
@@ -605,7 +621,7 @@ fn new_ctx(app: AppHandle, id: u32, h: Arc<OpHandle>) -> Ctx {
     }
 }
 
-fn emit_done(ctx: &Ctx) {
+pub(crate) fn emit_done(ctx: &Ctx) {
     let _ = ctx.app.emit(
         "op:progress",
         OpProgress {
@@ -638,7 +654,7 @@ fn rename_with_parent(src: &Path, dst: &Path) -> bool {
 
 /// Windows paths are case-insensitive: D:\A and d:\a are the same
 /// directory, so a plain PathBuf comparison misses self-targets.
-fn same_path(a: &Path, b: &Path) -> bool {
+pub(crate) fn same_path(a: &Path, b: &Path) -> bool {
     if a == b {
         return true;
     }
@@ -741,12 +757,21 @@ fn run_transfer(
 pub fn delete_paths(
     app: AppHandle,
     state: tauri::State<'_, OpManager>,
+    ftp: tauri::State<'_, crate::ftp::FtpState>,
     paths: Vec<String>,
     permanent: bool,
 ) -> Result<u32, String> {
     let (id, h) = state.register();
     let mgr = (*state).clone();
     let app = app.clone();
+    // there is no trash on a server — remote deletes are always DELE/RMD
+    if paths.iter().any(|p| p.starts_with("ftp://")) {
+        let ftp = ftp.inner().clone();
+        tauri::async_runtime::spawn(async move {
+            crate::ftp_ops::run_delete(app, mgr, id, h, ftp, paths).await;
+        });
+        return Ok(id);
+    }
     tauri::async_runtime::spawn_blocking(move || {
         let mut ctx = new_ctx(app.clone(), id, h);
         // no recursive pre-walk: the delete itself walks the tree, so a

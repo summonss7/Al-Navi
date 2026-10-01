@@ -2,6 +2,7 @@ mod config;
 mod drives;
 mod fs;
 mod ftp;
+mod ftp_ops;
 mod meta;
 mod ops;
 mod search;
@@ -122,6 +123,7 @@ pub fn run() {
             ftp::ftp_write_text,
             ftp::ftp_read_hex,
             ftp::ftp_mkdir,
+            ftp::ftp_rename,
             config::load_json,
             config::save_json,
             search::search_start,

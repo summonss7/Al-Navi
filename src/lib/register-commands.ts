@@ -14,6 +14,7 @@ import {
 } from "$lib/api";
 import { joinPath, sortArrow, parentOf, pathKey, basename } from "$lib/format";
 import { ftpAuthority, ftpRootOf, isFtpPath } from "$lib/ftp";
+import { isArchivePath, isArchiveFile, splitArchiveUrl, joinArchivePath, PACK_FORMATS } from "$lib/archive";
 import { panels } from "$lib/stores/panels.svelte";
 import { ui } from "$lib/stores/ui.svelte";
 import { editor } from "$lib/stores/editor.svelte";
@@ -25,8 +26,10 @@ import { ftpSites } from "$lib/stores/ftpSites.svelte";
 import { isSearchPath, searchStore } from "$lib/stores/search.svelte";
 import type { FileEntry } from "$lib/types";
 
-/** real path of a panel entry — search results carry their own full path */
-const entryPath = (p: { path: string }, e: FileEntry): string => e.fullPath ?? joinPath(p.path, e.name);
+/** real path of a panel entry — search results carry their own full path,
+ *  archive members get a proper archive:// url */
+const entryPath = (p: { path: string }, e: FileEntry): string =>
+  e.fullPath ?? (isArchivePath(p.path) ? joinArchivePath(p.path, e.name) : joinPath(p.path, e.name));
 
 export function registerAllCommands() {
   const A = () => panels.active;
@@ -138,6 +141,11 @@ export function registerAllCommands() {
     // works on the find list too: the row carries its real full path, the
     // dialog prefills and renames within the file's own directory
     const oldPath = entryPath(p, cur);
+    if (isArchivePath(oldPath)) {
+      // archive contents are read-only in the VFS (rename needs a repack)
+      ui.showToast(i18n.t("archive.readonly"));
+      return;
+    }
     const oldName = basename(oldPath);
     const dir = parentOf(oldPath) ?? p.path;
     const nn = await ui.askInput(i18n.t("rename.title"), i18n.t("rename.prompt"), oldName);
@@ -166,6 +174,10 @@ export function registerAllCommands() {
       ui.showError(i18n.t("search.notHere"));
       return;
     }
+    if (isArchivePath(p.path)) {
+      ui.showToast(i18n.t("archive.readonly"));
+      return;
+    }
     const name = await ui.askInput(i18n.t("mkdir.title"), i18n.t("mkdir.prompt"), "");
     if (!name) return;
     try {
@@ -181,6 +193,84 @@ export function registerAllCommands() {
   registerCommand("fs.delete", () => startDelete(false, false));
   registerCommand("fs.deleteCurrent", () => startDelete(false, true));
   registerCommand("fs.deletePermanent", () => startDelete(true, false));
+
+  // ---------- archives (M6): Alt+F5 pack, Alt+F6 unpack ----------
+  registerCommand("fs.pack", async () => {
+    const p = A();
+    if (isSearchPath(p.path)) {
+      ui.showError(i18n.t("search.notHere"));
+      return;
+    }
+    if (isFtpPath(p.path) || isArchivePath(p.path)) {
+      ui.showToast(i18n.t("archive.packLocalOnly"));
+      return;
+    }
+    const entries = p.targetEntries;
+    if (!entries.length) return;
+    const destDir = isSearchPath(panels.inactive.path)
+      ? searchStore.originPath ?? p.path
+      : panels.inactive.path;
+    if (isFtpPath(destDir) || isArchivePath(destDir)) {
+      ui.showToast(i18n.t("archive.packLocalOnly"));
+      return;
+    }
+    // single item -> its stem, several -> the current folder's name (FAR)
+    const stem = entries.length === 1
+      ? entries[0].name.replace(/\.[^.]+$/, "") || entries[0].name
+      : basename(p.path) || "archive";
+    const formats = PACK_FORMATS.map((f) => ({ id: f.id, ext: f.ext }));
+    const r = await ui.askPack(stem, destDir, formats);
+    if (!r) return;
+    let name = r.name.trim();
+    if (!name) return;
+    // drop a typed extension of any pack format — the chosen one is appended
+    for (const f of formats) {
+      if (name.toLowerCase().endsWith(f.ext)) {
+        name = name.slice(0, -f.ext.length);
+        break;
+      }
+    }
+    const ext = formats.find((f) => f.id === r.format)?.ext ?? ".zip";
+    void ops.startPack(p.targetPaths, joinPath(destDir, name + ext), r.format);
+  });
+
+  registerCommand("fs.unpack", async () => {
+    const p = A();
+    const destBase = isSearchPath(panels.inactive.path)
+      ? searchStore.originPath ?? p.path
+      : panels.inactive.path;
+    if (isFtpPath(destBase) || isArchivePath(destBase)) {
+      ui.showToast(i18n.t("archive.extractLocalOnly"));
+      return;
+    }
+    if (isArchivePath(p.path)) {
+      // inside an archive: extract the selection to the other panel as-is
+      const urls = p.targetPaths;
+      if (!urls.length) return;
+      void ops.startExtract(urls.map((url) => ({ url, dest: destBase })));
+      return;
+    }
+    if (isSearchPath(p.path)) {
+      ui.showError(i18n.t("search.notHere"));
+      return;
+    }
+    // disk panel: unpack the selected archive files (or the one under cursor)
+    const archives = p.targetEntries.filter((e) => !e.isDir && isArchiveFile(e.name));
+    if (!archives.length) {
+      ui.showToast(i18n.t("archive.noArchives"));
+      return;
+    }
+    const variants = await transferVariants(p.path, destBase);
+    const r = await ui.askUnpack(destBase, variants, true);
+    if (!r) return;
+    const items = archives.map((a) => {
+      // into a subfolder named after the archive (stem drops the format ext)
+      const stem = a.name.replace(/\.(tar\.gz|tgz|zip|tar|7z)$/i, "") || a.name;
+      const dest = r.subdir ? joinPath(r.dest, stem) : r.dest;
+      return { url: entryPath(p, a), dest };
+    });
+    void ops.startExtract(items);
+  });
 
   // ---------- folder shortcuts (FAR Ctrl+0..9 / Ctrl+Shift+0..9) ----------
   for (let d = 0; d <= 9; d++) {
@@ -247,6 +337,8 @@ export function registerAllCommands() {
   registerCommand("dialog.close", () => {
     if (ui.confirmReq) ui.confirmReq.resolve(false);
     else if (ui.inputReq) ui.inputReq.resolve(null);
+    else if (ui.packReq) ui.packReq.resolve(null);
+    else if (ui.unpackReq) ui.unpackReq.resolve(null);
     else if (ops.conflict) ops.resolveConflictAction("skip");
     else ui.closeDialog();
   });
@@ -321,8 +413,6 @@ export function registerAllCommands() {
   // ---------- stubs for future milestones ----------
   const stub = (featureKey: string) => () =>
     ui.showToast(i18n.t("misc.comingSoon", { feature: i18n.t(featureKey) }));
-  registerCommand("stub.pack", stub("misc.feature.pack"));
-  registerCommand("stub.unpack", stub("misc.feature.unpack"));
   registerCommand("stub.attrs", stub("misc.feature.attrs"));
   registerCommand("stub.userMenu", stub("misc.feature.userMenu"));
   registerCommand("stub.viewHistory", stub("misc.feature.viewHistory"));
@@ -429,6 +519,47 @@ async function startTransfer(kind: "copy" | "move", currentOnly = false) {
     : p.targetEntries;
   if (!entries.length) return;
   const paths = entries.map((e) => entryPath(p, e));
+
+  // an archive panel on either side changes what F5/F6 mean: out of an
+  // archive = extraction, into an archive = packing into that archive
+  if (isArchivePath(p.path)) {
+    if (isArchivePath(destBase) || isFtpPath(destBase)) {
+      ui.showToast(i18n.t("archive.extractLocalOnly"));
+      return;
+    }
+    const variants = await transferVariants(p.path, destBase);
+    const answer = await ui.askInput(i18n.t("archive.extractTo"), i18n.t("ops.dst"), destBase, undefined, variants);
+    if (!answer) return;
+    // relative input resolves against the archive file's own directory
+    const cwd = parentOf(splitArchiveUrl(p.path).file) ?? destBase;
+    const target = resolveTransferTarget(answer.trim(), cwd);
+    if (!target || isArchivePath(target) || isFtpPath(target)) return;
+    void ops.startExtract(paths.map((url) => ({ url, dest: target })));
+    return;
+  }
+  if (isArchivePath(destBase)) {
+    const title = kind === "copy" ? i18n.t("archive.addTo") : i18n.t("archive.moveInto");
+    const answer = await ui.askInput(title, i18n.t("ops.dst"), destBase);
+    if (!answer) return;
+    const target = answer.trim();
+    if (isArchivePath(target)) {
+      // F6 removes the sources after the archive rewrite succeeds
+      void ops.startArchiveAdd(paths, target, kind === "move");
+      return;
+    }
+    // a hand-typed local target is a plain transfer
+    const resolved = resolveTransferTarget(target, p.path);
+    if (!resolved) return;
+    if (!(await ensureFtpTarget(resolved))) {
+      ui.showError(i18n.t("ftp.notConnected"));
+      return;
+    }
+    rememberTransferTarget(target);
+    if (kind === "copy") void ops.startCopy(paths, resolved);
+    else void ops.startMove(paths, resolved);
+    return;
+  }
+
   // search rows display the full path as their name — the prefill needs the
   // bare file name
   const firstRealName = entries.length ? basename(entryPath(p, entries[0])) : "";
@@ -486,6 +617,11 @@ function resolveTransferTarget(input: string, cwd: string): string | null {
 
 async function startDelete(permanent: boolean, currentOnly = false) {
   const p = panels.active;
+  // archive contents are read-only in the VFS (deleting needs a repack)
+  if (isArchivePath(p.path)) {
+    ui.showToast(i18n.t("archive.readonly"));
+    return;
+  }
   // there is no trash on a server — remote deletes are always permanent
   const perm = permanent || isFtpPath(p.path);
   const entries = currentOnly

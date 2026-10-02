@@ -1,4 +1,5 @@
 import { ftpAuthority } from "$lib/ftp";
+import { isArchivePath, splitArchiveUrl, archiveUrl } from "$lib/archive";
 
 export function formatSize(bytes: number, opts?: { binary?: boolean }): string {
   if (bytes < 0) return "?";
@@ -67,6 +68,16 @@ export function parentOf(p: string): string | null {
     if (!rest || rest === "/") return null;
     const idx = rest.lastIndexOf("/");
     return auth + rest.slice(0, idx);
+  }
+  // archive: pop an inner segment; at the archive root step out to the
+  // archive file's own directory on disk
+  if (isArchivePath(p)) {
+    const { file, inner } = splitArchiveUrl(p);
+    if (inner.includes("/")) {
+      return archiveUrl(file, inner.slice(0, inner.lastIndexOf("/")));
+    }
+    if (inner) return archiveUrl(file, "");
+    return parentOf(file);
   }
   // Normalize windows paths like D:\ and unix roots
   const norm = p.replace(/[\\/]+$/, "");

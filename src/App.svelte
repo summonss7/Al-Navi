@@ -14,6 +14,7 @@
   import { ftpSites } from "$lib/stores/ftpSites.svelte";
   import { searchStore } from "$lib/stores/search.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
+  import { windowState } from "$lib/windowState";
 
   import TitleBar from "$comp/TitleBar.svelte";
   import PanelsGrid from "$comp/PanelsGrid.svelte";
@@ -171,10 +172,12 @@
       });
 
     window.addEventListener("keydown", onKeyDown, { capture: true });
+    const stopWinTrack = windowState.init();
 
     const beforeUnload = () => {
       panels.saveSession();
       editor.persistAll();
+      void windowState.flush();
     };
     window.addEventListener("beforeunload", beforeUnload);
 
@@ -186,6 +189,7 @@
           e.preventDefault();
           panels.saveSession();
           await editor.persistAll();
+          await windowState.flush();
           await getCurrentWindow().destroy();
         }),
       )
@@ -196,6 +200,7 @@
     return () => {
       window.removeEventListener("keydown", onKeyDown, { capture: true });
       window.removeEventListener("beforeunload", beforeUnload);
+      stopWinTrack();
       ops.dispose();
       searchStore.dispose();
     };

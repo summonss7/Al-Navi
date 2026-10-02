@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 /// Maximum bytes loaded into the editor by default; larger files are truncated
 /// (the user is warned on the frontend and can switch to hex view).
-const MAX_TEXT_BYTES: u64 = 64 * 1024 * 1024;
+pub(crate) const MAX_TEXT_BYTES: u64 = 64 * 1024 * 1024;
 
 #[derive(Serialize)]
 pub struct TextContent {

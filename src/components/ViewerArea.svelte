@@ -2,12 +2,13 @@
   import { onMount } from "svelte";
   import { EditorView } from "@codemirror/view";
   import { createView, setStateFor, setActiveView, capturePos, restorePos } from "$lib/editor/cm";
-  import { readHex, ftpReadHex } from "$lib/api";
+  import { readHex, ftpReadHex, archiveReadHex } from "$lib/api";
   import { convertFileSrc } from "@tauri-apps/api/core";
   import { editor } from "$lib/stores/editor.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
   import { formatSize } from "$lib/format";
   import { isFtpPath } from "$lib/ftp";
+  import { isArchivePath } from "$lib/archive";
 
   let host: HTMLDivElement | undefined = $state();
   let view: EditorView | null = null;
@@ -41,7 +42,11 @@
 
   async function loadHex(path: string, offset: number) {
     try {
-      const res = isFtpPath(path) ? await ftpReadHex(path, offset, PAGE) : await readHex(path, offset, PAGE);
+      const res = isFtpPath(path)
+        ? await ftpReadHex(path, offset, PAGE)
+        : isArchivePath(path)
+          ? await archiveReadHex(path, offset, PAGE)
+          : await readHex(path, offset, PAGE);
       hexFileSize = res.fileSize;
       const rows: { off: number; bytes: number[] }[] = [];
       for (let i = 0; i < res.data.length; i += 16) {

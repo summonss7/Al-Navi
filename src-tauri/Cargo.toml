@@ -1,6 +1,6 @@
 [package]
 name = "al-navi"
-version = "1.8.0"
+version = "1.9.0"
 description = "Al-Navi — modern dual-panel file manager"
 edition = "2021"
 
@@ -34,6 +34,13 @@ suppaftp = { version = "12", default-features = false, features = ["tokio"] }
 # 1.13.1 is already in Cargo.lock as a transitive dep, so this resolves
 # from the local cargo cache without network access
 regex = "1.13.1"
+# M6 archives: zip/tar/tar.gz/7z read+write (flate2 was already in the lock
+# as a transitive dep; zip/tar/sevenz-rust were fetched once and now stay
+# in the local cargo cache for offline builds)
+zip = { version = "2", default-features = false, features = ["deflate"] }
+tar = "0.4"
+flate2 = "1"
+sevenz-rust = "0.6"
 
 [profile.release]
 codegen-units = 1

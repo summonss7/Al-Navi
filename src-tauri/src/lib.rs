@@ -1,3 +1,5 @@
+mod archive;
+mod archive_ops;
 mod config;
 mod drives;
 mod fs;
@@ -8,6 +10,7 @@ mod ops;
 mod search;
 mod textio;
 mod watch;
+mod winstate;
 
 // MinGW shim: the statically linked WebView2LoaderStatic.lib (MSVC-compiled)
 // references MSVC CRT stack-protection and C++-runtime symbols that mingw
@@ -89,9 +92,12 @@ pub fn run() {
         .manage(ftp::FtpState::new())
         .manage(search::SearchManager::new())
         .setup(|app| {
-            // Windows/WebView2: without this the webview lacks keyboard focus
-            // on startup, so arrow keys/F-keys do nothing until first click
             if let Some(win) = app.get_webview_window("main") {
+                // the window starts hidden (tauri.conf.json) — restore the
+                // remembered size/position/maximized first, then reveal it
+                winstate::restore_and_show(&win);
+                // Windows/WebView2: without this the webview lacks keyboard focus
+                // on startup, so arrow keys/F-keys do nothing until first click
                 let _ = win.set_focus();
             }
             Ok(())
@@ -126,6 +132,12 @@ pub fn run() {
             ftp::ftp_rename,
             config::load_json,
             config::save_json,
+            archive::archive_list,
+            archive::archive_read_text,
+            archive::archive_read_hex,
+            archive_ops::extract_paths,
+            archive_ops::pack_paths,
+            archive_ops::archive_add,
             search::search_start,
             search::search_cancel,
             meta::app_info,

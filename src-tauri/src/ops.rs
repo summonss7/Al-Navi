@@ -212,7 +212,7 @@ pub(crate) struct Ctx {
 }
 
 impl Ctx {
-    fn check_pause_cancel(&mut self) -> bool {
+    pub(crate) fn check_pause_cancel(&mut self) -> bool {
         if self.h.cancel.load(Ordering::Relaxed) {
             self.cancelled = true;
             return true;
@@ -257,7 +257,7 @@ impl Ctx {
         );
     }
 
-    fn ask_conflict(&mut self, src: &Path, dst: &Path, is_dir: bool) -> String {
+    pub(crate) fn ask_conflict(&mut self, src: &Path, dst: &Path, is_dir: bool) -> String {
         if self.overwrite_all {
             return "overwrite".into();
         }

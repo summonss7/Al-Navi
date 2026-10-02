@@ -2,6 +2,9 @@ import {
   copyPaths,
   movePaths,
   deletePaths,
+  extractPaths,
+  packPaths,
+  archiveAdd,
   opControl,
   onOpProgress,
   onOpConflict,
@@ -124,6 +127,39 @@ class OpsStore {
     ui.openDialog("progress");
     try {
       const id = await deletePaths(paths, permanent);
+      if (this.op) this.op.id = id;
+    } catch (e) {
+      this.op = { ...this.op!, phase: "done", errors: [{ path: "", error: String(e) }] };
+    }
+  }
+
+  async startExtract(items: { url: string; dest: string }[]) {
+    this.begin(i18n.t("archive.extract"));
+    ui.openDialog("progress");
+    try {
+      const id = await extractPaths(items);
+      if (this.op) this.op.id = id;
+    } catch (e) {
+      this.op = { ...this.op!, phase: "done", errors: [{ path: "", error: String(e) }] };
+    }
+  }
+
+  async startPack(paths: string[], destFile: string, format: string) {
+    this.begin(i18n.t("archive.pack"));
+    ui.openDialog("progress");
+    try {
+      const id = await packPaths(paths, destFile, format);
+      if (this.op) this.op.id = id;
+    } catch (e) {
+      this.op = { ...this.op!, phase: "done", errors: [{ path: "", error: String(e) }] };
+    }
+  }
+
+  async startArchiveAdd(srcs: string[], destUrl: string, moveMode: boolean) {
+    this.begin(moveMode ? i18n.t("ops.moveTo", { n: srcs.length }) : i18n.t("archive.addTo"));
+    ui.openDialog("progress");
+    try {
+      const id = await archiveAdd(srcs, destUrl, moveMode);
       if (this.op) this.op.id = id;
     } catch (e) {
       this.op = { ...this.op!, phase: "done", errors: [{ path: "", error: String(e) }] };

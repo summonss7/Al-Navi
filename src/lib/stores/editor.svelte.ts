@@ -1,6 +1,7 @@
-import { readText, writeText, ftpReadText, ftpWriteText, loadJson, saveJson, pathExists } from "$lib/api";
+import { readText, writeText, ftpReadText, ftpWriteText, archiveReadText, loadJson, saveJson, pathExists } from "$lib/api";
 import { basename, isAbsolutePath, joinPath } from "$lib/format";
 import { isFtpPath } from "$lib/ftp";
+import { isArchivePath } from "$lib/archive";
 import { ui } from "./ui.svelte";
 import { i18n } from "./i18n.svelte";
 import { settings } from "./settings.svelte";
@@ -46,11 +47,11 @@ interface SavedEntry {
 }
 let savedPos: Record<string, SavedEntry> | null = null;
 
-/** local or FTP read with the same auto-detect settings */
+/** local, FTP or archive-member read with the same auto-detect settings */
 function readTextAny(path: string) {
-  return isFtpPath(path)
-    ? ftpReadText(path, "auto", settings.s.fallbackEncoding)
-    : readText(path, "auto", settings.s.fallbackEncoding);
+  if (isFtpPath(path)) return ftpReadText(path, "auto", settings.s.fallbackEncoding);
+  if (isArchivePath(path)) return archiveReadText(path, "auto", settings.s.fallbackEncoding);
+  return readText(path, "auto", settings.s.fallbackEncoding);
 }
 
 class EditorStore {
@@ -119,6 +120,11 @@ class EditorStore {
   }
 
   async open(path: string): Promise<void> {
+    // archive members are read-only for the VFS — no repacking from the editor
+    if (isArchivePath(path)) {
+      ui.showToast(i18n.t("archive.readonly"));
+      return;
+    }
     const existing = this.docs.find((d) => d.path === path);
     if (existing) {
       this.activate(existing.id);
@@ -299,9 +305,10 @@ class EditorStore {
     }
     this.loading = true;
     try {
-      // images render through the local asset protocol — FTP paths can't use
-      // it, so they fall through to the text/hex heuristics below
-      const isImage = !isFtpPath(path) && /\.(png|jpe?g|gif|bmp|webp|svg|ico|avif)$/i.test(path);
+      // images render through the local asset protocol — FTP and archive
+      // paths can't use it, so they fall through to the text/hex heuristics
+      const virtual = isFtpPath(path) || isArchivePath(path);
+      const isImage = !virtual && /\.(png|jpe?g|gif|bmp|webp|svg|ico|avif)$/i.test(path);
       let doc: ViewerDoc;
       if (isImage) {
         doc = {

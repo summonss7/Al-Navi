@@ -19,6 +19,8 @@ export type DialogId =
   | "ftp"
   | "ftpSite"
   | "search"
+  | "pack"
+  | "unpack"
   | "errors"
   | null;
 
@@ -39,6 +41,22 @@ export interface InputRequest {
   resolve: (value: string | null) => void;
 }
 
+/** Alt+F5 pack dialog: archive name + format, into the opposite panel */
+export interface PackRequest {
+  name: string;
+  destDir: string;
+  formats: { id: string; ext: string }[];
+  resolve: (r: { name: string; format: string } | null) => void;
+}
+
+/** Alt+F6 unpack dialog: target directory + "into a named subfolder" */
+export interface UnpackRequest {
+  destDir: string;
+  variants: string[];
+  subdirDefault: boolean;
+  resolve: (r: { dest: string; subdir: boolean } | null) => void;
+}
+
 class UIStore {
   mode = $state<UIMode>("panels");
   dialog = $state<DialogId>(null);
@@ -47,6 +65,8 @@ class UIStore {
 
   confirmReq = $state<ConfirmRequest | null>(null);
   inputReq = $state<InputRequest | null>(null);
+  packReq = $state<PackRequest | null>(null);
+  unpackReq = $state<UnpackRequest | null>(null);
   errorText = $state<string | null>(null);
   /** transient toast message (e.g. shortcut assigned) */
   toast = $state<{ text: string; at: number } | null>(null);
@@ -98,6 +118,20 @@ class UIStore {
     return new Promise((resolve) => {
       this.inputReq = { title, prompt, value, resetTo, variants, resolve: (v) => { this.inputReq = null; this.dialog = null; resolve(v); } };
       this.dialog = "input";
+    });
+  }
+
+  askPack(name: string, destDir: string, formats: { id: string; ext: string }[]): Promise<{ name: string; format: string } | null> {
+    return new Promise((resolve) => {
+      this.packReq = { name, destDir, formats, resolve: (r) => { this.packReq = null; this.dialog = null; resolve(r); } };
+      this.dialog = "pack";
+    });
+  }
+
+  askUnpack(destDir: string, variants: string[], subdirDefault: boolean): Promise<{ dest: string; subdir: boolean } | null> {
+    return new Promise((resolve) => {
+      this.unpackReq = { destDir, variants, subdirDefault, resolve: (r) => { this.unpackReq = null; this.dialog = null; resolve(r); } };
+      this.dialog = "unpack";
     });
   }
 

@@ -66,6 +66,19 @@ export const ftpMkdir = (path: string) => invoke<void>("ftp_mkdir", { path });
 export const ftpRename = (oldPath: string, newPath: string) =>
   invoke<void>("ftp_rename", { old: oldPath, new: newPath });
 
+// ---- Archives (M6) ----
+export const archiveList = (path: string) => invoke<DirListing>("archive_list", { path });
+export const archiveReadText = (path: string, encoding?: string, fallback?: string) =>
+  invoke<TextContent>("archive_read_text", { path, encoding: encoding ?? null, fallback: fallback ?? null });
+export const archiveReadHex = (path: string, offset: number, len: number) =>
+  invoke<{ data: number[]; fileSize: number }>("archive_read_hex", { path, offset, len });
+export const extractPaths = (items: { url: string; dest: string }[]) =>
+  invoke<number>("extract_paths", { items });
+export const packPaths = (paths: string[], destFile: string, format: string) =>
+  invoke<number>("pack_paths", { paths, destFile, format });
+export const archiveAdd = (srcs: string[], destUrl: string, moveMode: boolean) =>
+  invoke<number>("archive_add", { srcs, destUrl, moveMode });
+
 // ---- Search ----
 export const searchStart = (params: SearchParams) => invoke<number>("search_start", { params });
 export const searchCancel = (id: number) => invoke<void>("search_cancel", { id });

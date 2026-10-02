@@ -4,8 +4,9 @@
   import { runCommand } from "$lib/commands";
   import { cyrillicOfLatin } from "$lib/keymap";
   import { i18n } from "$lib/stores/i18n.svelte";
-  import { formatSize, formatCount, basename, sortArrow } from "$lib/format";
+  import { formatSize, formatCount, basename, parentOf, sortArrow } from "$lib/format";
   import { ftpAuthority, isFtpPath } from "$lib/ftp";
+  import { isArchivePath, splitArchiveUrl, archiveUrl } from "$lib/archive";
   import { isSearchPath, searchStore } from "$lib/stores/search.svelte";
   import { settings, BASE_FONT_PX } from "$lib/stores/settings.svelte";
   import VirtualList from "./VirtualList.svelte";
@@ -45,7 +46,16 @@
       out.push({ label: `${i18n.t("search.tab")}: ${m}`, path: p });
       return out;
     }
-    if (isFtpPath(p)) {
+    if (isArchivePath(p)) {
+      // archive file crumb (jumps back to its directory) + one per inner folder
+      const { file, inner } = splitArchiveUrl(p);
+      out.push({ label: basename(file), path: parentOf(file) ?? file });
+      let acc = "";
+      for (const part of inner.split("/").filter(Boolean)) {
+        acc = acc ? `${acc}/${part}` : part;
+        out.push({ label: part, path: archiveUrl(file, acc) });
+      }
+    } else if (isFtpPath(p)) {
       // "ftp://user@host:port" crumb + one crumb per remote folder
       const auth = ftpAuthority(p);
       out.push({ label: auth.slice("ftp://".length), path: auth });

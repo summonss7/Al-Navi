@@ -479,6 +479,76 @@
     ui.inputReq?.resolve(null);
   }
 
+  // ---- archives: Alt+F5 pack ----
+  let packName = $state("");
+  let packFormat = $state("zip");
+  let packFmtIdx = $state(0);
+  $effect(() => {
+    const req = ui.packReq;
+    if (!req) return;
+    packName = req.name;
+    packFormat = req.formats[0]?.id ?? "zip";
+    packFmtIdx = 0;
+  });
+  function submitPack() {
+    ui.packReq?.resolve({ name: packName, format: packFormat });
+  }
+  function closePack() {
+    ui.packReq?.resolve(null);
+  }
+  // ↑/↓ walk the format list when the focus is outside the name field; inside
+  // it they keep their native caret meaning (dialogs own their arrow keys)
+  function onPackDlgKey(e: KeyboardEvent) {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
+    if ((e.target as HTMLElement).tagName === "INPUT") return;
+    const n = ui.packReq?.formats.length ?? 0;
+    if (!n) return;
+    e.preventDefault();
+    packFmtIdx = (packFmtIdx + (e.key === "ArrowDown" ? 1 : -1) + n) % n;
+    packFormat = ui.packReq!.formats[packFmtIdx].id;
+  }
+
+  // ---- archives: Alt+F6 unpack ----
+  let unpackDest = $state("");
+  let unpackIdx = $state(-1);
+  let unpackSubdir = $state(true);
+  $effect(() => {
+    const req = ui.unpackReq;
+    if (!req) return;
+    unpackDest = req.destDir;
+    unpackIdx = req.variants.findIndex((v) => pathKey(v) === pathKey(req.destDir));
+    unpackSubdir = req.subdirDefault;
+  });
+  function submitUnpack() {
+    ui.unpackReq?.resolve({ dest: unpackDest, subdir: unpackSubdir });
+  }
+  function closeUnpack() {
+    ui.unpackReq?.resolve(null);
+  }
+  // bare ↑/↓ cycle the destination variants, like the F5/F6 transfer dialog
+  function onUnpackKey(e: KeyboardEvent) {
+    const el = e.currentTarget as HTMLInputElement;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      const vars = ui.unpackReq?.variants;
+      if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey || !vars?.length) return;
+      e.preventDefault();
+      const n = vars.length;
+      unpackIdx = unpackIdx < 0
+        ? (e.key === "ArrowDown" ? 0 : n - 1)
+        : (unpackIdx + (e.key === "ArrowDown" ? 1 : -1) + n) % n;
+      unpackDest = vars[unpackIdx];
+      el.value = vars[unpackIdx];
+      setTimeout(() => el.select(), 0);
+    }
+  }
+  function pickUnpackVariant(i: number) {
+    const v = ui.unpackReq?.variants[i];
+    if (v === undefined) return;
+    unpackIdx = i;
+    unpackDest = v;
+  }
+
   // F5/F6 transfer dialogs seed `resetTo` with the current file name —
   // Shift+Enter clears the field and drops that name in (selected, ready to
   // be retyped over), so a bare name + Enter renames in the current folder.
@@ -624,6 +694,61 @@
       <div class="dlg-actions">
         <button class="btn" onclick={closeInput}>{i18n.t("common.cancel")}</button>
         <button class="btn primary" onclick={submitInput}>{i18n.t("common.ok")}</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if ui.dialog === "pack" && ui.packReq}
+  <div class="overlay">
+    <div class="dlg" role="dialog" onkeydown={onPackDlgKey}>
+      <div class="dlg-title"><i class="ph-duotone ph-package"></i>{i18n.t("archive.packTitle")}</div>
+      <form class="dlg-body" onsubmit={(e) => { e.preventDefault(); submitPack(); }}>
+        <label class="lbl">{i18n.t("archive.packName")}</label>
+        <input bind:value={packName} use:focusSelect spellcheck="false" style="width:100%" />
+        <label class="lbl" style="margin-top:10px">{i18n.t("archive.packFormat")}</label>
+        <div class="variants">
+          {#each ui.packReq.formats as f, i}
+            <button type="button" class="li" class:kbd={i === packFmtIdx} onclick={() => { packFmtIdx = i; packFormat = f.id; }}>
+              <i class="ph-duotone ph-file-zip"></i>{f.ext}
+            </button>
+          {/each}
+        </div>
+        <div class="lbl" style="margin-top:10px; opacity:0.75" title={ui.packReq.destDir}>
+          {i18n.t("ops.dst")}: {ui.packReq.destDir}
+        </div>
+      </form>
+      <div class="dlg-actions">
+        <button class="btn" onclick={closePack}>{i18n.t("common.cancel")}</button>
+        <button class="btn primary" onclick={submitPack}>{i18n.t("common.ok")}</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if ui.dialog === "unpack" && ui.unpackReq}
+  <div class="overlay">
+    <div class="dlg" role="dialog">
+      <div class="dlg-title"><i class="ph-duotone ph-package"></i>{i18n.t("archive.unpackTitle")}</div>
+      <form class="dlg-body" onsubmit={(e) => { e.preventDefault(); submitUnpack(); }}>
+        <label class="lbl">{i18n.t("ops.dst")}</label>
+        <input bind:value={unpackDest} use:focusSelect spellcheck="false" style="width:100%" onkeydown={onUnpackKey} oninput={() => { unpackIdx = -1; }} />
+        {#if ui.unpackReq.variants.length}
+          <div class="variants">
+            {#each ui.unpackReq.variants as v, i}
+              <button type="button" class="li" class:kbd={i === unpackIdx} title={v} onclick={() => pickUnpackVariant(i)}>
+                <i class="ph-duotone ph-folder-simple"></i>{v}
+              </button>
+            {/each}
+          </div>
+        {/if}
+        <label class="lbl check" style="margin-top:10px">
+          <input type="checkbox" bind:checked={unpackSubdir} />{i18n.t("archive.unpackSubdir")}
+        </label>
+      </form>
+      <div class="dlg-actions">
+        <button class="btn" onclick={closeUnpack}>{i18n.t("common.cancel")}</button>
+        <button class="btn primary" onclick={submitUnpack}>{i18n.t("common.ok")}</button>
       </div>
     </div>
   </div>

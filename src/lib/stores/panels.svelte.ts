@@ -1,7 +1,8 @@
-import { listDir, ftpList, ftpConnect, watchSet, onWatchChanged, onDirSize, computeDirSizes, loadJson, saveJson, homePath, openPath } from "$lib/api";
+import { listDir, ftpList, ftpConnect, watchSet, onWatchChanged, onDirSize, computeDirSizes, loadJson, saveJson, homePath, openPath, archiveList } from "$lib/api";
 import type { FileEntry, SortMode } from "$lib/types";
 import { extOf, joinPath, parentOf, basename, isRootPath } from "$lib/format";
 import { ftpAuthority, ftpRootOf, isFtpPath } from "$lib/ftp";
+import { isArchivePath, isArchiveFile, archiveUrl, joinArchivePath, splitArchiveUrl } from "$lib/archive";
 import { isSearchPath, searchStore } from "./search.svelte";
 import { cyrillicOfLatin } from "$lib/keymap";
 import { i18n } from "./i18n.svelte";
@@ -108,6 +109,7 @@ export class PanelState {
           t.history = [...t.history.slice(0, t.historyIndex + 1), path];
           t.historyIndex = t.history.length - 1;
         }
+        panels.scheduleSessionSave();
       }
       this.rebuild();
       return;
@@ -117,7 +119,10 @@ export class PanelState {
     this.error = null;
     try {
       let res: Awaited<ReturnType<typeof listDir>>;
-      if (isFtpPath(path)) {
+      if (isArchivePath(path)) {
+        // archive VFS: listing served by the backend from the archive file
+        res = await archiveList(path);
+      } else if (isFtpPath(path)) {
         res = await ftpList(path).catch(async (e: unknown) => {
           // stale session after an app restart: reconnect from a saved site
           // with the same address, then retry the listing
@@ -141,6 +146,7 @@ export class PanelState {
           t.history = [...t.history.slice(0, t.historyIndex + 1), res.path];
           t.historyIndex = t.history.length - 1;
         }
+        panels.scheduleSessionSave();
       }
       this.rebuild();
       this.requestDirSizes(opts.forceSizes === true);
@@ -254,8 +260,8 @@ export class PanelState {
    * land in applyDirSize().
    */
   private requestDirSizes(force: boolean) {
-    // FTP: no cheap recursive sizes — skip (dirs show no size, like FAR)
-    if (isFtpPath(this.path)) {
+    // FTP and archives: no cheap recursive sizes — skip (dirs show no size)
+    if (isFtpPath(this.path) || isArchivePath(this.path)) {
       this.dirSizes = new Map();
       return;
     }
@@ -322,10 +328,16 @@ export class PanelState {
       return;
     }
     if (cur.isDir) {
-      await this.chdir(joinPath(this.path, cur.name));
-    } else if (isFtpPath(this.path)) {
-      // files on FTP can't go to the OS shell — open the built-in viewer
-      void editor.view(joinPath(this.path, cur.name));
+      const child = isArchivePath(this.path) ? joinArchivePath(this.path, cur.name) : joinPath(this.path, cur.name);
+      await this.chdir(child);
+    } else if (isFtpPath(this.path) || isArchivePath(this.path)) {
+      // remote/archive files can't go to the OS shell — open the built-in
+      // viewer (a nested .zip inside an archive is not enterable, it views)
+      const fp = isArchivePath(this.path) ? joinArchivePath(this.path, cur.name) : joinPath(this.path, cur.name);
+      void editor.view(fp);
+    } else if (isArchiveFile(cur.name)) {
+      // archives open as folders (Shift+Enter still hands them to the shell)
+      await this.chdir(archiveUrl(joinPath(this.path, cur.name), ""));
     } else {
       // open with the OS handler
       await panels.openExternally(joinPath(this.path, cur.name));
@@ -345,7 +357,7 @@ export class PanelState {
   /** Shift+Enter: always hand the entry to the OS shell — folders (and "..")
    *  open in Explorer, files run/open in their own window */
   async enterExternal() {
-    if (isFtpPath(this.path)) return; // no local shell for remote paths
+    if (isFtpPath(this.path) || isArchivePath(this.path)) return; // no local shell for virtual paths
     const cur = this.current;
     if (!cur) return;
     if (isSearchPath(this.path)) {
@@ -377,6 +389,11 @@ export class PanelState {
       await this.chdir(ftpAuthority(path));
       return;
     }
+    if (isArchivePath(path)) {
+      // Ctrl+\ inside an archive: jump to the archive's own root
+      await this.chdir(archiveUrl(splitArchiveUrl(path).file, ""));
+      return;
+    }
     const m = /^([A-Za-z]:)(?:[\\/].*)?$/.exec(path);
     if (m) await this.chdir(m[1] + "\\");
     else if (path.startsWith("/")) await this.chdir("/");
@@ -385,8 +402,15 @@ export class PanelState {
 
   async intoDir() {
     const cur = this.current;
-    if (cur?.isDir && cur.name !== UP_NAME) {
-      await this.chdir(isSearchPath(this.path) ? cur.fullPath ?? cur.name : joinPath(this.path, cur.name));
+    if (!cur || cur.name === UP_NAME) return;
+    if (!cur.isDir && isArchiveFile(cur.name) && !isArchivePath(this.path)) {
+      // Ctrl+PgDn enters archives as folders, like Enter
+      await this.chdir(archiveUrl(joinPath(this.path, cur.name), ""));
+      return;
+    }
+    if (cur.isDir) {
+      const child = isArchivePath(this.path) ? joinArchivePath(this.path, cur.name) : joinPath(this.path, cur.name);
+      await this.chdir(isSearchPath(this.path) ? cur.fullPath ?? cur.name : child);
     }
   }
 
@@ -550,7 +574,9 @@ export class PanelState {
   }
 
   get targetPaths(): string[] {
-    return this.targetEntries.map((e) => e.fullPath ?? joinPath(this.path, e.name));
+    return this.targetEntries.map((e) =>
+      e.fullPath ?? (isArchivePath(this.path) ? joinArchivePath(this.path, e.name) : joinPath(this.path, e.name)),
+    );
   }
 
   get stats(): { files: number; dirs: number; selFiles: number; selDirs: number; selBytes: number } {
@@ -629,6 +655,7 @@ class PanelsStore {
   dirHistory = $state<string[]>([]);
 
   private watchTimer: ReturnType<typeof setTimeout> | null = null;
+  private sessTimer: ReturnType<typeof setTimeout> | null = null;
 
   get active(): PanelState {
     return this.activeSide === "left" ? this.left : this.right;
@@ -713,10 +740,10 @@ class PanelsStore {
   notifyWatch() {
     if (this.watchTimer) clearTimeout(this.watchTimer);
     this.watchTimer = setTimeout(() => {
-      // the OS watcher is local-only — FTP and search-result paths are
-      // refreshed via Ctrl+R
+      // the OS watcher is local-only — FTP, search-result and archive paths
+      // are refreshed via Ctrl+R
       const paths = [this.left.path, this.right.path].filter(
-        (p) => p && !isFtpPath(p) && !isSearchPath(p),
+        (p) => p && !isFtpPath(p) && !isSearchPath(p) && !isArchivePath(p),
       );
       if (paths.length) watchSet(paths).catch(() => {});
     }, 400);
@@ -742,9 +769,24 @@ class PanelsStore {
     return !!path;
   }
 
+  /** debounced session save on navigation — a crash then loses no panel paths
+   *  (session.json is otherwise only written at graceful exit) */
+  scheduleSessionSave() {
+    if (this.sessTimer) clearTimeout(this.sessTimer);
+    this.sessTimer = setTimeout(() => {
+      this.sessTimer = null;
+      this.saveSession();
+    }, 1000);
+  }
+
   sessionData() {
-    // a search-results panel restores as the directory the search started in
-    const real = (p: string) => (isSearchPath(p) ? searchStore.originPath || "" : p);
+    // a search-results panel restores as the directory the search started in;
+    // an archive panel restores as the archive file's own directory on disk
+    const real = (p: string) => {
+      if (isSearchPath(p)) return searchStore.originPath || "";
+      if (isArchivePath(p)) return parentOf(splitArchiveUrl(p).file) ?? p;
+      return p;
+    };
     return {
       leftPath: real(this.left.path),
       rightPath: real(this.right.path),

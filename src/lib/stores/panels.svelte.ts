@@ -1,6 +1,6 @@
 import { listDir, ftpList, ftpConnect, watchSet, onWatchChanged, onDirSize, computeDirSizes, loadJson, saveJson, homePath, openPath, archiveList } from "$lib/api";
 import type { FileEntry, SortMode } from "$lib/types";
-import { extOf, joinPath, parentOf, basename, isRootPath } from "$lib/format";
+import { extOf, joinPath, parentOf, basename, isRootPath, maskToRegExp } from "$lib/format";
 import { ftpAuthority, ftpRootOf, isFtpPath } from "$lib/ftp";
 import { isArchivePath, isArchiveFile, archiveUrl, joinArchivePath, splitArchiveUrl } from "$lib/archive";
 import { isSearchPath, searchStore } from "./search.svelte";
@@ -631,18 +631,6 @@ export class PanelState {
     const next = this.tabs[(idx + dir + n) % n];
     this.activateTab(next.id);
   }
-}
-
-function maskToRegExp(mask: string): RegExp {
-  const parts = mask
-    .split(",")
-    .map((p) => p.trim().toLowerCase())
-    .filter(Boolean);
-  if (!parts.length) parts.push("*");
-  const src = parts
-    .map((p) => p.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, "."))
-    .join("|");
-  return new RegExp(`^(${src})$`, "i");
 }
 
 class PanelsStore {

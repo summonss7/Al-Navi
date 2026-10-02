@@ -12,6 +12,7 @@
   import { fileColors } from "$lib/stores/fileColors.svelte";
   import { textColors } from "$lib/stores/textColors.svelte";
   import { ftpSites } from "$lib/stores/ftpSites.svelte";
+  import { userMenu } from "$lib/stores/userMenu.svelte";
   import { searchStore } from "$lib/stores/search.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
   import { windowState } from "$lib/windowState";
@@ -164,6 +165,7 @@
         // remembered positions, not an empty map
         await editor.init();
         void cmdline.init();
+        void userMenu.init();
         void fileColors.init();
         void textColors.init();
       })

@@ -11,6 +11,10 @@ export type DialogId =
   | "windowList"
   | "dirHistory"
   | "cmdHistory"
+  | "viewHist"
+  | "userMenu"
+  | "userMenuItem"
+  | "multiRename"
   | "menu"
   | "help"
   | "fileColors"
@@ -69,6 +73,14 @@ export interface AttrsRequest {
   resolve: (r: AttrBits | null) => void;
 }
 
+/** Ctrl+M multi-rename dialog: the files to transform. resolve fires on
+ *  cancel/Esc only — applying is started by the dialog itself through the
+ *  ops queue (like the search dialog runs its own search) */
+export interface MultiRenameRequest {
+  targets: { path: string; name: string }[];
+  resolve: () => void;
+}
+
 class UIStore {
   mode = $state<UIMode>("panels");
   dialog = $state<DialogId>(null);
@@ -80,6 +92,7 @@ class UIStore {
   packReq = $state<PackRequest | null>(null);
   unpackReq = $state<UnpackRequest | null>(null);
   attrsReq = $state<AttrsRequest | null>(null);
+  multiRenameReq = $state<MultiRenameRequest | null>(null);
   errorText = $state<string | null>(null);
   /** transient toast message (e.g. shortcut assigned) */
   toast = $state<{ text: string; at: number } | null>(null);
@@ -152,6 +165,20 @@ class UIStore {
     return new Promise((resolve) => {
       this.attrsReq = { count, initial, resolve: (r) => { this.attrsReq = null; this.dialog = null; resolve(r); } };
       this.dialog = "attrs";
+    });
+  }
+
+  askMultiRename(targets: { path: string; name: string }[]): Promise<void> {
+    return new Promise((resolve) => {
+      this.multiRenameReq = {
+        targets,
+        resolve: () => {
+          this.multiRenameReq = null;
+          this.dialog = null;
+          resolve();
+        },
+      };
+      this.dialog = "multiRename";
     });
   }
 

@@ -40,7 +40,7 @@
     void i18n.locale;
     return [
       { k: "F1", cmd: "ui.help", label: i18n.t("fkeys.f1") },
-      { k: "F2", cmd: "stub.userMenu", label: i18n.t("fkeys.f2") },
+      { k: "F2", cmd: "usermenu.open", label: i18n.t("fkeys.f2") },
       { k: "F3", cmd: "viewer.open", label: i18n.t("fkeys.f3") },
       { k: "F4", cmd: "editor.open", label: i18n.t("fkeys.f4") },
       { k: "F5", cmd: "fs.copy", label: i18n.t("fkeys.f5") },
@@ -101,6 +101,7 @@
       { k: "Ctrl+U", cmd: "panel.swap", label: i18n.t("hint.swap") },
       { k: "Ctrl+R", cmd: "panel.refresh", label: i18n.t("hint.refresh") },
       { k: "Ctrl+A", cmd: "fs.attrs", label: i18n.t("hint.attrs") },
+      { k: "Ctrl+M", cmd: "fs.multiRename", label: i18n.t("hint.multiRename") },
       { k: "Ctrl+.", cmd: "panel.toggleHidden", label: i18n.t("hint.hidden") },
       { k: "Ctrl+↑", cmd: "panel.up", label: i18n.t("hint.up") },
       { k: "Ctrl+\\", cmd: "panel.root", label: i18n.t("hint.root") },
@@ -146,9 +147,9 @@
       { k: "Alt+→", cmd: "panel.historyForward", label: i18n.t("hint.histFwd") },
       { k: "Alt+F5", cmd: "fs.pack", label: i18n.t("hint.pack") },
       { k: "Alt+F6", cmd: "fs.unpack", label: i18n.t("hint.unpack") },
-      { k: "Alt+F7", cmd: "stub.search", label: i18n.t("hint.search") },
+      { k: "Alt+F7", cmd: "search.openDialog", label: i18n.t("hint.search") },
       { k: "Alt+F8", cmd: "cmdline.history", label: i18n.t("hint.cmdList") },
-      { k: "Alt+F11", cmd: "stub.viewHistory", label: i18n.t("hint.viewHist") },
+      { k: "Alt+F11", cmd: "viewer.history", label: i18n.t("hint.viewHist") },
       { k: "Alt+F12", cmd: "panel.dirHistory", label: i18n.t("hint.dirHist") },
       // quick jump is not a keymap chord (any Alt+letter) — info-only chip
       { k: "Alt+A…Z", cmd: null, label: i18n.t("hint.quickJump") },

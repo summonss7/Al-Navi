@@ -118,6 +118,7 @@ export function registerAllCommands() {
   registerCommand("viewer.toEditor", () => editor.toEditorActive());
   registerCommand("viewer.toggleHex", () => editor.toggleHexActive());
   registerCommand("viewer.close", () => void editor.closeViewer());
+  registerCommand("viewer.history", () => ui.openDialog("viewHist"));
 
   // ---------- editor ----------
   registerCommand("editor.open", () => {
@@ -227,6 +228,23 @@ export function registerAllCommands() {
     } catch (e) {
       ui.showError(String(e));
     }
+  });
+  registerCommand("fs.multiRename", () => {
+    const p = A();
+    // FAR behavior: the marked files, or the whole panel when nothing is
+    // marked — the live preview shows every change before anything moves.
+    // Search rows stay eligible (each renames in its own directory); FTP
+    // rows and archive members are not local renames.
+    const entries = p.selectedEntries.length ? p.selectedEntries : p.view.filter((e) => e.name !== "..");
+    const targets = entries
+      .map((e) => entryPath(p, e))
+      .filter((path) => !isFtpPath(path) && !isArchivePath(path))
+      .map((path) => ({ path, name: basename(path) }));
+    if (!targets.length) {
+      ui.showToast(i18n.t("mr.localOnly"));
+      return;
+    }
+    void ui.askMultiRename(targets);
   });
   registerCommand("fs.delete", () => startDelete(false, false));
   registerCommand("fs.deleteCurrent", () => startDelete(false, true));
@@ -378,6 +396,7 @@ export function registerAllCommands() {
     else if (ui.packReq) ui.packReq.resolve(null);
     else if (ui.unpackReq) ui.unpackReq.resolve(null);
     else if (ui.attrsReq) ui.attrsReq.resolve(null);
+    else if (ui.multiRenameReq) ui.multiRenameReq.resolve();
     else if (ops.conflict) ops.resolveConflictAction("skip");
     else ui.closeDialog();
   });
@@ -446,14 +465,11 @@ export function registerAllCommands() {
     }
   });
 
+  // ---------- user menu (F2) ----------
+  registerCommand("usermenu.open", () => ui.openDialog("userMenu"));
+
   // ---------- find files ----------
   registerCommand("search.openDialog", () => ui.openDialog("search"));
-
-  // ---------- stubs for future milestones ----------
-  const stub = (featureKey: string) => () =>
-    ui.showToast(i18n.t("misc.comingSoon", { feature: i18n.t(featureKey) }));
-  registerCommand("stub.userMenu", stub("misc.feature.userMenu"));
-  registerCommand("stub.viewHistory", stub("misc.feature.viewHistory"));
 
   // expose a couple of helpers used by dialogs
   registerCommand("dev.home", () => void homePath());

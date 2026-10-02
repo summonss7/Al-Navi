@@ -38,6 +38,10 @@ let seq = 1;
 /** last known positions per file path, persisted across restarts */
 const POS_FILE = "editor-state.json";
 const POS_MAX = 100;
+
+/** Alt+F11 view history, persisted like dir-history */
+const VIEW_HIST_FILE = "view-history.json";
+const VIEW_HIST_MAX = 100;
 /** persisted entry with a recency stamp — a plain position record is the
  *  pre-1.7.1 format; the stamp keeps the trim below truly newest-first
  *  (Rust's serde round-trip re-orders JSON object keys alphabetically) */
@@ -60,6 +64,8 @@ class EditorStore {
   loading = $state(false);
   viewDocs = $state<ViewerDoc[]>([]);
   activeViewId = $state<number | null>(null);
+  /** paths of previously viewed files, newest first (Alt+F11) */
+  viewHistory = $state<string[]>([]);
 
   /** load remembered caret positions (used when a file is opened again) */
   async init() {
@@ -73,6 +79,14 @@ class EditorStore {
           : { pos: v as EditorPos, ts: 0 };
       }
     }
+    const vh = await loadJson<string[]>(VIEW_HIST_FILE).catch(() => null);
+    this.viewHistory = vh ?? [];
+  }
+
+  /** record a view in the Alt+F11 history: dedupe, newest first, capped */
+  pushViewHistory(path: string) {
+    this.viewHistory = [path, ...this.viewHistory.filter((p) => p !== path)].slice(0, VIEW_HIST_MAX);
+    saveJson(VIEW_HIST_FILE, this.viewHistory).catch(() => {});
   }
 
   private savedPosFor(path: string): EditorPos | undefined {
@@ -300,6 +314,7 @@ class EditorStore {
     const existing = this.viewDocs.find((d) => d.path === path);
     if (existing) {
       this.activeViewId = existing.id;
+      this.pushViewHistory(path);
       ui.setMode("viewer");
       return;
     }
@@ -339,6 +354,7 @@ class EditorStore {
       }
       this.viewDocs = [...this.viewDocs, doc];
       this.activeViewId = doc.id;
+      this.pushViewHistory(path);
       ui.setMode("viewer");
     } catch (e) {
       ui.showError(String(e));

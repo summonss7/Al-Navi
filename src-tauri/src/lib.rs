@@ -120,6 +120,7 @@ pub fn run() {
             ops::move_paths,
             ops::delete_paths,
             ops::rename_path,
+            ops::rename_paths,
             ops::op_control,
             ops::resolve_conflict,
             drives::drives_list,

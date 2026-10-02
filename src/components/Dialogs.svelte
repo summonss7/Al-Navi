@@ -5,16 +5,18 @@
   import { ops } from "$lib/stores/ops.svelte";
   import { panels } from "$lib/stores/panels.svelte";
   import { editor } from "$lib/stores/editor.svelte";
-  import { cmdline } from "$lib/stores/cmdline.svelte";
+  import { cmdline, runCommand as runCmdline } from "$lib/stores/cmdline.svelte";
   import { settings, THEMES, type ThemeId } from "$lib/stores/settings.svelte";
   import { LOCALES, type Locale } from "$lib/stores/i18n.svelte";
-  import { drivesList, appInfo, ftpConnect, type AppInfo } from "$lib/api";
+  import { drivesList, appInfo, ftpConnect, pathExists, type AppInfo } from "$lib/api";
   import { latinKeyOf } from "$lib/keymap";
-  import { formatSize, pathKey } from "$lib/format";
+  import { formatSize, pathKey, basename, parentOf, joinPath } from "$lib/format";
+  import { applyMultiRename, defaultMrForm } from "$lib/multiRename";
   import { HELP_SECTIONS } from "$lib/help";
   import { fileColors } from "$lib/stores/fileColors.svelte";
   import { textColors, type BuiltinRule, type MaskRule } from "$lib/stores/textColors.svelte";
   import { ftpSites } from "$lib/stores/ftpSites.svelte";
+  import { userMenu, expandUserPlaceholders, type UserMenuItem } from "$lib/stores/userMenu.svelte";
   import { newFtpSite, isFtpPath, type FtpSite } from "$lib/ftp";
   import { isSearchPath, searchStore } from "$lib/stores/search.svelte";
   import { EDITOR_PLUGINS, type CaseMode, type LayoutMode } from "$lib/plugins";
@@ -146,6 +148,132 @@
     void ftpConnectSite(ftpForm, ftpFormMode !== "quick");
   }
 
+  // ---- user menu (F2) ----
+  let umFormMode = $state<"add" | "edit">("add");
+  let umEditId = $state<number | undefined>(undefined);
+  let umTitle = $state("");
+  let umCommand = $state("");
+
+  function umAdd() {
+    umFormMode = "add";
+    umEditId = undefined;
+    umTitle = "";
+    umCommand = "";
+    ui.openDialog("userMenuItem");
+  }
+
+  function umEdit() {
+    const it = userMenu.items[listIdx];
+    if (!it) return;
+    umFormMode = "edit";
+    umEditId = it.id;
+    umTitle = it.title;
+    umCommand = it.command;
+    ui.openDialog("userMenuItem");
+  }
+
+  async function umDelete() {
+    const it = userMenu.items[listIdx];
+    if (!it) return;
+    ui.closeDialog();
+    if (await ui.askConfirm(i18n.t("umenu.delConfirm", { title: it.title }))) {
+      userMenu.remove(it.id);
+    }
+    ui.openDialog("userMenu");
+  }
+
+  function submitUmForm() {
+    if (!umCommand.trim()) return;
+    userMenu.upsert({
+      id: umEditId,
+      title: umTitle.trim() || umCommand.trim(),
+      command: umCommand.trim(),
+    });
+    ui.openDialog("userMenu");
+  }
+
+  /** run a menu command exactly as if typed on the command line: placeholders
+   *  expand against the panel cursor, the result lands in Alt+F8 history and
+   *  goes through runCommand (cd / ftp:// / external shell) */
+  function execUserMenuItem(item: UserMenuItem) {
+    const final = expandUserPlaceholders(item.command);
+    ui.closeDialog();
+    cmdline.setText(final);
+    cmdline.submit();
+    void runCmdline(final);
+  }
+
+  // ---- multi-rename (Ctrl+M) ----
+  let mrForm = $state(defaultMrForm());
+  $effect(() => {
+    // every fresh request starts from a clean form
+    if (ui.multiRenameReq) mrForm = defaultMrForm();
+  });
+  const mrRows = $derived(applyMultiRename(ui.multiRenameReq?.targets ?? [], mrForm));
+  const mrOkCount = $derived(mrRows.reduce((n, r) => n + (r.status === "ok" ? 1 : 0), 0));
+  /** new names already occupied on disk (filled by the debounced check below) */
+  let mrConflicts = $state<Set<string>>(new Set());
+  const mrBlocked = $derived(
+    mrOkCount === 0 ||
+      mrRows.some(
+        (r) => r.status === "invalid" || r.status === "dup" || mrConflicts.has(r.newName.toLowerCase()),
+      ),
+  );
+  const MR_PREVIEW_MAX = 300;
+
+  // new names already occupied on disk (debounced, capped): the pure transform
+  // can only see the batch itself, existing targets are an async question
+  let mrSeq = 0;
+  let mrTimer: ReturnType<typeof setTimeout> | undefined;
+  $effect(() => {
+    const rows = mrRows;
+    if (!ui.multiRenameReq) {
+      mrConflicts = new Set();
+      return;
+    }
+    clearTimeout(mrTimer);
+    mrConflicts = new Set();
+    const seq = ++mrSeq;
+    mrTimer = setTimeout(async () => {
+      if (seq !== mrSeq || !ui.multiRenameReq) return;
+      const found = new Set<string>();
+      const checks: Promise<void>[] = [];
+      for (const r of rows) {
+        if (r.status !== "ok") continue;
+        // a case-only rename targets the file itself — not a conflict
+        if (r.newName.toLowerCase() === r.oldName.toLowerCase()) continue;
+        const dir = parentOf(r.oldPath);
+        if (!dir) continue;
+        const target = joinPath(dir, r.newName);
+        checks.push(
+          pathExists(target)
+            .then((yes) => {
+              if (yes) found.add(r.newName.toLowerCase());
+            })
+            .catch(() => {}),
+        );
+        if (checks.length >= MR_PREVIEW_MAX) break;
+      }
+      await Promise.all(checks);
+      if (seq === mrSeq) mrConflicts = found;
+    }, 250);
+  });
+
+  function submitMultiRename() {
+    const req = ui.multiRenameReq;
+    if (!req || mrBlocked) return;
+    const pairs = mrRows
+      .filter((r) => r.status === "ok")
+      .map((r) => ({ old: r.oldPath, new: joinPath(parentOf(r.oldPath) ?? "", r.newName) }));
+    if (!pairs.length) return;
+    req.resolve();
+    void ops.startRename(pairs);
+  }
+
+  function closeMultiRename() {
+    ui.multiRenameReq?.resolve();
+  }
+
   // ---- find files (Alt+F7) ----
   interface SearchFormState {
     root: string;
@@ -239,7 +367,7 @@
 
   // ---- keyboard navigation for list dialogs (drives, F12 windows, histories)
   // FAR semantics: Left/Right also move the cursor (up/down) for fast walking
-  const LIST_DIALOGS = new Set(["drives", "windowList", "dirHistory", "cmdHistory", "plugins", "ftp"]);
+  const LIST_DIALOGS = new Set(["drives", "windowList", "dirHistory", "cmdHistory", "viewHist", "userMenu", "plugins", "ftp"]);
   let listIdx = $state(-1);
 
   // ---- plugins (F11): plugin list -> mode list of the chosen plugin ----
@@ -284,6 +412,8 @@
       case "windowList": return 1 + editor.docs.length + editor.viewDocs.length;
       case "dirHistory": return panels.dirHistory.length;
       case "cmdHistory": return cmdline.history.length;
+      case "viewHist": return editor.viewHistory.length;
+      case "userMenu": return userMenu.items.length;
       case "plugins": return pluginSel ? pluginModes().length : EDITOR_PLUGINS.length;
       case "ftp": return ftpSites.sites.length;
       default: return 0;
@@ -327,6 +457,19 @@
         }
         break;
       }
+      case "viewHist": {
+        const p = editor.viewHistory[i];
+        if (p !== undefined) {
+          void editor.view(p);
+          ui.closeDialog();
+        }
+        break;
+      }
+      case "userMenu": {
+        const it = userMenu.items[i];
+        if (it) execUserMenuItem(it);
+        break;
+      }
       case "plugins": {
         if (pluginSel === null) {
           const p = EDITOR_PLUGINS[i];
@@ -355,6 +498,8 @@
     void editor.viewDocs.length;
     void panels.dirHistory.length;
     void cmdline.history.length;
+    void editor.viewHistory.length;
+    void userMenu.items.length;
     if (!LIST_DIALOGS.has(ui.dialog ?? "")) {
       if (listIdx !== -1) listIdx = -1;
       return;
@@ -384,6 +529,27 @@
 
   function onListKey(e: KeyboardEvent) {
     if (!LIST_DIALOGS.has(ui.dialog ?? "")) return;
+    // user menu: Ins adds, F4 edits and Del removes the highlighted item
+    if (ui.dialog === "userMenu" && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+      if (e.key === "Insert") {
+        e.preventDefault();
+        e.stopPropagation();
+        umAdd();
+        return;
+      }
+      if (e.key === "F4") {
+        e.preventDefault();
+        e.stopPropagation();
+        umEdit();
+        return;
+      }
+      if (e.key === "Delete") {
+        e.preventDefault();
+        e.stopPropagation();
+        void umDelete();
+        return;
+      }
+    }
     const n = listCount();
     if (!n) return;
     // drives dialog: pressing a drive letter switches to it right away,
@@ -1121,6 +1287,165 @@
   </div>
 {/if}
 
+{#if ui.dialog === "viewHist"}
+  <div class="overlay">
+    <div class="dlg">
+      <div class="dlg-title"><i class="ph-duotone ph-eye"></i>{i18n.t("history.views")}</div>
+      <div class="dlg-body list">
+        {#each editor.viewHistory as p, i (p)}
+          <button
+            class="li"
+            class:kbd={listIdx === i}
+            onclick={() => { void editor.view(p); ui.closeDialog(); }}
+          >
+            <i class="ph-duotone ph-file-text"></i>
+            <span class="vh-name">{basename(p)}</span>
+            <span class="vh-dir mono">{parentOf(p)}</span>
+          </button>
+        {:else}
+          <div class="none">{i18n.t("common.none")}</div>
+        {/each}
+      </div>
+      <div class="dlg-actions"><button class="btn" onclick={() => ui.closeDialog()}>{i18n.t("common.close")}</button></div>
+    </div>
+  </div>
+{/if}
+
+{#if ui.dialog === "userMenu"}
+  <div class="overlay">
+    <div class="dlg">
+      <div class="dlg-title"><i class="ph-duotone ph-list-checks"></i>{i18n.t("fkeys.f2")}</div>
+      <div class="dlg-body list">
+        {#each userMenu.items as it, i (it.id)}
+          <button
+            class="li"
+            class:kbd={listIdx === i}
+            onclick={() => execUserMenuItem(it)}
+          >
+            <i class="ph-duotone ph-terminal-window"></i>
+            <span class="um-title">{it.title}</span>
+            <span class="um-cmd mono">{it.command}</span>
+          </button>
+        {:else}
+          <div class="none">{i18n.t("umenu.empty")}</div>
+        {/each}
+      </div>
+      <div class="dlg-actions wrap">
+        <button class="btn" onclick={umAdd}><i class="ph ph-plus"></i>{i18n.t("umenu.add")}</button>
+        <button class="btn" onclick={umEdit} disabled={!userMenu.items.length}>{i18n.t("umenu.edit")}</button>
+        <button class="btn" onclick={() => void umDelete()} disabled={!userMenu.items.length}>{i18n.t("umenu.delete")}</button>
+        <button class="btn primary" onclick={() => ui.closeDialog()}>{i18n.t("common.close")}</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if ui.dialog === "userMenuItem"}
+  <div class="overlay">
+    <div class="dlg">
+      <div class="dlg-title">
+        <i class="ph-duotone ph-list-checks"></i>
+        {umFormMode === "add" ? i18n.t("umenu.add") : i18n.t("umenu.edit")}
+      </div>
+      <form class="dlg-body ftp-form" id="um-item-form" onsubmit={(e) => { e.preventDefault(); submitUmForm(); }}>
+        <label class="lbl" for="um-f-title">{i18n.t("umenu.name")}</label>
+        <input id="um-f-title" bind:value={umTitle} use:autofocus spellcheck="false" />
+        <label class="lbl" for="um-f-cmd">{i18n.t("umenu.command")}</label>
+        <input id="um-f-cmd" bind:value={umCommand} spellcheck="false" style="width:100%" />
+        <div class="fc-hint" style="margin-top:10px">{i18n.t("umenu.hint")}</div>
+      </form>
+      <div class="dlg-actions">
+        <button class="btn" onclick={() => ui.openDialog("userMenu")}>{i18n.t("common.cancel")}</button>
+        <button class="btn primary" type="submit" form="um-item-form" disabled={!umCommand.trim()}>
+          {i18n.t("umenu.save")}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if ui.dialog === "multiRename" && ui.multiRenameReq}
+  <div class="overlay">
+    <div class="dlg dlg-mr">
+      <div class="dlg-title">
+        <i class="ph-duotone ph-text-aa"></i>
+        {i18n.t("mr.title")} · {i18n.t("mr.nItems", { n: ui.multiRenameReq.targets.length })}
+      </div>
+      <form class="dlg-body ftp-form" id="mr-form" onsubmit={(e) => { e.preventDefault(); submitMultiRename(); }}>
+        <label class="lbl" for="mr-f-mask">{i18n.t("mr.mask")}</label>
+        <input id="mr-f-mask" bind:value={mrForm.mask} use:focusSelect spellcheck="false" style="width:100%" />
+        <div class="ftp-row2">
+          <div>
+            <label class="lbl" for="mr-f-find">{i18n.t("mr.find")}</label>
+            <input id="mr-f-find" bind:value={mrForm.find} spellcheck="false" />
+          </div>
+          <div>
+            <label class="lbl" for="mr-f-repl">{i18n.t("mr.replace")}</label>
+            <input id="mr-f-repl" bind:value={mrForm.replace} spellcheck="false" />
+          </div>
+        </div>
+        <label class="lbl check"><input type="checkbox" bind:checked={mrForm.caseSensitive} />{i18n.t("mr.case")}</label>
+        <div class="ftp-row2">
+          <div>
+            <label class="lbl" for="mr-f-name">{i18n.t("mr.nameTmpl")}</label>
+            <input id="mr-f-name" bind:value={mrForm.nameTmpl} spellcheck="false" />
+          </div>
+          <div>
+            <label class="lbl" for="mr-f-ext">{i18n.t("mr.extTmpl")}</label>
+            <input id="mr-f-ext" bind:value={mrForm.extTmpl} spellcheck="false" />
+          </div>
+        </div>
+        <div class="ftp-row2">
+          <div>
+            <label class="lbl" for="mr-f-cs">{i18n.t("mr.countStart")}</label>
+            <input id="mr-f-cs" type="number" bind:value={mrForm.countStart} />
+          </div>
+          <div>
+            <label class="lbl" for="mr-f-ct">{i18n.t("mr.countStep")}</label>
+            <input id="mr-f-ct" type="number" bind:value={mrForm.countStep} />
+          </div>
+          <div>
+            <label class="lbl" for="mr-f-cd">{i18n.t("mr.countDigits")}</label>
+            <input id="mr-f-cd" type="number" bind:value={mrForm.countDigits} min="1" max="10" />
+          </div>
+        </div>
+        <div class="fc-hint">{i18n.t("mr.phHint")}</div>
+        <div class="mr-preview">
+          {#each mrRows.slice(0, MR_PREVIEW_MAX) as r}
+            <div
+              class="mr-row"
+              class:dim={r.status === "unchanged"}
+              class:bad={r.status === "invalid" || r.status === "dup" || mrConflicts.has(r.newName.toLowerCase())}
+            >
+              <span class="mono">{r.oldName}</span>
+              <span class="mr-arrow">→</span>
+              <span class="mono">{r.newName}</span>
+              <span class="mr-note">
+                {#if r.status === "invalid"}{i18n.t("mr.invalid")}
+                {:else if r.status === "dup"}{i18n.t("mr.dup")}
+                {:else if mrConflicts.has(r.newName.toLowerCase())}{i18n.t("mr.conflict")}
+                {:else if r.status === "unchanged"}{i18n.t("mr.unchanged")}{/if}
+              </span>
+            </div>
+          {/each}
+          {#if mrRows.length > MR_PREVIEW_MAX}
+            <div class="mr-more">{i18n.t("mr.more", { n: mrRows.length - MR_PREVIEW_MAX })}</div>
+          {/if}
+          {#if !mrRows.length}
+            <div class="none">{i18n.t("mr.nothing")}</div>
+          {/if}
+        </div>
+      </form>
+      <div class="dlg-actions">
+        <button class="btn" onclick={closeMultiRename}>{i18n.t("common.cancel")}</button>
+        <button class="btn primary" type="submit" form="mr-form" disabled={mrBlocked}>
+          {i18n.t("mr.apply", { n: mrOkCount })}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 {#if ui.dialog === "plugins"}
   <div class="overlay">
     <div class="dlg">
@@ -1603,6 +1928,36 @@
     box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent2) 55%, transparent);
   }
   .none { color: var(--fg-muted); text-align: center; padding: 14px; }
+
+  /* Alt+F11 view history rows: file name + its directory */
+  .vh-name { color: var(--fg); flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vh-dir { font-size: calc(10.5px * var(--fs-scale)); color: var(--fg-muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: end; }
+
+  /* F2 user-menu rows: title + the command it runs */
+  .um-title { color: var(--fg); flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .um-cmd { font-size: calc(10.5px * var(--fs-scale)); color: var(--fg-muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: end; }
+
+  /* Ctrl+M multi-rename dialog */
+  .dlg-mr { min-width: 540px; max-width: 700px; }
+  .mr-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin-top: 10px;
+    max-height: 230px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 8px;
+  }
+  .mr-row { display: flex; gap: 8px; align-items: baseline; font-size: calc(12px * var(--fs-scale)); color: var(--fg); }
+  .mr-row .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1; min-width: 0; }
+  .mr-arrow { color: var(--fg-muted); flex-shrink: 0; }
+  .mr-note { color: var(--accent2); font-size: calc(10.5px * var(--fs-scale)); margin-inline-start: auto; flex-shrink: 0; }
+  .mr-row.dim { opacity: 0.45; }
+  .mr-row.bad { color: var(--danger); }
+  .mr-row.bad .mr-note { color: var(--danger); }
+  .mr-more { color: var(--fg-muted); font-size: calc(11px * var(--fs-scale)); padding: 3px 2px; }
 
   /* F5/F6 destination variants under the transfer dialog input */
   .variants { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; max-height: 200px; overflow-y: auto; }

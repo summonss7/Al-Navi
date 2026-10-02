@@ -54,6 +54,8 @@ export const deletePaths = (paths: string[], permanent: boolean) =>
   invoke<number>("delete_paths", { paths, permanent });
 export const renamePath = (oldPath: string, newPath: string) =>
   invoke<void>("rename_path", { old: oldPath, new: newPath });
+export const renamePaths = (pairs: { old: string; new: string }[]) =>
+  invoke<number>("rename_paths", { pairs });
 export const homePath = () => invoke<string>("home_path");
 export const openPath = (path: string) => invoke<void>("open_path", { path });
 export const runShell = (commandLine: string, cwd?: string) =>

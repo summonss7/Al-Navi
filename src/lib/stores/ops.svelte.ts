@@ -2,6 +2,7 @@ import {
   copyPaths,
   movePaths,
   deletePaths,
+  renamePaths,
   extractPaths,
   packPaths,
   archiveAdd,
@@ -127,6 +128,17 @@ class OpsStore {
     ui.openDialog("progress");
     try {
       const id = await deletePaths(paths, permanent);
+      if (this.op) this.op.id = id;
+    } catch (e) {
+      this.op = { ...this.op!, phase: "done", errors: [{ path: "", error: String(e) }] };
+    }
+  }
+
+  async startRename(pairs: { old: string; new: string }[]) {
+    this.begin(i18n.t("ops.rename"));
+    ui.openDialog("progress");
+    try {
+      const id = await renamePaths(pairs);
       if (this.op) this.op.id = id;
     } catch (e) {
       this.op = { ...this.op!, phase: "done", errors: [{ path: "", error: String(e) }] };

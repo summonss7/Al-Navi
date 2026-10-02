@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::io::{Read, Write};
@@ -798,6 +798,58 @@ pub fn delete_paths(
                 ctx.errors.push(OpError {
                     path: p.clone(),
                     error: err,
+                });
+            }
+            ctx.files_done = (i + 1) as u64;
+        }
+        emit_done(&ctx);
+        mgr.finish(id);
+    });
+    Ok(id)
+}
+
+#[derive(Deserialize)]
+pub struct RenamePair {
+    pub old: String,
+    pub new: String,
+}
+
+/// Ctrl+M multi-rename: one queued op for a batch of old->new pairs, counted
+/// per item (bytes stay 0, the UI falls back to counts). An occupied target
+/// or an IO failure fails that pair only — the rest of the batch continues
+/// and everything lands in the op's error list.
+#[tauri::command]
+pub fn rename_paths(
+    app: AppHandle,
+    state: tauri::State<'_, OpManager>,
+    pairs: Vec<RenamePair>,
+) -> Result<u32, String> {
+    let (id, h) = state.register();
+    let mgr = (*state).clone();
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut ctx = new_ctx(app.clone(), id, h);
+        ctx.files_total = pairs.len() as u64;
+        for (i, pair) in pairs.iter().enumerate() {
+            if ctx.check_pause_cancel() {
+                break;
+            }
+            let (from, to) = (PathBuf::from(&pair.old), PathBuf::from(&pair.new));
+            ctx.progress("transfer", &pair.new);
+            // a Windows path compares equal to its own case-change — that
+            // rename must still run, it just must not count as a conflict
+            let case_only = from != to && same_path(&from, &to);
+            if from == to {
+                // nothing to do
+            } else if to.exists() && !case_only {
+                ctx.errors.push(OpError {
+                    path: pair.old.clone(),
+                    error: format!("already exists: {}", pair.new),
+                });
+            } else if !rename_with_parent(&from, &to) {
+                ctx.errors.push(OpError {
+                    path: pair.old.clone(),
+                    error: format!("{} -> {}: rename failed", pair.old, pair.new),
                 });
             }
             ctx.files_done = (i + 1) as u64;

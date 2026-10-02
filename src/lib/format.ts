@@ -100,6 +100,19 @@ export function pathKey(p: string): string {
   return p.replace(/[\\/]+$/, "").toLowerCase();
 }
 
+/** FAR wildcard mask (comma-separated, `*` and `?`) -> case-insensitive regex */
+export function maskToRegExp(mask: string): RegExp {
+  const parts = mask
+    .split(",")
+    .map((p) => p.trim().toLowerCase())
+    .filter(Boolean);
+  if (!parts.length) parts.push("*");
+  const src = parts
+    .map((p) => p.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, "."))
+    .join("|");
+  return new RegExp(`^(${src})$`, "i");
+}
+
 /** Direction mark for the active sort column. dir=1 is the natural order of
  *  the mode (name/ext A→Z, mtime newest first, size largest first), so for
  *  date/size dir=1 reads as descending. */

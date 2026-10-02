@@ -286,7 +286,7 @@ const en: Record<string, string> = {
   "help.sel.jump": "Quick jump by initial letters (any keyboard layout)",
   "help.sel.sort": "Sort: name, extension, modified, size, none — press again to reverse",
   "help.sel.hidden": "Show/hide hidden files (both panels)",
-  "help.sel.panels": "Hide panels / show panels / swap panels",
+  "help.sel.panels": "Hide/show panels (Ctrl+O is a toggle) / swap panels",
   "help.cmd": "Command line",
   "help.cmd.always": "The caret is always in the command line: type anytime; navigation keeps working while the line is empty (← → page-walk, ↑ ↓ always move the panel cursor).",
   "help.cmd.run": "Execute the command (empty line: act on the panel)",
@@ -323,6 +323,7 @@ const en: Record<string, string> = {
   "help.tips.trash": "F8 moves to the Recycle Bin, Shift+Del deletes permanently.",
   "help.tips.version": "The version and build time are shown in the title bar.",
 
+  "hint.togglePanels": "toggle panels",
   "hint.hidePanels": "hide panels",
   "hint.showPanels": "show panels",
   "hint.swap": "swap",
@@ -637,7 +638,7 @@ const ru: Record<string, string> = {
   "help.sel.jump": "Быстрый переход по первым буквам (независимо от раскладки)",
   "help.sel.sort": "Сортировка: имя, расширение, дата, размер, без сортировки — повторное нажатие разворачивает",
   "help.sel.hidden": "Показать/скрыть скрытые файлы (в обеих панелях)",
-  "help.sel.panels": "Скрыть панели / показать панели / поменять местами",
+  "help.sel.panels": "Скрыть/показать панели (Ctrl+O — переключатель) / поменять местами",
   "help.cmd": "Командная строка",
   "help.cmd.always": "Курсор всегда в командной строке: печатайте в любой момент; навигация работает, пока строка пуста (← → перелистывают страницу, ↑ ↓ всегда двигают курсор панели).",
   "help.cmd.run": "Выполнить команду (пустая строка: действие по панели)",
@@ -674,6 +675,7 @@ const ru: Record<string, string> = {
   "help.tips.trash": "F8 удаляет в корзину, Shift+Del — безвозвратно.",
   "help.tips.version": "Версия и время сборки показаны в заголовке окна.",
 
+  "hint.togglePanels": "панели вкл/выкл",
   "hint.hidePanels": "скрыть панели",
   "hint.showPanels": "показать панели",
   "hint.swap": "обмен",
@@ -901,6 +903,7 @@ const uk: Record<string, string> = {
   "plug.layout.toLat": "Кирилиця → Латиниця",
   "plug.noSel": "Немає виділення — спочатку виділіть текст",
   "plug.back": "Назад",
+  "hint.togglePanels": "панелі показ/прихов",
 };
 
 const ro: Record<string, string> = {
@@ -1093,6 +1096,7 @@ const ro: Record<string, string> = {
   "plug.layout.toLat": "Chirilică → Latină",
   "plug.noSel": "Nicio selecție — selectați mai întâi textul",
   "plug.back": "Înapoi",
+  "hint.togglePanels": "comută panourile",
 };
 
 const sk: Record<string, string> = {
@@ -1285,6 +1289,7 @@ const sk: Record<string, string> = {
   "plug.layout.toLat": "Cyrilika → Latinka",
   "plug.noSel": "Žiadny výber — najprv vyberte text",
   "plug.back": "Späť",
+  "hint.togglePanels": "panely zap/vyp",
 };
 
 const ar: Record<string, string> = {
@@ -1477,6 +1482,7 @@ const ar: Record<string, string> = {
   "plug.layout.toLat": "سيريلية ← لاتينية",
   "plug.noSel": "لا يوجد تحديد — حدد النص أولاً",
   "plug.back": "رجوع",
+  "hint.togglePanels": "إظهار/إخفاء اللوحات",
 };
 
 export const dictionaries: Record<Locale, Record<string, string>> = {

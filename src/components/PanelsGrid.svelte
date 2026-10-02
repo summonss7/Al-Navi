@@ -18,6 +18,7 @@
   {#if !panels.showLeft && !panels.showRight}
     <div class="hidden-note">
       <i class="ph-duotone ph-eye-slash"></i>
+      <span class="hint">Ctrl+O</span>
     </div>
   {/if}
 </div>
@@ -34,9 +35,15 @@
   .hidden-note {
     flex: 1;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: calc(10px * var(--fs-scale));
     color: var(--fg-muted);
     font-size: calc(40px * var(--fs-scale));
+  }
+  .hidden-note .hint {
+    font-size: calc(13px * var(--fs-scale));
+    letter-spacing: 0.04em;
   }
 </style>

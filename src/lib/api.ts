@@ -57,7 +57,7 @@ export const renamePath = (oldPath: string, newPath: string) =>
 export const homePath = () => invoke<string>("home_path");
 export const openPath = (path: string) => invoke<void>("open_path", { path });
 export const runShell = (commandLine: string, cwd?: string) =>
-  invoke<string>("run_shell", { commandLine, cwd: cwd ?? null });
+  invoke<void>("run_shell", { commandLine, cwd: cwd ?? null });
 export const opControl = (id: number, action: "pause" | "resume" | "cancel") =>
   invoke<void>("op_control", { id, action });
 export const resolveConflict = (id: number, action: string) =>

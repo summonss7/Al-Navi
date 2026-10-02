@@ -47,7 +47,7 @@ export function registerAllCommands() {
   });
   registerCommand("panel.toggleLeft", () => panels.toggleSide("left"));
   registerCommand("panel.toggleRight", () => panels.toggleSide("right"));
-  registerCommand("panel.hideBoth", () => panels.hideBoth());
+  registerCommand("panel.toggleBoth", () => panels.toggleBoth());
   registerCommand("panel.showBoth", () => panels.showBoth());
   registerCommand("panel.swap", () => panels.swap());
   registerCommand("panel.enter", () => void A().enter());

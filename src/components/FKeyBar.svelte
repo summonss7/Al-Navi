@@ -96,7 +96,7 @@
   const panelHints = $derived.by(() => {
     void i18n.locale;
     return [
-      { k: "Ctrl+O", cmd: "panel.hideBoth", label: i18n.t("hint.hidePanels") },
+      { k: "Ctrl+O", cmd: "panel.toggleBoth", label: i18n.t("hint.togglePanels") },
       { k: "Ctrl+P", cmd: "panel.showBoth", label: i18n.t("hint.showPanels") },
       { k: "Ctrl+U", cmd: "panel.swap", label: i18n.t("hint.swap") },
       { k: "Ctrl+R", cmd: "panel.refresh", label: i18n.t("hint.refresh") },

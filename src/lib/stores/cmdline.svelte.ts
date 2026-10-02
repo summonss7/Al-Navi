@@ -98,8 +98,13 @@ export async function runCommand(cmdlineText: string): Promise<void> {
     return;
   }
   const { runShell } = await import("$lib/api");
+  // run in the active panel's directory when it is a real local folder —
+  // ftp://, archive:// and search panels have no on-disk cwd to offer
+  const cwd = /^[A-Za-z]:[\\/]|^\\\\/.test(panels.active.path)
+    ? panels.active.path
+    : undefined;
   try {
-    await runShell(cmd);
+    await runShell(cmd, cwd);
     panels.active.refresh();
   } catch (e) {
     const { ui } = await import("./ui.svelte");

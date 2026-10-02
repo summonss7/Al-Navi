@@ -387,41 +387,64 @@ pub async fn home_path() -> Result<String, String> {
         .ok_or_else(|| "no home directory".to_string())
 }
 
-/// Execute a shell command line (cmd.exe on Windows, sh on Unix).
+/// Execute a shell command line FAR-style: a new visible console window runs
+/// `cmd /C <line>`, so interactive programs (powershell, cmd, python …) get a
+/// real console and plain output stays readable. `& pause` keeps the window
+/// open after the command finishes (FAR also returns on a key press); `start`
+/// lines skip the pause and `exit` closes before it ever runs.
 #[tauri::command]
-pub async fn run_shell(command_line: String, cwd: Option<String>) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
+pub async fn run_shell(command_line: String, cwd: Option<String>) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
         use std::process::Command;
-        let mut c;
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
-            c = Command::new("cmd");
-            c.args(["/C", &command_line]);
+            // raw_arg: cmd.exe must see the line verbatim — std's MSVC-style
+            // quoting of `args` would litter it with literal backslashes
+            let with_pause = if starts_with_start(&command_line) {
+                command_line.clone()
+            } else {
+                format!("{} & pause", command_line)
+            };
+            let mut c = Command::new("cmd");
+            c.raw_arg("/C").raw_arg(&with_pause);
             if let Some(dir) = &cwd {
                 c.current_dir(dir);
             }
-            c.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+            c.creation_flags(0x0000_0010); // CREATE_NEW_CONSOLE
+            // .status(): no pipes — the child writes into its own console.
+            // A non-zero exit code is not an error: the console already
+            // showed it and waits on pause.
+            c.status()
+                .map_err(|e| format!("{}: {}", command_line, e))?;
+            Ok(())
         }
         #[cfg(unix)]
         {
-            c = Command::new("sh");
+            let mut c = Command::new("sh");
             c.arg("-c").arg(&command_line);
             if let Some(dir) = &cwd {
                 c.current_dir(dir);
             }
+            c.status()
+                .map_err(|e| format!("{}: {}", command_line, e))?;
+            Ok(())
         }
-        let out = c
-            .output()
-            .map_err(|e| format!("{}: {}", command_line, e))?;
-        Ok(format!(
-            "{}{}",
-            String::from_utf8_lossy(&out.stdout),
-            String::from_utf8_lossy(&out.stderr)
-        ))
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// True when the command line's first word is cmd's `start` (detached launch,
+/// no pause wanted). Quotes, env prefixes and leading whitespace are ignored.
+#[cfg(windows)]
+fn starts_with_start(command_line: &str) -> bool {
+    let line = command_line.trim().trim_start_matches('@');
+    let line = line.trim_start_matches('"');
+    line.split_whitespace()
+        .next()
+        .map(|w| w.trim_matches('"').eq_ignore_ascii_case("start"))
+        .unwrap_or(false)
 }
 
 /// Open a file/folder with the OS handler (Explorer / xdg-open).

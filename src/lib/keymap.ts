@@ -85,7 +85,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     "Alt+F2": "panel.drivesRight",
     "Ctrl+F1": "panel.toggleLeft",
     "Ctrl+F2": "panel.toggleRight",
-    "Ctrl+O": "panel.hideBoth",
+    "Ctrl+O": "panel.toggleBoth",
     "Ctrl+P": "panel.showBoth",
     "Ctrl+U": "panel.swap",
     Enter: "panel.enter",

@@ -727,6 +727,12 @@ class PanelsStore {
     this.showRight = true;
   }
 
+  /** FAR's Ctrl+O: one key both hides the panels and brings them back */
+  toggleBoth() {
+    if (!this.showLeft && !this.showRight) this.showBoth();
+    else this.hideBoth();
+  }
+
   toggleSide(side: "left" | "right") {
     if (side === "left") {
       this.showLeft = !this.showLeft;

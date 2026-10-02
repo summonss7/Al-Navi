@@ -123,6 +123,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     F6: "fs.move",
     "Shift+F6": "fs.renameCurrent",
     F7: "fs.mkdir",
+    "Ctrl+A": "fs.attrs",
     F8: "fs.delete",
     "Shift+F8": "fs.deleteCurrent",
     "Shift+Delete": "fs.deletePermanent",

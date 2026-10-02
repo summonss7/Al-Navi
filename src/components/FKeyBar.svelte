@@ -100,6 +100,7 @@
       { k: "Ctrl+P", cmd: "panel.showBoth", label: i18n.t("hint.showPanels") },
       { k: "Ctrl+U", cmd: "panel.swap", label: i18n.t("hint.swap") },
       { k: "Ctrl+R", cmd: "panel.refresh", label: i18n.t("hint.refresh") },
+      { k: "Ctrl+A", cmd: "fs.attrs", label: i18n.t("hint.attrs") },
       { k: "Ctrl+.", cmd: "panel.toggleHidden", label: i18n.t("hint.hidden") },
       { k: "Ctrl+↑", cmd: "panel.up", label: i18n.t("hint.up") },
       { k: "Ctrl+\\", cmd: "panel.root", label: i18n.t("hint.root") },

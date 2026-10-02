@@ -112,6 +112,7 @@ pub fn run() {
             fs::home_path,
             fs::open_path,
             fs::run_shell,
+            fs::set_attributes,
             textio::read_text,
             textio::write_text,
             textio::read_hex,

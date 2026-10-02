@@ -49,6 +49,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       { chord: "Shift+F6", key: "help.ops.rename" },
       { chord: "Shift+Enter · F5/F6", key: "help.ops.selfName" },
       { chord: "F7", key: "help.ops.mkdir" },
+      { chord: "Ctrl+A", key: "help.ops.attrs" },
       { chord: "F8", key: "help.ops.delete" },
       { chord: "Shift+Del", key: "help.ops.wipe" },
       { chord: "Alt+F7", key: "help.ops.find" },

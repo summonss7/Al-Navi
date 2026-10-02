@@ -1,6 +1,7 @@
 import { registerCommand } from "$lib/commands";
 import {
   mkdir,
+  setAttributes,
   renamePath,
   openPath,
   homePath,
@@ -16,7 +17,7 @@ import { joinPath, sortArrow, parentOf, pathKey, basename } from "$lib/format";
 import { ftpAuthority, ftpRootOf, isFtpPath } from "$lib/ftp";
 import { isArchivePath, isArchiveFile, splitArchiveUrl, joinArchivePath, PACK_FORMATS } from "$lib/archive";
 import { panels } from "$lib/stores/panels.svelte";
-import { ui } from "$lib/stores/ui.svelte";
+import { ui, type AttrState } from "$lib/stores/ui.svelte";
 import { editor } from "$lib/stores/editor.svelte";
 import { ops } from "$lib/stores/ops.svelte";
 import { i18n } from "$lib/stores/i18n.svelte";
@@ -190,6 +191,43 @@ export function registerAllCommands() {
       ui.showError(String(e));
     }
   });
+  registerCommand("fs.attrs", async () => {
+    const p = A();
+    // search results point at real disk files, so they stay eligible; FTP
+    // rows and archive members are not paths set_attributes could touch
+    const targets = p.targetEntries
+      .map((e) => ({ path: entryPath(p, e), attrs: e.attrs }))
+      .filter((t) => !isFtpPath(t.path) && !isArchivePath(t.path));
+    if (!targets.length) {
+      ui.showToast(i18n.t("archive.readonly"));
+      return;
+    }
+    // prefill: every target carries the bit -> set, none -> clear, mixed -> keep
+    const init = (ch: string): AttrState =>
+      targets.every((t) => t.attrs.includes(ch)) ? "set"
+        : targets.every((t) => !t.attrs.includes(ch)) ? "clear"
+          : "keep";
+    const r = await ui.askAttrs(targets.length, {
+      readOnly: init("R"),
+      hidden: init("H"),
+      system: init("S"),
+      archive: init("A"),
+    });
+    if (!r) return;
+    const val = (s: AttrState): boolean | null => (s === "keep" ? null : s === "set");
+    if (r.readOnly === "keep" && r.hidden === "keep" && r.system === "keep" && r.archive === "keep") return;
+    try {
+      await setAttributes(targets.map((t) => t.path), {
+        readOnly: val(r.readOnly),
+        hidden: val(r.hidden),
+        system: val(r.system),
+        archive: val(r.archive),
+      });
+      p.refresh();
+    } catch (e) {
+      ui.showError(String(e));
+    }
+  });
   registerCommand("fs.delete", () => startDelete(false, false));
   registerCommand("fs.deleteCurrent", () => startDelete(false, true));
   registerCommand("fs.deletePermanent", () => startDelete(true, false));
@@ -339,6 +377,7 @@ export function registerAllCommands() {
     else if (ui.inputReq) ui.inputReq.resolve(null);
     else if (ui.packReq) ui.packReq.resolve(null);
     else if (ui.unpackReq) ui.unpackReq.resolve(null);
+    else if (ui.attrsReq) ui.attrsReq.resolve(null);
     else if (ops.conflict) ops.resolveConflictAction("skip");
     else ui.closeDialog();
   });
@@ -413,7 +452,6 @@ export function registerAllCommands() {
   // ---------- stubs for future milestones ----------
   const stub = (featureKey: string) => () =>
     ui.showToast(i18n.t("misc.comingSoon", { feature: i18n.t(featureKey) }));
-  registerCommand("stub.attrs", stub("misc.feature.attrs"));
   registerCommand("stub.userMenu", stub("misc.feature.userMenu"));
   registerCommand("stub.viewHistory", stub("misc.feature.viewHistory"));
 

@@ -21,6 +21,7 @@ export type DialogId =
   | "search"
   | "pack"
   | "unpack"
+  | "attrs"
   | "errors"
   | null;
 
@@ -57,6 +58,17 @@ export interface UnpackRequest {
   resolve: (r: { dest: string; subdir: boolean } | null) => void;
 }
 
+/** one R/O/H/S/A checkbox in the Ctrl+A dialog: clear / set / keep-unchanged */
+export type AttrState = "clear" | "set" | "keep";
+export type AttrBits = Record<"readOnly" | "hidden" | "system" | "archive", AttrState>;
+
+/** Ctrl+A attributes dialog: prefilled tri-state bits over the selected paths */
+export interface AttrsRequest {
+  count: number;
+  initial: AttrBits;
+  resolve: (r: AttrBits | null) => void;
+}
+
 class UIStore {
   mode = $state<UIMode>("panels");
   dialog = $state<DialogId>(null);
@@ -67,6 +79,7 @@ class UIStore {
   inputReq = $state<InputRequest | null>(null);
   packReq = $state<PackRequest | null>(null);
   unpackReq = $state<UnpackRequest | null>(null);
+  attrsReq = $state<AttrsRequest | null>(null);
   errorText = $state<string | null>(null);
   /** transient toast message (e.g. shortcut assigned) */
   toast = $state<{ text: string; at: number } | null>(null);
@@ -132,6 +145,13 @@ class UIStore {
     return new Promise((resolve) => {
       this.unpackReq = { destDir, variants, subdirDefault, resolve: (r) => { this.unpackReq = null; this.dialog = null; resolve(r); } };
       this.dialog = "unpack";
+    });
+  }
+
+  askAttrs(count: number, initial: AttrBits): Promise<AttrBits | null> {
+    return new Promise((resolve) => {
+      this.attrsReq = { count, initial, resolve: (r) => { this.attrsReq = null; this.dialog = null; resolve(r); } };
+      this.dialog = "attrs";
     });
   }
 

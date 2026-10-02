@@ -239,6 +239,129 @@ pub async fn mkdir(path: String) -> Result<(), String> {
     .map_err(|e| e.to_string())?
 }
 
+/// Set/clear one requested bit in a Windows attribute mask; `None` leaves it
+/// untouched, like FAR's tri-state checkboxes in Ctrl+A.
+#[cfg(windows)]
+fn apply_bit(mask: &mut u32, bit: u32, want: Option<bool>) {
+    if let Some(want) = want {
+        if want {
+            *mask |= bit;
+        } else {
+            *mask &= !bit;
+        }
+    }
+}
+
+/// Merge the requested R/O/H/S/A changes into `cur`, passing every other bit
+/// (DIRECTORY, COMPRESSED, REPARSE_POINT…) through unchanged — zeroing those
+/// would corrupt the mask.
+#[cfg(windows)]
+fn merge_attrs(
+    cur: u32,
+    read_only: Option<bool>,
+    hidden: Option<bool>,
+    system: Option<bool>,
+    archive: Option<bool>,
+) -> u32 {
+    let mut m = cur;
+    apply_bit(&mut m, FILE_ATTRIBUTE_READONLY, read_only);
+    apply_bit(&mut m, FILE_ATTRIBUTE_HIDDEN, hidden);
+    apply_bit(&mut m, FILE_ATTRIBUTE_SYSTEM, system);
+    apply_bit(&mut m, FILE_ATTRIBUTE_ARCHIVE, archive);
+    m
+}
+
+#[cfg(windows)]
+fn set_attributes_blocking(
+    paths: &[String],
+    read_only: Option<bool>,
+    hidden: Option<bool>,
+    system: Option<bool>,
+    archive: Option<bool>,
+) -> Result<(), String> {
+    use std::os::windows::ffi::OsStrExt;
+    use std::os::windows::fs::MetadataExt;
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn SetFileAttributesW(filename: *const u16, attributes: u32) -> i32;
+    }
+    let mut errors: Vec<String> = Vec::new();
+    for path in paths {
+        // symlink_metadata: for a symlink the link's own mask is what
+        // SetFileAttributesW will rewrite, so read the same thing
+        let res = fs::symlink_metadata(path)
+            .map_err(|e| format!("{}: {}", path, e))
+            .and_then(|md| {
+                let attrs = merge_attrs(md.file_attributes(), read_only, hidden, system, archive);
+                let mut wide: Vec<u16> = Path::new(path).as_os_str().encode_wide().collect();
+                wide.push(0);
+                if unsafe { SetFileAttributesW(wide.as_ptr(), attrs) } != 0 {
+                    Ok(())
+                } else {
+                    Err(format!("{}: {}", path, std::io::Error::last_os_error()))
+                }
+            });
+        if let Err(e) = res {
+            errors.push(e);
+        }
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("\n"))
+    }
+}
+
+#[cfg(unix)]
+fn set_attributes_blocking(
+    paths: &[String],
+    read_only: Option<bool>,
+    hidden: Option<bool>,
+    system: Option<bool>,
+    archive: Option<bool>,
+) -> Result<(), String> {
+    // hidden/system/archive are Windows-only bits; the read-only permission
+    // is the only one a Unix filesystem can express
+    if hidden.is_some() || system.is_some() || archive.is_some() {
+        return Err("hidden/system/archive attributes are not supported on this platform".into());
+    }
+    let mut errors: Vec<String> = Vec::new();
+    for path in paths {
+        let res = fs::metadata(path).and_then(|md| {
+            if let Some(ro) = read_only {
+                let mut perm = md.permissions();
+                perm.set_readonly(ro);
+                fs::set_permissions(path, perm)?;
+            }
+            Ok(())
+        });
+        if let Err(e) = res {
+            errors.push(format!("{}: {}", path, e));
+        }
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("\n"))
+    }
+}
+
+/// Ctrl+A attributes dialog: apply R/O/H/S/A to each path; `None` = unchanged.
+#[tauri::command]
+pub async fn set_attributes(
+    paths: Vec<String>,
+    read_only: Option<bool>,
+    hidden: Option<bool>,
+    system: Option<bool>,
+    archive: Option<bool>,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        set_attributes_blocking(&paths, read_only, hidden, system, archive)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 pub async fn path_exists(path: String) -> Result<bool, String> {
     tauri::async_runtime::spawn_blocking(move || Path::new(&path).exists())
@@ -333,4 +456,22 @@ pub async fn open_path(path: String) -> Result<(), String> {
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(windows)]
+    #[test]
+    fn merge_attrs_sets_and_clears_only_requested_bits() {
+        const DIRECTORY: u32 = 0x10;
+        // set R and A on a plain archive file
+        assert_eq!(merge_attrs(0x20, Some(true), None, None, Some(true)), 0x21);
+        // clear H, keep everything else (DIRECTORY must survive)
+        assert_eq!(merge_attrs(DIRECTORY | 0x2 | 0x800, None, Some(false), None, None), DIRECTORY | 0x800);
+        // all None = mask untouched, even a zero mask stays zero
+        assert_eq!(merge_attrs(DIRECTORY, None, None, None, None), DIRECTORY);
+        assert_eq!(merge_attrs(0, None, None, None, None), 0);
+    }
 }

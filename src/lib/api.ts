@@ -15,6 +15,21 @@ export const listDir = (path: string) => invoke<DirListing>("list_dir", { path }
 export const computeDirSizes = (paths: string[]) => invoke<void>("dir_sizes", { paths });
 export const freeSpace = (path: string) => invoke<[number, number]>("free_space", { path });
 export const mkdir = (path: string) => invoke<void>("mkdir", { path });
+/** Ctrl+A: `null` bit = leave unchanged (FAR's tri-state checkboxes) */
+export interface AttrsPatch {
+  readOnly: boolean | null;
+  hidden: boolean | null;
+  system: boolean | null;
+  archive: boolean | null;
+}
+export const setAttributes = (paths: string[], a: AttrsPatch) =>
+  invoke<void>("set_attributes", {
+    paths,
+    readOnly: a.readOnly,
+    hidden: a.hidden,
+    system: a.system,
+    archive: a.archive,
+  });
 export const pathExists = (path: string) => invoke<boolean>("path_exists", { path });
 export const parentDir = (path: string) => invoke<string | null>("parent_dir", { path });
 

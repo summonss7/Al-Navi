@@ -226,7 +226,7 @@ export class PanelState {
     // no ".." in a drive root — an empty slot above the first entry marks the root
     const up = isRootPath(this.path) ? [] : [UP_ENTRY];
     this.view = [...up, ...list];
-    this.restoreCursor(prevName);
+    this.restoreCursor(prevName ?? undefined);
     this.version++;
   }
 

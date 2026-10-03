@@ -5,6 +5,7 @@
   import { readHex, ftpReadHex, archiveReadHex } from "$lib/api";
   import { convertFileSrc } from "@tauri-apps/api/core";
   import { editor } from "$lib/stores/editor.svelte";
+  import { ui } from "$lib/stores/ui.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
   import { formatSize } from "$lib/format";
   import { isFtpPath } from "$lib/ftp";
@@ -73,7 +74,14 @@
     // keep the scroll offset fresh: scroll events don't fire reliably on the
     // CodeMirror scroller, and the save happens after the DOM teardown
     const track = setInterval(() => {
-      if (view) lastScrollTop = view.scrollDOM.scrollTop;
+      if (!view) return;
+      lastScrollTop = view.scrollDOM.scrollTop;
+      // push the live position into the store: closeViewer's keepOnClose runs
+      // BEFORE this component's unmount save (which no longer finds the doc),
+      // so without this the close would remember a stale scroll (alnavi-015)
+      if (lastDocId !== -1 && editor.activeViewer?.id === lastDocId) {
+        editor.saveViewPos(lastDocId, { ...capturePos(view), scrollTop: lastScrollTop });
+      }
     }, 300);
     return () => {
       clearInterval(track);
@@ -96,12 +104,14 @@
         lastDocId = d.id;
         lastScrollTop = d.pos?.scrollTop ?? 0;
         if (d.pos) restorePos(view, d.pos);
+        view.focus();
       } else if (view) {
         if (d.id !== lastDocId) {
           if (lastDocId !== -1) editor.saveViewPos(lastDocId, { ...capturePos(view), scrollTop: lastScrollTop });
           lastDocId = d.id;
           setStateFor(view, d.text, d.path, true);
           if (d.pos) restorePos(view, d.pos);
+          view.focus();
         }
       }
     } else if (view) {
@@ -113,6 +123,17 @@
       setActiveView(null);
       lastDocId = -1;
     }
+  });
+
+  // caret into the text whenever the viewer is up and after any dialog closes
+  // (help, viewer history...): without focus the keyboard stays with the page
+  // shell and arrows/PgUp/PgDn never scroll the text (alnavi-015). The
+  // component remounts on every mode switch; doc switches focus in the effect
+  // above.
+  $effect(() => {
+    if (ui.dialog !== null) return;
+    if (!view) return;
+    requestAnimationFrame(() => view?.focus());
   });
 </script>
 

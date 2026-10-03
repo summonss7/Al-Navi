@@ -67,6 +67,23 @@ export function latinKeyOf(e: KeyboardEvent): string | null {
   return /^[a-z]$/i.test(e.key) ? e.key.toUpperCase() : null;
 }
 
+/** Digit of the physical key (e.code "Digit2"/"Numpad2" -> "2") —
+ *  layout-independent; falls back to e.key when it is a digit already. */
+export function digitKeyOf(e: KeyboardEvent): string | null {
+  if (/^(Digit|Numpad)\d$/.test(e.code)) return e.code.slice(-1);
+  return /^\d$/.test(e.key) ? e.key : null;
+}
+
+/** Normalize a typed character into a jump key: "a"->"A", "2"->"2",
+ *  ЙЦУКЕН letters map to the Latin key they share ("Ф"->"A"), anything
+ *  else (punctuation, space, "Ё") is rejected with null. */
+export function normalizeHotkeyChar(ch: string): string | null {
+  const c = ch.trim().slice(-1).toUpperCase();
+  if (/^[0-9A-Z]$/.test(c)) return c;
+  for (const [lat, cyr] of Object.entries(CYR_OF_LATIN)) if (cyr === c) return lat;
+  return null;
+}
+
 /** Cyrillic (ЙЦУКЕН) letter sharing the physical key with the given Latin one. */
 const CYR_OF_LATIN: Record<string, string> = {
   Q: "Й", W: "Ц", E: "У", R: "К", T: "Е", Y: "Н", U: "Г", I: "Ш", O: "Щ", P: "З",

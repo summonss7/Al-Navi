@@ -9,7 +9,13 @@ export interface FtpSite {
   port: number;
   user: string;
   password: string;
+  /** jump key of the site in the FTP list: one letter or digit ("2", "A") */
+  hotkey?: string;
 }
+
+/** the drive menu (Alt+F1/F2) jumps to the FTP list on this key — drives
+ *  have letters only, so a digit never collides with them */
+export const FTP_DRIVE_KEY = "2";
 
 export function isFtpPath(p: string): boolean {
   return p.startsWith("ftp://");

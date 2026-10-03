@@ -9,7 +9,7 @@
   import { settings, THEMES, type ThemeId } from "$lib/stores/settings.svelte";
   import { LOCALES, type Locale } from "$lib/stores/i18n.svelte";
   import { drivesList, appInfo, ftpConnect, pathExists, type AppInfo } from "$lib/api";
-  import { latinKeyOf } from "$lib/keymap";
+  import { latinKeyOf, digitKeyOf, normalizeHotkeyChar } from "$lib/keymap";
   import { formatSize, pathKey, basename, parentOf, joinPath } from "$lib/format";
   import { applyMultiRename, defaultMrForm } from "$lib/multiRename";
   import { HELP_SECTIONS } from "$lib/help";
@@ -17,7 +17,7 @@
   import { textColors, type BuiltinRule, type MaskRule } from "$lib/stores/textColors.svelte";
   import { ftpSites } from "$lib/stores/ftpSites.svelte";
   import { userMenu, expandUserPlaceholders, type UserMenuItem } from "$lib/stores/userMenu.svelte";
-  import { newFtpSite, isFtpPath, type FtpSite } from "$lib/ftp";
+  import { newFtpSite, isFtpPath, FTP_DRIVE_KEY, type FtpSite } from "$lib/ftp";
   import { isSearchPath, searchStore } from "$lib/stores/search.svelte";
   import { EDITOR_PLUGINS, type CaseMode, type LayoutMode } from "$lib/plugins";
   import type { DriveInfo } from "$lib/types";
@@ -63,7 +63,7 @@
   let drives = $state<DriveInfo[]>([]);
   $effect(() => {
     if (ui.dialog === "drives") {
-      // the FTP entry rides at the end of the drive list (jump key: F)
+      // the FTP entry rides at the end of the drive list (jump keys: 2, F)
       drivesList()
         .then((d) => (drives = [...d, { name: "FTP", mountPoint: "ftp://", kind: "ftp", totalBytes: 0, freeBytes: 0 }]))
         .catch(console.error);
@@ -144,8 +144,30 @@
     if (s) ftpSites.remove(s.id);
   }
 
+  /** the jump-key field keeps a single normalized char: latin letters map
+   *  from ЙЦУКЕН (Ф -> A), anything that is not a letter/digit is dropped */
+  function onHotkeyInput(e: Event) {
+    const el = e.currentTarget as HTMLInputElement;
+    el.value = normalizeHotkeyChar(el.value) ?? "";
+    ftpForm.hotkey = el.value;
+  }
+
   function submitFtpForm() {
-    void ftpConnectSite(ftpForm, ftpFormMode !== "quick");
+    if (ftpFormMode === "quick") {
+      void ftpConnectSite(ftpForm, false);
+      return;
+    }
+    const hk = (ftpForm.hotkey ?? "").trim() ? normalizeHotkeyChar(ftpForm.hotkey!) : null;
+    if ((ftpForm.hotkey ?? "").trim() && !hk) {
+      ui.showToast(i18n.t("ftp.hotkeyBad"));
+      return;
+    }
+    const rival = hk ? ftpSites.sites.find((s) => s.hotkey === hk && s.id !== ftpForm.id) : undefined;
+    if (rival) {
+      ui.showToast(i18n.t("ftp.hotkeyTaken", { key: hk!, name: rival.name || rival.host }));
+      return;
+    }
+    void ftpConnectSite({ ...ftpForm, hotkey: hk ?? undefined }, true);
   }
 
   // ---- user menu (F2) ----
@@ -552,18 +574,40 @@
     }
     const n = listCount();
     if (!n) return;
-    // drives dialog: pressing a drive letter switches to it right away,
-    // matched by physical key so any keyboard layout works (FAR behavior)
-    if (ui.dialog === "drives" && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
-      const latin = latinKeyOf(e);
-      if (latin) {
-        const idx = drives.findIndex((d) => d.mountPoint.toUpperCase().startsWith(latin));
-        if (idx >= 0) {
-          e.preventDefault();
-          e.stopPropagation();
-          void pickDrive(drives[idx]);
-          return;
+    // drives dialog: the FTP entry has the assigned digit key (2 — drive
+    // letters can't collide with digits); pressing it opens the FTP list
+    if (ui.dialog === "drives" && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      if (digitKeyOf(e) === FTP_DRIVE_KEY) {
+        e.preventDefault();
+        e.stopPropagation();
+        ui.openDialog("ftp");
+        return;
+      }
+      // pressing a drive letter switches to it right away,
+      // matched by physical key so any keyboard layout works (FAR behavior)
+      if (e.key.length === 1) {
+        const latin = latinKeyOf(e);
+        if (latin) {
+          const idx = drives.findIndex((d) => d.mountPoint.toUpperCase().startsWith(latin));
+          if (idx >= 0) {
+            e.preventDefault();
+            e.stopPropagation();
+            void pickDrive(drives[idx]);
+            return;
+          }
         }
+      }
+    }
+    // FTP list: a site's assigned jump key (letter or digit, physical)
+    // connects to that site right away
+    if (ui.dialog === "ftp" && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
+      const hk = latinKeyOf(e) ?? digitKeyOf(e);
+      const s = hk ? ftpSites.sites.find((x) => x.hotkey === hk) : undefined;
+      if (s) {
+        e.preventDefault();
+        e.stopPropagation();
+        void ftpConnectSite(s, false);
+        return;
       }
     }
     let handled = true;
@@ -1082,7 +1126,9 @@
           <button class="drive" class:kbd={i === listIdx} onclick={() => void pickDrive(d)}>
             <i class="ph-duotone {driveIcon(d.kind)}"></i>
             <span class="d-name" title={d.mountPoint}>{d.name}</span>
-            {#if d.totalBytes}
+            {#if d.kind === "ftp"}
+              <span class="jump-key mono" title={i18n.t("help.dlg.ftpKey")}>{FTP_DRIVE_KEY}</span>
+            {:else if d.totalBytes}
               <span class="d-free mono">{formatSize(d.freeBytes)} {i18n.t("panel.free")} / {formatSize(d.totalBytes)}</span>
             {/if}
           </button>
@@ -1104,6 +1150,7 @@
           <button class="li" class:kbd={listIdx === i} onclick={() => void ftpConnectSite(s, false)}>
             <i class="ph-duotone ph-globe-hemisphere-west"></i>
             <span class="ftp-name">{s.name || s.host}</span>
+            {#if s.hotkey}<span class="jump-key mono" title={i18n.t("ftp.hotkey")}>{s.hotkey}</span>{/if}
             <span class="ftp-addr mono">{s.user || "anonymous"}@{s.host}:{s.port || 21}</span>
           </button>
         {:else}
@@ -1147,6 +1194,23 @@
         </div>
         <label class="lbl" for="ftp-f-pass">{i18n.t("ftp.password")}</label>
         <input id="ftp-f-pass" type="password" bind:value={ftpForm.password} />
+        {#if ftpFormMode !== "quick"}
+          <div class="ftp-row2" style="margin-top:10px">
+            <div>
+              <label class="lbl" for="ftp-f-key">{i18n.t("ftp.hotkey")}</label>
+              <input
+                id="ftp-f-key"
+                value={ftpForm.hotkey ?? ""}
+                oninput={onHotkeyInput}
+                maxlength="1"
+                placeholder="—"
+                spellcheck="false"
+                autocomplete="off"
+              />
+            </div>
+            <div class="fc-hint" style="align-self:end; padding-bottom:8px">{i18n.t("ftp.hotkeyHint")}</div>
+          </div>
+        {/if}
         <div class="fc-hint" style="margin-top:10px">{i18n.t("ftp.hint")}</div>
       </form>
       <div class="dlg-actions">
@@ -1892,6 +1956,22 @@
   .d-free { font-size: calc(10.5px * var(--fs-scale)); color: var(--fg-muted); }
 
   /* FTP sites dialog + connect form */
+  .jump-key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    min-width: calc(20px * var(--fs-scale));
+    height: calc(20px * var(--fs-scale));
+    padding: 0 4px;
+    border-radius: 5px;
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+    background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+    color: var(--accent);
+    font-size: calc(11px * var(--fs-scale));
+    font-weight: 700;
+    line-height: 1;
+  }
   .ftp-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg); }
   .ftp-addr { font-size: calc(10.5px * var(--fs-scale)); color: var(--fg-muted); }
   .ftp-form { min-width: 360px; }

@@ -797,7 +797,8 @@ pub fn delete_paths(
             if let Err(err) = res {
                 ctx.errors.push(OpError {
                     path: p.clone(),
-                    error: err,
+                    // alnavi-003: lock errors name the holding process
+                    error: crate::locks::describe_delete_error(&pb, err),
                 });
             }
             ctx.files_done = (i + 1) as u64;

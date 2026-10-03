@@ -5,6 +5,7 @@ mod drives;
 mod fs;
 mod ftp;
 mod ftp_ops;
+mod locks;
 mod meta;
 mod ops;
 mod search;

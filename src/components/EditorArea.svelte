@@ -15,11 +15,40 @@
 
   let host: HTMLDivElement | undefined = $state();
   let view: EditorView | null = null;
-  let pos = $state({ line: 1, col: 1, sel: 0 });
+  let pos = $state({ line: 1, col: 1, sel: 0, ch: "", code: null as number | null });
+  let stats = $state({ chars: 0, lines: 1, spaces: 0 });
+  let statsTimer: ReturnType<typeof setTimeout> | undefined;
   let lastDocId = -1;
   /** true while a programmatic doc swap runs — its change events must not
    *  mark the target document dirty */
   let switching = false;
+
+  /** document totals for the status bar: characters (code points, a surrogate
+   *  pair counts once), lines, spaces. One pass, no allocations. */
+  function countStats(text: string) {
+    let spaces = 0;
+    let chars = 0;
+    let nl = 0;
+    for (let i = 0; i < text.length; i++) {
+      const c = text.charCodeAt(i);
+      if (c === 32) spaces++;
+      else if (c === 10) nl++;
+      if (c >= 0xd800 && c <= 0xdbff) {
+        const n = i + 1 < text.length ? text.charCodeAt(i + 1) : 0;
+        if (n >= 0xdc00 && n <= 0xdfff) i++;
+      }
+      chars++;
+    }
+    stats = { chars, lines: nl + 1, spaces };
+  }
+
+  /** recount now for small docs; a 64MB pass would lag typing, so big ones
+   *  wait for a pause */
+  function scheduleStats(text: string) {
+    clearTimeout(statsTimer);
+    if (text.length <= 1_000_000) countStats(text);
+    else statsTimer = setTimeout(() => countStats(text), 300);
+  }
 
   const ENCODINGS = ["utf-8", "utf-16le", "utf-16be", "windows-1251", "koi8-r", "cp866", "iso-8859-5"];
   const EOLS = [
@@ -39,8 +68,10 @@
         editor.setText(editor.activeId, text);
         editor.markDirty(editor.activeId, true);
         pos = lineColOf(view!);
+        scheduleStats(text);
       },
     });
+    countStats(doc?.text ?? "");
     setActiveView(view);
     lastDocId = editor.activeId ?? -1;
     // returning to the editor (or a doc reopened after restart): put the
@@ -57,6 +88,7 @@
 
     return () => {
       clearInterval(trackPos);
+      clearTimeout(statsTimer);
       // remember the caret position before the view is torn down — the
       // component remounts on every mode switch
       if (view && editor.activeId) editor.savePos(editor.activeId, capturePos(view));
@@ -84,6 +116,7 @@
     setStateFor(view, d.text, d.path);
     switching = false;
     if (d.pos) restorePos(view, d.pos);
+    scheduleStats(d.text);
     view.focus();
   });
 
@@ -135,8 +168,14 @@
 
     <div class="ed-status">
       <span class="mono">{i18n.t("editor.line")} {pos.line}, {i18n.t("editor.col")} {pos.col}</span>
+      {#if pos.code !== null}
+        <span class="mono dim char-chip" title={i18n.t("editor.charUnder")}
+          >'{pos.ch}' {pos.code} 0x{pos.code.toString(16).toUpperCase().padStart(2, "0")}</span
+        >
+      {/if}
       {#if pos.sel}<span class="mono dim">{i18n.t("editor.sel")} {pos.sel}</span>{/if}
       <span class="grow"></span>
+      <span class="mono dim totals" title={i18n.t("editor.totals")}>{i18n.t("editor.totalChars")} {stats.chars} · {i18n.t("editor.totalLines")} {stats.lines} · {i18n.t("editor.totalSpaces")} {stats.spaces}</span>
       <label>
         {i18n.t("editor.eol")}
         <select value={doc.eol} onchange={(e) => (doc.eol = (e.currentTarget as HTMLSelectElement).value)}>
@@ -223,7 +262,17 @@
   .warn { color: var(--accent2); }
   .grow { flex: 1; }
   .dim { color: var(--fg-muted); }
-  label { display: inline-flex; align-items: center; gap: 6px; }
+  /* caret-following chip must never fold; the totals ellipsize when the bar
+   * gets crowded so the EOL/encoding selects stay intact */
+  .char-chip { white-space: nowrap; flex-shrink: 0; }
+  .totals {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 1;
+    min-width: 0;
+  }
+  label { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
   select {
     font-size: calc(11.5px * var(--fs-scale));
     padding: 2px 6px;

@@ -409,10 +409,50 @@ export function applyEditorDecor() {
   });
 }
 
-export function lineColOf(v: EditorView): { line: number; col: number; sel: number } {
+/** printable form of a char for the status bar: newlines/tabs get FAR-style
+ *  escapes, other C0 controls use caret notation (^L), the rest show as-is */
+function displayChar(code: number, raw: string): string {
+  if (code === 10) return "\\n";
+  if (code === 9) return "\\t";
+  if (code === 13) return "\\r";
+  if (code < 32) return "^" + String.fromCharCode(code + 64);
+  if (code === 127) return "^?";
+  return raw;
+}
+
+/** the character under the caret: the one right of it, or the last character
+ *  when the caret sits at the very end. Code point (ASCII for Latin, Unicode
+ *  otherwise) + a printable representation; null in an empty document. */
+function charUnderCursor(v: EditorView): { ch: string; code: number } | null {
+  const text = v.state.doc;
+  const head = v.state.selection.main.head;
+  if (text.length === 0) return null;
+  if (head < text.length) {
+    // sliceString (not sliceDoc) — Text keeps it O(1)-ish, no full-doc copy
+    const s = text.sliceString(head, head + 2);
+    const code = s.codePointAt(0)!;
+    return { ch: displayChar(code, String.fromCodePoint(code)), code };
+  }
+  const s = text.sliceString(Math.max(0, head - 2), head);
+  let i = s.length - 1;
+  const cu = s.charCodeAt(i);
+  // step off a lone low surrogate to keep a pair together
+  if (cu >= 0xdc00 && cu <= 0xdfff && i > 0) i--;
+  const code = s.codePointAt(i)!;
+  return { ch: displayChar(code, String.fromCodePoint(code)), code };
+}
+
+export function lineColOf(v: EditorView): { line: number; col: number; sel: number; ch: string; code: number | null } {
   const sel = v.state.selection.main;
   const line = v.state.doc.lineAt(sel.head);
-  return { line: line.number, col: sel.head - line.from + 1, sel: Math.abs(sel.to - sel.from) };
+  const cu = charUnderCursor(v);
+  return {
+    line: line.number,
+    col: sel.head - line.from + 1,
+    sel: Math.abs(sel.to - sel.from),
+    ch: cu?.ch ?? "",
+    code: cu?.code ?? null,
+  };
 }
 
 export function currentView(): EditorView | null {

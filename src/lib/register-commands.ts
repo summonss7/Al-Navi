@@ -98,8 +98,15 @@ export function registerAllCommands() {
     if (names) void navigator.clipboard.writeText(names);
   });
   registerCommand("panel.copyPaths", () => {
-    const paths = A().targetPaths.join("\r\n");
-    if (paths) void navigator.clipboard.writeText(paths);
+    const p = A();
+    const paths = p.targetPaths.join("\r\n");
+    // cursor on ".." with nothing marked: the entry IS the panel's own
+    // directory — copy its path (search panel: where the search started)
+    const dirPath =
+      !paths && p.current?.name === ".."
+        ? (isSearchPath(p.path) ? searchStore.originPath ?? p.path : p.path)
+        : "";
+    if (paths || dirPath) void navigator.clipboard.writeText(paths || dirPath);
   });
   registerCommand("panel.enterExternal", () => void A().enterExternal());
   registerCommand("panel.dirHistory", () => ui.openDialog("dirHistory"));

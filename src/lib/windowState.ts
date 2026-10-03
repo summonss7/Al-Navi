@@ -22,10 +22,16 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 async function trackGeometry() {
   if (!win) return;
   try {
+    // a minimized window reports its parked geometry (Windows stashes it at
+    // −32000 with a titlebar-only size ~181×24) — keep the last real one
+    if (await win.isMinimized()) return;
     maximized = await win.isMaximized();
     if (!maximized) {
       const size = await win.innerSize();
       const pos = await win.outerPosition();
+      // belt-and-suspenders: below the app minimum (940×560) a resize event
+      // is degenerate, not a window worth remembering
+      if (size.width < 300 || size.height < 200) return;
       normal = { x: pos.x, y: pos.y, w: size.width, h: size.height };
     }
     // skip the burst of events that fires while the window is being created
@@ -48,7 +54,9 @@ export async function flush() {
     timer = null;
   }
   try {
-    maximized = await win.isMaximized();
+    // while minimized isMaximized() lies (Win32 IsZoomed is false for an
+    // iconic window) — keep the tracked flag from the last visible state
+    if (!(await win.isMinimized())) maximized = await win.isMaximized();
   } catch {
     return;
   }

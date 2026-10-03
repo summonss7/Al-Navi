@@ -63,6 +63,10 @@ export class PanelState {
   private reloadTimer: ReturnType<typeof setTimeout> | null = null;
   /** set before a chdir to place the cursor on this entry name after load */
   pendingFocusName: string | null = null;
+  /** load() moved the tab to a different folder: the cursor starts over on
+   *  ".." — the old position (or a coincidentally same-named entry) must not
+   *  leak into the new listing */
+  private freshDirCursor = false;
 
   constructor(side: "left" | "right", path: string) {
     this.side = side;
@@ -105,6 +109,7 @@ export class PanelState {
       const t = this.tab;
       if (t.path !== path) {
         t.path = path;
+        t.cursor = 0;
         if (opts.push !== false) {
           t.history = [...t.history.slice(0, t.historyIndex + 1), path];
           t.historyIndex = t.history.length - 1;
@@ -142,6 +147,9 @@ export class PanelState {
       const t = this.tab;
       if (t.path !== res.path) {
         t.path = res.path;
+        // entering a different folder: cursor starts over on ".."
+        t.cursor = 0;
+        this.freshDirCursor = true;
         if (opts.push !== false) {
           t.history = [...t.history.slice(0, t.historyIndex + 1), res.path];
           t.historyIndex = t.history.length - 1;
@@ -168,7 +176,10 @@ export class PanelState {
       this.version++;
       return;
     }
-    const prevName = this.current?.name;    const showHidden = settings.s.showHidden;
+    // a fresh dir must not inherit the cursor by name/position from the old one
+    const prevName = this.freshDirCursor ? null : this.current?.name;
+    this.freshDirCursor = false;
+    const showHidden = settings.s.showHidden;
     const showSystem = settings.s.showSystem;
     let list = this.raw.filter((e) => {
       if (e.name === UP_NAME) return true;
@@ -351,7 +362,11 @@ export class PanelState {
       return;
     }
     const p = parentOf(this.path);
-    if (p) await this.chdir(p);
+    if (p) {
+      // FAR: leaving a folder puts the cursor back on the folder's own row
+      this.pendingFocusName = basename(this.path);
+      await this.chdir(p);
+    }
   }
 
   /** Shift+Enter: always hand the entry to the OS shell — folders (and "..")

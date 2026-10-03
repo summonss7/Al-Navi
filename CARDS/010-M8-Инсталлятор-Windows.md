@@ -1,5 +1,5 @@
 ---
-id: alnavi-004
+id: alnavi-010
 title: M8 — инсталлятор Windows (Inno Setup или NSIS)
 status: todo
 priority: 2

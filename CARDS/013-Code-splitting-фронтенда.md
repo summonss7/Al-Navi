@@ -1,5 +1,5 @@
 ---
-id: alnavi-007
+id: alnavi-013
 title: Code-splitting фронтенда — основной чанк < 500 KB
 status: todo
 priority: 3

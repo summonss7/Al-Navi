@@ -1,5 +1,5 @@
 ---
-id: alnavi-002
+id: alnavi-008
 title: Локализация — закрыть 159 недостающих ключей в uk/ro/sk/ar
 status: todo
 priority: 1

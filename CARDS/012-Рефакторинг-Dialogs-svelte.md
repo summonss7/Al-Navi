@@ -1,5 +1,5 @@
 ---
-id: alnavi-006
+id: alnavi-012
 title: Рефакторинг Dialogs.svelte (2089 строк)
 status: todo
 priority: 3

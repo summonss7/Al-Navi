@@ -996,7 +996,7 @@
 {/if}
 
 {#if ui.dialog === "progress" && ops.op}
-  <div class="overlay" style="align-items:flex-end; padding-bottom: 90px; justify-content:flex-start; padding-inline-start: 16px;">
+  <div class="overlay">
     <div class="dlg" style="min-width: 460px">
       <div class="dlg-title">
         <i class="ph-duotone ph-arrows-clockwise"></i>

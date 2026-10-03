@@ -897,7 +897,7 @@
           <div class="variants">
             {#each ui.inputReq.variants as v, i}
               <button type="button" class="li" class:kbd={i === variantIdx} title={v} onclick={() => pickVariant(i)}>
-                <i class="ph-duotone ph-folder-simple"></i>{v}
+                <i class="ph-duotone ph-folder-simple"></i><span class="path">{v}</span>
               </button>
             {/each}
           </div>
@@ -949,7 +949,7 @@
           <div class="variants">
             {#each ui.unpackReq.variants as v, i}
               <button type="button" class="li" class:kbd={i === unpackIdx} title={v} onclick={() => pickUnpackVariant(i)}>
-                <i class="ph-duotone ph-folder-simple"></i>{v}
+                <i class="ph-duotone ph-folder-simple"></i><span class="path">{v}</span>
               </button>
             {/each}
           </div>
@@ -1959,9 +1959,15 @@
   .mr-row.bad .mr-note { color: var(--danger); }
   .mr-more { color: var(--fg-muted); font-size: calc(11px * var(--fs-scale)); padding: 3px 2px; }
 
-  /* F5/F6 destination variants under the transfer dialog input */
-  .variants { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; max-height: 200px; overflow-y: auto; }
-  .variants .li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  /* F5/F6 destination variants under the transfer dialog input.
+     Rows must NOT shrink when the list overflows: overflow:hidden on a flex
+     item zeroes its automatic min-height, and a column of squashed 14px
+     slivers is exactly the "everything shifted, nothing readable" bug —
+     rows keep their height (flex-shrink:0) and the container scrolls. */
+  .variants { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; max-height: min(220px, 40vh); overflow-y: auto; }
+  .variants .li { flex-shrink: 0; }
+  .variants .li i { flex-shrink: 0; }
+  .variants .li .path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; }
 
   .grp { color: var(--fg-muted); font-size: calc(11.5px * var(--fs-scale)); text-transform: uppercase; letter-spacing: 0.6px; margin: 12px 0 8px; }
   .grp:first-child { margin-top: 0; }

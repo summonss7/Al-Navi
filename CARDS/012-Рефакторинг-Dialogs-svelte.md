@@ -2,9 +2,9 @@
 id: alnavi-012
 title: Рефакторинг Dialogs.svelte (2089 строк)
 status: todo
-priority: 3
+priority: 9
 created: 2026-10-03
-updated: 2026-10-03
+updated: 2026-10-04
 session: ""
 ---
 ## Задача

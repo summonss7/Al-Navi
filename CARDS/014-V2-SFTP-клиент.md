@@ -2,9 +2,9 @@
 id: alnavi-014
 title: V2 — SFTP-клиент (первый шаг V2 из ROADMAP)
 status: todo
-priority: 3
+priority: 9
 created: 2026-10-03
-updated: 2026-10-03
+updated: 2026-10-04
 session: ""
 ---
 ## Задача

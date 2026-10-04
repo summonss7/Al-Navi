@@ -2,9 +2,9 @@
 id: alnavi-013
 title: Code-splitting фронтенда — основной чанк < 500 KB
 status: todo
-priority: 3
+priority: 9
 created: 2026-10-03
-updated: 2026-10-03
+updated: 2026-10-04
 session: ""
 ---
 ## Задача

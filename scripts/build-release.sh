@@ -54,3 +54,14 @@ if [ -d "$PF_DIR" ] || mkdir -p "$PF_DIR" 2>/dev/null; then
     echo "    FAILED — copy $OUT into C:\\Al-Navi manually"
   fi
 fi
+
+# 5) Windows setup (M8) with Inno Setup — same stamp as the portable exe,
+#    so a release pair is Al-Navi-<ver>-<stamp>.exe + Al-Navi-Setup-<ver>-<stamp>.exe.
+#    Built when ISCC.exe is present; see scripts/build-installer.sh otherwise.
+ISCC="${ISCC:-$LOCALAPPDATA/Programs/Inno Setup 6/ISCC.exe}"
+if [ -x "$ISCC" ]; then
+  bash "$ROOT/scripts/build-installer.sh" "$STAMP"
+else
+  echo "==> Skipping the setup: Inno Setup not found."
+  echo "    Per-user install (no admin): winget install --id JRSoftware.InnoSetup --scope user"
+fi

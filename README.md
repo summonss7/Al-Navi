@@ -57,9 +57,19 @@ npm run build        # сборка фронтенда
 
 ```bash
 npm run release
-# → builds/Al-Navi-<версия>-<дата-время>.exe
+# → builds/Al-Navi-<версия>-<дата-время>.exe         — портативный exe
+#   builds/Al-Navi-Setup-<версия>-<дата-время>.exe   — установщик (M8)
 # + обновляет рабочую копию C:\Al-Navi\Al-Navi.exe (папка создаётся при необходимости)
 ```
+
+Установщик собирается **Inno Setup** (ставится per-user, без прав администратора:
+`winget install --id JRSoftware.InnoSetup --scope user`); если `ISCC.exe` не найден,
+релиз ограничивается портативным exe (в консоли печатается подсказка). Установка по
+умолчанию — `%LOCALAPPDATA%\Programs\Al-Navi` без UAC (в мастере можно выбрать
+«для всех пользователей» — тогда Windows спросит повышение прав). Создаются ярлыки
+на рабочем столе и в меню «Пуск», стандартный деинсталлятор, иконка из
+`src-tauri/icons/icon.ico`, интерфейс мастера en/ru. Скрипты: `scripts/al-navi.iss`
+(сценарий Inno), `scripts/build-installer.sh` (сетап из уже собранного релизного exe).
 
 Версия берётся из `src-tauri/Cargo.toml` (`[package] version`; при изменении
 синхронно обновите `version` в `src-tauri/tauri.conf.json`). Время сборки вшивается
@@ -272,8 +282,9 @@ src/lib/           Ядро: keymap (FAR-карта клавиш), commands (р�
                   ftp.ts (пути ftp://), plugins.ts (F11), editor/cm.ts (CodeMirror)
 src/components/    TitleBar, PanelsGrid, FilePanel, VirtualList, CmdLine, FKeyBar,
                   Dialogs, EditorArea, ViewerArea
-scripts/           make-icon.mjs (генерация бренд-иконки), build-release.sh (релиз в builds/),
-                  e2e-*.mjs/.cjs (E2E-проверки релизов через CDP / vite dev)
+scripts/           make-icon.mjs (генерация бренд-иконки), build-release.sh (релиз в builds/:
+                  портативный exe + сетап), build-installer.sh + al-navi.iss (установщик Inno
+                  Setup), e2e-*.mjs/.cjs (E2E-проверки релизов через CDP / vite dev)
 images/            дизайн-референсы: design.jpg (макет), logo.jpg, icon.jpg, font.jpg, color.jpg
 backup.bat/.ps1    резервные копии проекта в backups/ (ротация 8 архивов)
 CHANGELOG.md       история версий

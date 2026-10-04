@@ -55,6 +55,17 @@ if [ -d "$PF_DIR" ] || mkdir -p "$PF_DIR" 2>/dev/null; then
   fi
 fi
 
+# 4b) the user's taskbar pin targets a Desktop exe copy — a stale one already
+#     caused phantom "already fixed" bug reports (sat at 1.5.1 once). Keep it
+#     in lockstep with the release.
+DESK="/c/Users/CUSTOM/Desktop/Al-Navi.exe"
+if cp -f "$SRC_EXE" "$DESK" 2>/dev/null; then
+  echo "==> Updated the Desktop copy"
+  ie4uinit.exe -show >/dev/null 2>&1 || true
+else
+  echo "==> Desktop copy not updated (no Desktop\\Al-Navi.exe?)"
+fi
+
 # 5) Windows setup (M8) with Inno Setup — same stamp as the portable exe,
 #    so a release pair is Al-Navi-<ver>-<stamp>.exe + Al-Navi-Setup-<ver>-<stamp>.exe.
 #    Built when ISCC.exe is present; see scripts/build-installer.sh otherwise.

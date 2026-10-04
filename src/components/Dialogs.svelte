@@ -922,7 +922,7 @@
     <div class="dlg" role="alertdialog">
       <div class="dlg-title"><i class="ph-duotone ph-question"></i>{i18n.t("common.ok")}</div>
       <div class="dlg-body">{ui.confirmReq.message}</div>
-      <div class="dlg-actions">
+      <div class="dlg-actions focus-fill">
         <button class="btn" onclick={() => ui.confirmReq!.resolve(false)}>{i18n.t("common.no")}</button>
         <button class="btn primary" use:autofocus onclick={() => ui.confirmReq!.resolve(true)}>{i18n.t("common.yes")}</button>
       </div>
@@ -1103,7 +1103,7 @@
         <div class="conf-row"><span class="lbl">{i18n.t("ops.src")}:</span><span class="mono path">{ops.conflict.src}</span></div>
         <div class="conf-row"><span class="lbl">{i18n.t("ops.dst")}:</span><span class="mono path">{ops.conflict.dst}</span></div>
       </div>
-      <div class="dlg-actions wrap">
+      <div class="dlg-actions wrap focus-fill">
         <button class="btn primary" use:autofocus onclick={() => ops.resolveConflictAction("overwrite")}>{i18n.t("ops.copy")} ↩</button>
         <button class="btn" onclick={() => ops.resolveConflictAction("overwrite_all")}>{i18n.t("common.all")}</button>
         <button class="btn" onclick={() => ops.resolveConflictAction("skip")}>{i18n.t("common.cancel")}</button>

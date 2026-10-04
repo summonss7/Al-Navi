@@ -390,6 +390,23 @@ input:focus, select:focus { border-color: var(--accent); }
   justify-content: flex-end;
   gap: 8px;
 }
+/* confirm/conflict rows (.focus-fill): the accent fill rides the focused button —
+   arrows walk it (Dialogs.svelte onButtonDialogKey); the static primary shows
+   only while no button is focused, so the default choice stays lit if focus is lost */
+.focus-fill .btn:focus {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: transparent;
+  font-weight: 700;
+  outline: none; /* the fill is the focus indicator — no system ring on top of it */
+}
+.focus-fill:focus-within .btn.primary:not(:focus) {
+  background: var(--bg-panel);
+  color: inherit;
+  border-color: var(--border-strong);
+  font-weight: 400;
+}
+.focus-fill .btn:focus:hover { filter: brightness(1.06); box-shadow: none; }
 
 /* toast */
 .toast {

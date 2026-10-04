@@ -101,7 +101,10 @@
     }
 
     // caret keys with text stay in the line: Ctrl+Left/Right word jump,
-    // Shift+Left char selection, Home/End line start/end
+    // Shift+Left/Right char selection, Ctrl+Shift+Left/Right word selection,
+    // Shift+Home/End select to line start/end, Home/End/Delete line editing.
+    // Selection here is the input's own native behavior — these chords must
+    // NOT reach navAction, which would move the panel cursor instead
     if (hasText && !e.altKey) {
       switch (chord) {
         case "Left":
@@ -109,6 +112,16 @@
         case "Home":
         case "End":
         case "Delete":
+        case "Ctrl+Left":
+        case "Ctrl+Right":
+        case "Shift+Left":
+        case "Shift+Right":
+        case "Shift+Home":
+        case "Shift+End":
+        case "Ctrl+Shift+Left":
+        case "Ctrl+Shift+Right":
+        case "Ctrl+Shift+Home":
+        case "Ctrl+Shift+End":
           return;
       }
     }

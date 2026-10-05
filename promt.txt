@@ -744,3 +744,60 @@ if-блоков нет, поэтому они от этого не страда�
   backups/Al-Navi-backup-2026-10-04_221047.zip.
 - Коммит: см. git log (запись «alnavi-024: выделение текста в командной строке с
   клавиатуры …»); карточка alnavi-024 закрыта.
+✓ 04.10.2026, 22:30:58 — выполнено (задача из TASKS.txt): в коммандной строке выделить текст можно только мышкой, можна сделать кроме мышки еще командой шифт+стрелка вправо или влево а контрл+шифт+стрелка право или лево перескакивает сразу в конец и выделяет весь текст — выполнена 04.10.2026, 22:30:58
+
+## alnavi-009: тестовая инфраструктура — единый раннер и порядок в scripts/ (05.10.2026, 01:15)
+- Сделано по карточке CARDS/009 (id alnavi-009). Код приложения НЕ менялся — только
+  тестовая обвязка, скрипты и документация; сборка релиза не требовалась.
+- Юнит-тесты чистых функций фронтенда на vitest 5.0.3 (новая dev-зависимость):
+  vitest.config.ts (svelte-плагин для runes-модулей .svelte.ts, environment node,
+  алиасы $lib/$comp), tests/unit/ 4 файла — format.test.ts (formatSize/Speed/Date,
+  extOf/basename/joinPath, isAbsolutePath, parentOf для windows/ftp/archive путей,
+  isRootPath, pathKey, maskToRegExp, sortArrow), multiRename.test.ts (шаблоны
+  [N]/[E]/[C] с нулями и шагом счётчика, шаг 0, маски, find/replace с
+  экранированием regex-символов и регистром, статусы ok/unchanged/invalid/dup,
+  invalid-имена Windows), plugins.test.ts (transformCase: lower/upper/sentence/
+  title с кириллицей; convertLayout: toCyr/toLat с сохранением регистра и
+  нетронутой пунктуацией, асимметрия семи букв на клавишах пунктуации — б→запятая,
+  auto по большинству букв с тай-брейком в кириллицу), colors.test.ts (iconFor
+  группы+симлинки+UP_ICON, COLOR_GROUPS без серой пары binary/text, fileColors
+  через fileColors.init() без бэкенда: брендовые дефолты promt.txt красным жирным
+  впереди *.txt, первый-матч-выигрывает, разделители , ; пробел; compileTextMask —
+  unanchored/global, * и ?, экранирование, пустая маска null). Важный урок: первые
+  прогоны поймали 8 ошибок в МОИХ ожиданиях (я ждал трансплитерацию «privet», а
+  конвертер раскладки даёт «ghbdtn»; txt — в doc-группе и т.п.) — логика приложения
+  верна, ни одной правки src/. npm run test:unit — 53/53 зелёные из коробки.
+- Дымовой E2E scripts/e2e-smoke.mjs (npm run test:e2e, exe по умолчанию
+  C:\Al-Navi\Al-Navi.exe, свой путь аргументом): реальный exe + CDP (порт 9261,
+  изолированный WEBVIEW2_USER_DATA_FOLDER), файловые операции во временной
+  песочнице %TEMP%\alnaviSmokeXXX (left/right/sub, alpha.txt/beta.txt), реальный
+  конфиг %APPDATA%\al-navi бэкапится и восстанавливается. 23 проверки с итоговой
+  сводкой и кодом возврата: запуск, реальный бэкенд + 2 панели, версия+время сборки
+  в тайтлбаре, cd обеих панелей через командную строку (Input.insertText + Enter —
+  приём из e2e-attrs), Home на «..», ArrowDown, Enter в sub/ и Backspace с возвратом
+  курсора на покинутую папку, F5-копия (диалог с префиллом пути второй панели,
+  файл появляется на диске и в перерисованной пассивной панели), F8-удаление
+  (confirm Да/Нет, фокус на «Да»), F4-редактор (beta.txt в CodeMirror, Ctrl+End,
+  допечатка, dirty-маркер, F2-сохранение сверено с диском, Esc закрывает),
+  циклы темы (data-theme на html) и языка (кнопка локали + F-бар) кнопками
+  тайтлбара. Грабли: CDP-синтетический Enter НЕ запускает дефолтные действия
+  кнопок/implicit submit в WebView2 (подтверждение урока alnavi-023 в headful) —
+  диалоги подтверждаются реальным CDP-кликом по .btn.primary; после F8-удаления
+  курсор сбрасывается на «..» — проход на beta.txt детерминирован Home+2×ArrowDown
+  с ретраем. Итог: npm run test:e2e — 23/23 PASS на рабочем exe 1.12.3;
+  npm test = test:unit && test:e2e (оба по отдельности тоже). svelte-check 0 ошибок.
+- Порядок в scripts/: 25 одноразовых проверок релизов (e2e-1.7.1.mjs, e2e-1-10-0…
+  e2e-1-11-1 c -dev/-window, e2e-1-12-0.mjs, e2e-run-shell.cjs, shot-1-10-7-dev.mjs)
+  перенесены git mv в scripts/archive/ (НЕ удалены) + scripts/archive/README.md
+  (что это, почему не запускать вслепую); актуальные тематические переименованы под
+  конвенцию e2e-<тема>[-dev|-exe]: e2e-real.mjs → e2e-search.mjs, e2e-m6.mjs →
+  e2e-archives.mjs; наверху остались e2e-smoke, e2e-alnavi-023/024-*, e2e-archives,
+  e2e-attrs, e2e-search, e2e-i18n-locales-*, утилиты сборки/иконок/i18n,
+  resize-window.ps1, winstate-clamp-test.rs.
+- Документация: README — раздел «Проверки» переписан (npm test / test:unit /
+  test:e2e с описанием дымового набора и передачей пути к exe, перечень тематических
+  наборов и упоминание scripts/archive/), описание scripts/ в структуре проекта
+  обновлено; ROADMAP — карточка 009 перенесена из «остающийся техдолг» в закрытые.
+- Бэкап перед правками backups/Al-Navi-backup-2026-10-05_010159.zip. Карточка
+  alnavi-009 закрыта (status: done), критерии 5/5. Коммит: см. git log («alnavi-009:
+  тестовая инфраструктура …»).

@@ -48,10 +48,29 @@ PATH="/c/Users/CUSTOM/msys64/ucrt64/bin:$PATH" \
 npm run dev            # затем откройте http://localhost:1420
 
 # Проверки
+npm test             # всё: юнит-тесты + дымовой E2E по реальному exe (см. ниже)
+npm run test:unit    # юнит-тесты чистых функций фронтенда (vitest, tests/unit/):
+                     # multiRename, format (размеры/пути/маски), маски подсветки
+                     # fileColors/textColors, конвертер раскладки и регистр (plugins)
+npm run test:e2e     # дымовой E2E: scripts/e2e-smoke.mjs запускает реальный exe
+                     # (по умолчанию C:\Al-Navi\Al-Navi.exe, свой путь: npm run
+                     # test:e2e -- D:\...\Al-Navi.exe) через CDP и прогоняет ядро
+                     # сценария: старт, навигация (cd, курсор, Enter/Backspace),
+                     # F5-копия, F8-удаление, F4-редактор с F2-сохранением, смена
+                     # темы/языка; 23 проверки, итоговая сводка и код возврата.
+                     # Файловые операции идут во временной песочнице, реальный
+                     # конфиг %APPDATA%\al-navi бэкапится и восстанавливается
 npm run check        # svelte-check (типы)
 cargo check          # из src-tauri
 npm run build        # сборка фронтенда
 ```
+
+Тематические E2E-наборы (по потребности, каждый против реального exe или
+vite dev): `e2e-smoke` (ядро, см. выше), `e2e-archives` (M6: вход в архивы,
+упаковка/распаковка), `e2e-attrs` (Ctrl+A), `e2e-search` (Alt+F7),
+`e2e-i18n-locales-dev/exe` (все локали), `e2e-alnavi-023/024-…` (регрессии
+конкретных фиксов). Одноразовые проверки прошлых релизов лежат в
+`scripts/archive/` (не запускать вслепую).
 
 ### Релизная сборка
 
@@ -291,7 +310,10 @@ src/components/    TitleBar, PanelsGrid, FilePanel, VirtualList, CmdLine, FKeyBa
                   Dialogs, EditorArea, ViewerArea
 scripts/           make-icon.mjs (генерация бренд-иконки), build-release.sh (релиз в builds/:
                   портативный exe + сетап), build-installer.sh + al-navi.iss (установщик Inno
-                  Setup), e2e-*.mjs/.cjs (E2E-проверки релизов через CDP / vite dev)
+                  Setup), e2e-smoke.mjs (дымовой E2E для npm test) и тематические
+                  e2e-<тема>[-dev|-exe].mjs (CDP / vite dev), i18n-*.mjs (локали),
+                  winstate-clamp-test.rs (Rust-логика standalone rustc),
+                  archive/ (одноразовые проверки прошлых релизов)
 images/            дизайн-референсы: design.jpg (макет), logo.jpg, icon.jpg, font.jpg, color.jpg
 backup.bat/.ps1    резервные копии проекта в backups/ (ротация 8 архивов)
 CHANGELOG.md       история версий

@@ -234,7 +234,7 @@ try {
       return { found: !!hit, desc: hit?.textContent ?? "", rows: rows.length };
     })()
   `);
-  check("help row 'Ctrl+← / →' present (91 rows)", help.found && help.rows === 91 && /Slide the split/.test(help.desc),
+  check("help row 'Ctrl+← / →' present (92 rows, +font zoom)", help.found && help.rows === 92 && /Slide the split/.test(help.desc),
     `rows=${help.rows} desc=${help.desc.slice(0, 60)}`);
   await tap(cdp, "Escape");
 

@@ -152,7 +152,7 @@ try {
     })()
   `);
   check("8 sections render as cards", layout.sections === 8, `sections=${layout.sections}`);
-  check("91 rows total (18+21+12+10+13+6+3+6 old+new+split)", layout.rows === 91, `rows=${layout.rows}`);
+  check("92 rows total (91 + Ctrl+−/+ font zoom, alnavi-028)", layout.rows === 92, `rows=${layout.rows}`);
   check("masonry: two balanced columns", layout.columnCount === "2", `columnCount=${layout.columnCount}`);
   check("cards have a background and rounded corners", layout.cardBg !== "rgba(0, 0, 0, 0)" && parseFloat(layout.cardRadius) > 0,
     `bg=${layout.cardBg} radius=${layout.cardRadius}`);

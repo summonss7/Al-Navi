@@ -372,6 +372,7 @@ const en: Record<string, string> = {
   "help.app": "Application",
   "help.app.help": "This help",
   "help.app.settings": "Settings: theme, language, panel view, colors",
+  "help.app.font": "Zoom the interface font ±0.5 px (10–24, as in F9)",
   "help.app.quit": "Quit (with confirmation)",
   "help.hintMods": "hold one — the bottom F-key bar lists the chords of the current mode; the chips are clickable",
 
@@ -777,6 +778,7 @@ const ru: Record<string, string> = {
   "help.app": "Программа",
   "help.app.help": "Эта справка",
   "help.app.settings": "Настройки: темы, язык, вид панелей, цвета",
+  "help.app.font": "Масштаб шрифта интерфейса ±0,5 px (10–24, как в F9)",
   "help.app.quit": "Выход (с подтверждением)",
   "help.hintMods": "удерживайте один — нижняя строка F-клавиш покажет аккорды текущего режима; чипы кликабельны",
 
@@ -1182,6 +1184,7 @@ const uk: Record<string, string> = {
   "help.app": "Програма",
   "help.app.help": "Ця довідка",
   "help.app.settings": "Налаштування: теми, мова, вигляд панелей, кольори",
+  "help.app.font": "Масштаб шрифту інтерфейсу ±0,5 px (10–24, як у F9)",
   "help.app.quit": "Вихід (з підтвердженням)",
   "help.hintMods": "утримуйте один — нижній ряд F-клавіш покаже акорди поточного режиму; чіпи клікабельні",
 
@@ -1587,6 +1590,7 @@ const ro: Record<string, string> = {
   "help.app": "Aplicație",
   "help.app.help": "Acest ajutor",
   "help.app.settings": "Setări: temă, limbă, aspectul panourilor, culori",
+  "help.app.font": "Zoom pe fontul interfeței ±0,5 px (10–24, ca în F9)",
   "help.app.quit": "Ieșire (cu confirmare)",
   "help.hintMods": "ține apăsat unul — bara de jos arată acordurile modului curent; etichetele sunt clicabile",
 
@@ -1992,6 +1996,7 @@ const sk: Record<string, string> = {
   "help.app": "Aplikácia",
   "help.app.help": "Tento pomocník",
   "help.app.settings": "Nastavenia: motív, jazyk, vzhľad panelov, farby",
+  "help.app.font": "Lupa písma rozhrania ±0,5 px (10–24, ako v F9)",
   "help.app.quit": "Ukončiť (s potvrdením)",
   "help.hintMods": "podržte jeden — spodný riadok F-kláves zobrazí akordy aktuálneho režimu; štítky sú klikateľné",
 
@@ -2397,6 +2402,7 @@ const ar: Record<string, string> = {
   "help.app": "التطبيق",
   "help.app.help": "هذه المساعدة",
   "help.app.settings": "الإعدادات: السمة، اللغة، مظهر اللوحات، الألوان",
+  "help.app.font": "تكبير أو تصغير خط الواجهة ±0.5 px ‏(10–24، كما في F9)",
   "help.app.quit": "خروج (مع تأكيد)",
   "help.hintMods": "استمر بالضغط على أحدها — يعرض الشريط السفلي أوتار الوضع الحالي؛ الشرائح قابلة للنقر",
 

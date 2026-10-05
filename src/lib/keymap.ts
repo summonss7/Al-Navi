@@ -11,9 +11,10 @@ export function chordOf(e: KeyboardEvent): string | null {
   if (e.code.startsWith("Numpad")) {
     switch (e.code) {
       case "NumpadAdd":
-        return "Gray+";
+        // with Ctrl held this is the font-zoom chord, not a group select
+        return e.ctrlKey || e.metaKey ? "Ctrl+Gray+" : "Gray+";
       case "NumpadSubtract":
-        return "Gray-";
+        return e.ctrlKey || e.metaKey ? "Ctrl+Gray-" : "Gray-";
       case "NumpadMultiply":
         return "Gray*";
       case "NumpadDivide":
@@ -93,6 +94,21 @@ const CYR_OF_LATIN: Record<string, string> = {
 export function cyrillicOfLatin(latin: string): string | null {
   return CYR_OF_LATIN[latin.toUpperCase()] ?? null;
 }
+
+/** Ctrl+plus/minus zoom the whole UI font — the F9-dialog stepper as a
+ *  hotkey. "+" on the main row needs Shift on most layouts, so every
+ *  spelling is bound: Ctrl+= (browser convention), Ctrl+Shift+= (produces
+ *  "Ctrl+Shift++") and a direct Ctrl++ for layouts with an unshifted plus;
+ *  the numpad arrives as Ctrl+Gray+/-. Spread into every context: a global
+ *  zoom must work in panels, editor, viewer and dialogs alike. */
+const FONT_ZOOM: Record<string, string> = {
+  "Ctrl++": "ui.fontInc",
+  "Ctrl+=": "ui.fontInc",
+  "Ctrl+Shift++": "ui.fontInc",
+  "Ctrl+Gray+": "ui.fontInc",
+  "Ctrl+-": "ui.fontDec",
+  "Ctrl+Gray-": "ui.fontDec",
+};
 
 /** Default FAR-compatible bindings: context -> chord -> command id */
 export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
@@ -186,6 +202,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     "Alt+F11": "viewer.history",
     "Ctrl+E": "cmdline.prevHistory",
     Esc: "panel.escape",
+    ...FONT_ZOOM,
   },
   editor: {
     F2: "editor.save",
@@ -206,6 +223,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     "Ctrl+Shift+Tab": "ui.prevTab",
     F10: "app.quit",
     F12: "ui.windowList",
+    ...FONT_ZOOM,
   },
   viewer: {
     F1: "ui.help",
@@ -217,8 +235,10 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     "Ctrl+Shift+Tab": "ui.prevTab",
     F10: "app.quit",
     F12: "ui.windowList",
+    ...FONT_ZOOM,
   },
   dialog: {
     Esc: "dialog.close",
+    ...FONT_ZOOM,
   },
 };

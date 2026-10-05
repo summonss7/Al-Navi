@@ -18,11 +18,8 @@
     panels.refreshView();
   }
 
-  // font-size stepper bounds; 0.5 steps, value rounded to kill FP noise
-  function stepFont(d: number) {
-    const v = Math.min(24, Math.max(10, Math.round((settings.s.fontSize + d) * 2) / 2));
-    settings.set({ fontSize: v });
-  }
+  // font-size stepper; the clamp/rounding lives in settings.stepFontSize —
+  // the same method the Ctrl+± hotkeys use
 
   function setDecor(on: boolean) {
     settings.set({ editorDecor: on });
@@ -75,11 +72,11 @@
 
       <div class="grp">{i18n.t("menu.fontSize")}</div>
       <div class="fs-row">
-        <button class="btn fs-btn" title={i18n.t("menu.fontSize") + " −"} onclick={() => stepFont(-0.5)} disabled={settings.s.fontSize <= 10}>
+        <button class="btn fs-btn" title={i18n.t("menu.fontSize") + " −"} onclick={() => settings.stepFontSize(-0.5)} disabled={settings.s.fontSize <= 10}>
           <i class="ph ph-minus"></i>
         </button>
         <span class="fs-val mono">{settings.s.fontSize.toFixed(1)} px</span>
-        <button class="btn fs-btn" title={i18n.t("menu.fontSize") + " +"} onclick={() => stepFont(0.5)} disabled={settings.s.fontSize >= 24}>
+        <button class="btn fs-btn" title={i18n.t("menu.fontSize") + " +"} onclick={() => settings.stepFontSize(0.5)} disabled={settings.s.fontSize >= 24}>
           <i class="ph ph-plus"></i>
         </button>
       </div>

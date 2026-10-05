@@ -391,6 +391,14 @@ export function registerAllCommands() {
   registerCommand("ui.menu", () => ui.openDialog("menu"));
   registerCommand("ui.help", () => ui.openDialog("help"));
   registerCommand("ui.plugins", () => ui.openDialog("plugins"));
+  // Ctrl+plus/minus zoom the interface font — the same stepper as the F9
+  // dialog; the toast echoes the resulting size (no visible stepper here)
+  registerCommand("ui.fontInc", () => {
+    ui.showToast(`${i18n.t("menu.fontSize")}: ${settings.stepFontSize(0.5).toFixed(1)} px`);
+  });
+  registerCommand("ui.fontDec", () => {
+    ui.showToast(`${i18n.t("menu.fontSize")}: ${settings.stepFontSize(-0.5).toFixed(1)} px`);
+  });
   registerCommand("app.quit", async () => {
     if (await ui.askConfirm(i18n.t("menu.quitConfirm"))) {
       panels.saveSession();

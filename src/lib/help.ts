@@ -140,6 +140,7 @@ export const HELP_SECTIONS: HelpSection[] = [
     items: [
       { chord: "F1", key: "help.app.help" },
       { chord: "F9", key: "help.app.settings" },
+      { chord: "Ctrl+− / +", key: "help.app.font" },
       { chord: "F10", key: "help.app.quit" },
     ],
   },

@@ -1,4 +1,4 @@
-// exe-level E2E for alnavi-027: in the REAL released exe (1.12.7) Ctrl+Left/
+// exe-level E2E for alnavi-027: in the REAL released exe Ctrl+Left/
 // Ctrl+Right must slide the split between the file panels like FAR: Ctrl+Right
 // widens the left panel, Ctrl+Left widens the right one, sweeps clamp at
 // 20%/80%. While the command line holds text the chords stay the input's word
@@ -123,7 +123,7 @@ try {
   await sleep(3500);
   await waitFor(cdp, `!!document.querySelector(".panel, .panels")`, 15000, "app UI");
   const ver = await evalIn(cdp, `document.querySelector(".titlebar .version")?.textContent ?? ""`);
-  check("title bar chip carries v1.12.7", ver.includes("1.12.7"), JSON.stringify(ver));
+  check("title bar chip carries v1.12.9", ver.includes("1.12.9"), JSON.stringify(ver));
   // click the panel like a user so the window has the keyboard context (a
   // window spawned in the background may have missed the startup focus dance)
   const p = await evalIn(cdp, `(() => { const el = document.querySelector(".panel"); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`);
@@ -184,7 +184,7 @@ try {
       return { found: !!hit, desc: hit?.textContent ?? "", rows: rows.length };
     })()
   `);
-  check("help row 'Ctrl+← / →' present (91 rows)", help.found && help.rows === 91, `rows=${help.rows}`);
+  check("help row 'Ctrl+← / →' present (92 rows, +font zoom)", help.found && help.rows === 92, `rows=${help.rows}`);
   check("help row localized (no raw key leak)", !/help\.sel/.test(help.desc), help.desc.slice(0, 60));
   await key(cdp, "Escape");
   const closed = await evalIn(cdp, `!document.querySelector(".dlg.help-dlg")`);

@@ -140,6 +140,14 @@ class SettingsStore {
     );
   }
 
+  /** Zoom the whole UI font by d px — the one stepper shared by the F9 dialog
+   *  and the Ctrl+± hotkeys; 0.5 steps, clamped to 10..24, rounded to kill FP noise */
+  stepFontSize(d: number): number {
+    const v = Math.min(24, Math.max(10, Math.round((this.s.fontSize + d) * 2) / 2));
+    this.set({ fontSize: v });
+    return v;
+  }
+
   /** Recolors the highlight family inline on <html> (beats any theme block).
    *  selection -> --sel + --accent2 (row selection, cursor, marker, active
    *  panel, f-key hover, editor selection); accent -> --accent (+ derived

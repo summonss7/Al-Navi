@@ -1012,3 +1012,58 @@ if-блоков нет, поэтому они от этого не страда�
     предупреждений, новых нет), i18n-parity 398=398.
   - Карточка alnavi-027 закрыта (5/5), полный журнал — в CARDS/027-…md.
 - Коммит: см. git log (запись «alnavi-027: сдвиг границы панелей Ctrl+←/→ (1.12.7) …»).
+✓ ВЫПОЛНЕНО — 05.10.2026, 15:47:11 (задание из TASKS.txt, карточка alnavi-027)
+Задание (оригинал):
+в фар менеджере была возможность менять область окно комманда контрл+стрелочка в право или лево смещала центр окон. Например зажав контрл+стрелочка вправо левое окно расширялось а правое сужалось. Иногда удобно кагда длинные названия файло. Можешь у нас так тоже сделать. Спасибо
+Начало выполнения: 05.10.2026, 15:25:39
+Окончание: 05.10.2026, 15:47:11
+Сделано:
+- 05.10.2026, 15:28: бэкап проекта backups/Al-Navi-backup-2026-10-05_152827.zip (backup.ps1; backup.bat в неинтерактивном запуске спотыкается о pause — запускал ps1 напрямую).
+- 05.10.2026, 15:45: реализация. panels.svelte.ts: splitRatio ($state, 0.5) + moveSplit(dir) — шаг 2% ширины ряда панелей, клампы 0.2…0.8, работает только при обеих видимых панелях, сохранение через дебаунс scheduleSessionSave; sessionData()/init() несут splitRatio в session.json. PanelsGrid передаёт FilePanel проп grow (flex-grow inline; правой панели 1−ratio, одиночный режим — 1). App.svelte: Ctrl+Left/Right обрабатываются в hasText-чувствительном switch ДО поиска по keymap — при тексте в командной строке аккорд остаётся нативным прыжком по словам (регресс 024 не допущен), при пустой — команды panel.splitLeft/panel.splitRight (в keymap их сознательно нет: lookup сломал бы кареточные аккорды). help.ts: строка «Ctrl+← / →» в секции выделения/сортировки; словарь help.sel.split ×6 локалей, парность 398=398.
+- 05.10.2026, 16:05: тесты. Новые scripts/e2e-alnavi-027-dev.mjs (17/17, мок-бэкенд: геометрия DOM против стора, клампы 0.2/0.8, слово-прыжок при тексте + Esc, guard одиночной панели, сохранение session.json и восстановление повторным panels.init(), строка справки 91) и scripts/e2e-alnavi-027-exe.mjs (17/17 на релизе: те же проверки + печать текста реальными клавишами + Ctrl+F2; справка отрисовалась в локали пользователя ro — перевод живой). Грабли dev-прогона: холодный vite — приложение не смонтировано на момент проверок (dom=null), вылечено ожиданием .app-shell/.cmdline input вместо фиксированного sleep (как в 026). Обновлены ожидания 026-тестов: 90→91 строка справки и версия 1.12.6→1.12.7 в exe-варианте — e2e-alnavi-026-dev 15/15, e2e-alnavi-026-exe 8/8. vitest 53/53, svelte-check 0 ошибок, lint 0 ошибок (26 старых предупреждений), i18n-parity 398=398, e2e-smoke 23/23 на новом exe.
+- 05.10.2026, 16:10: релиз 1.12.7 (package.json/tauri.conf.json/Cargo.toml): builds/Al-Navi-1.12.7-20261005-1542.exe + Al-Navi-Setup-1.12.7-20261005-1542.exe; C:/Al-Navi/Al-Navi.exe и Desktop-копия обновлены скриптом сборки (8 411 136 байт, 15:42). CHANGELOG 1.12.7; README — строка таблицы клавиш Ctrl+←/→, абзац командной строки, e2e-027 в «Проверках». ROADMAP не тронут (точечная FAR-фича, планы не меняет).
+Полный журнал и критерии — в карточке CARDS/027-в-фар-менеджере-была-возможность-менять-область-.md.
+
+
+✓ ВЫПОЛНЕНО — 05.10.2026, 22:10 (карточка alnavi-012 «Рефакторинг Dialogs.svelte»)
+Задание (оригинал): Dialogs.svelte — монолит 2089+ строк со всеми диалогами; разбить на
+отдельные компоненты src/components/dialogs/*.svelte, сохранив поведение и стили 1-в-1,
+роутер ≤~300 строк.
+Сделано:
+- 05.10.2026, 20:43: бэкап backups/Al-Navi-backup-2026-10-05_204254.zip (backup.bat отработал,
+  211 файлов, целостность ок).
+- 05.10.2026, 21:20: разрез. Dialogs.svelte 2223 → 77 строк: роутер (какой диалог рисовать по
+  ui.dialog + ui.*Req, window-capture keydown → onWindowKey, эффекты clampListIdx/scrollListSel).
+  24 компонента в src/components/dialogs/ (Confirm, Input, Pack, Unpack, Attrs, Progress,
+  Conflict, Drives, Ftp, FtpSite, Search, WindowList, DirHistory, CmdHistory, ViewHistory,
+  UserMenu, UserMenuItem, MultiRename, Plugins, Menu, Help, FileColors, TextColors, Errors) —
+  разметка/стили перенесены 1-в-1, локальный state у каждого свой. Общая логика в модулях:
+  listNav.svelte.ts (LIST_DIALOGS, listCursor, listCount/activateListItem/onListKey — стрелки/
+  Enter/прыжки по буквам и цифрам, onButtonDialogKey — обход кнопок confirm/conflict),
+  drivesState/ftpState/userMenuState/pluginsState (state+действия, нужные и клавиатуре, и
+  шаблонам), common.ts (autofocus/focusSelect/retypeVariant/sampleOf). Общие стили содержимого
+  (.lbl/.check/.list/.li/.none/.variants/.jump-key/.ftp-form/.fc-*) — в app.css рядом с каркасом
+  .overlay/.dlg; уникальные — в компонентах. Мёртвый confirmVal удалён.
+  Грабли Svelte 5 (главная находка): «Cannot export state from a module if it is reassigned» —
+  экспортируемый из .svelte.ts $state нельзя перевыделять даже внутри своего модуля; svelte-check
+  это НЕ ловит, ловит только vite build (rolldown compile-module). Все перевыделяемые состояния
+  переведены на объектные: listCursor{idx}, drivesState{list}, ftpSiteState{form,mode},
+  umFormState{mode,editId}; поля форм userMenuItem — локальные в компоненте с сидингом из editId.
+- 05.10.2026, 21:30: проверки. svelte-check 0 ошибок / 14 предупреждений (a11y поровну с
+  исходным файлом — 6 диалоговых переехали, 8 старых на месте); vitest 53/53; lint 0 ошибок /
+  25 предупреждений (на HEAD со старым Dialogs.svelte — 26, т.е. на одно меньше); npm run build ок.
+- 05.10.2026, 21:50: e2e. Новый scripts/e2e-alnavi-012-exe.mjs — 49/49 на релизном exe
+  (реальные клавиши через CDP): старт+версия v1.12.8, cd панелей командной строкой + Tab,
+  открытие/контент/закрытие Esc для F1/F9/F12/Alt+F1/Alt+F7/Alt+F12/Alt+F8/F2, Ins-форма F2,
+  Alt+F1 (FTP-строка, курсор .drive.kbd, цифра 2 → список FTP), F5 (префилл dest+имя, выделение
+  для overtype, 13 вариантов, копия в приёмник), Ctrl+M (превью панели, фокус в маске,
+  find/replace → alpha.ren + счётчик, Esc-отмена без переименования), F9→fileColors, F8-confirm
+  (фокус на кнопке, Esc=Нет, файл жив). Грабли: в релизном exe нет /src-модулей — сторы недоступны,
+  всё водится UI-ом; CDP-Enter не сабмитит формы (прецедент 023) — клик по primary; маска Ctrl+M —
+  фильтр цели wie FAR, не новое имя (для трансформации — find/replace). Дымовой e2e-smoke 23/23,
+  e2e-alnavi-026-exe 8/8 (пин версии обновлён 1.12.7→1.12.8).
+- 05.10.2026, 21:55: релиз 1.12.8 (package.json/tauri.conf.json/Cargo.toml):
+  builds/Al-Navi-1.12.8-20261005-2104.exe + Al-Navi-Setup-1.12.8-20261005-2104.exe;
+  C:/Al-Navi и Desktop-копия обновлены скриптом. CHANGELOG 1.12.8; README — dialogs/ в структуре
+  проекта + e2e-012 в «Проверках»; ROADMAP — 012 перенесён в закрытые (остался 013 code-splitting).
+Полный журнал и критерии — в карточке CARDS/012-Рефакторинг-Dialogs-svelte.md.

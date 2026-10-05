@@ -76,7 +76,9 @@ vite dev): `e2e-smoke` (ядро, см. выше), `e2e-archives` (M6: вход 
 упаковка/распаковка), `e2e-attrs` (Ctrl+A), `e2e-search` (Alt+F7),
 `e2e-i18n-locales-dev/exe` (все локали), `e2e-alnavi-023…027-…` (регрессии
 конкретных фиксов; 026 — справка F1: полнота аккордов, карточки-секции,
-RTL; 027 — сдвиг границы панелей Ctrl+←/→ и сохранение пропорции). Одноразовые
+RTL; 027 — сдвиг границы панелей Ctrl+←/→ и сохранение пропорции),
+`e2e-alnavi-012-exe` (рефакторинг диалогов: открытие/закрытие Esc каждого
+диалога + F5/Ctrl+M/F2/Alt+F1/F8-флоу реальными клавишами). Одноразовые
 проверки прошлых релизов лежат в `scripts/archive/` (не запускать вслепую).
 
 ### Релизная сборка
@@ -326,7 +328,11 @@ src/lib/           Ядро: keymap (FAR-карта клавиш), commands (р�
                   stores (panels/ops/editor/settings/i18n/cmdline/ui/ftpSites),
                   ftp.ts (пути ftp://), plugins.ts (F11), editor/cm.ts (CodeMirror)
 src/components/    TitleBar, PanelsGrid, FilePanel, VirtualList, CmdLine, FKeyBar,
-                  Dialogs, EditorArea, ViewerArea
+                  Dialogs (роутер диалогов), EditorArea, ViewerArea
+src/components/dialogs/  24 диалога отдельными компонентами (Confirm…Errors) +
+                  модули общей логики: listNav.svelte.ts (клавиатура списков),
+                  drivesState/ftpState/userMenuState/pluginsState (state),
+                  common.ts (use-акции autofocus/focusSelect)
 scripts/           make-icon.mjs (генерация бренд-иконки), build-release.sh (релиз в builds/:
                   портативный exe + сетап), build-installer.sh + al-navi.iss (установщик Inno
                   Setup), e2e-smoke.mjs (дымовой E2E для npm test) и тематические

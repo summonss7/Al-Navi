@@ -435,3 +435,125 @@ kbd {
   padding: 1px 5px;
   color: var(--fg-dim);
 }
+
+/* ---- dialog content, shared by several src/components/dialogs/*.svelte ---- */
+
+.lbl { display: block; color: var(--fg-dim); margin-bottom: 6px; font-size: calc(12.5px * var(--fs-scale)); }
+
+.dlg-actions.wrap { flex-wrap: wrap; justify-content: center; }
+
+.check { display: flex; align-items: center; gap: 9px; font-size: calc(12.5px * var(--fs-scale)); color: var(--fg-dim); cursor: pointer; }
+.check:hover { color: var(--fg); }
+.check input { width: 15px; height: 15px; accent-color: var(--accent); flex-shrink: 0; }
+
+/* list-style dialogs (histories, F12, F2, F11, FTP sites) */
+.list { display: flex; flex-direction: column; gap: 2px; min-width: 380px; }
+.li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  color: var(--fg-dim);
+  text-align: start;
+  font-size: calc(12.5px * var(--fs-scale));
+}
+.li:hover { background: var(--row-hover); color: var(--fg); }
+.li.on { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--fg); }
+.li i { font-size: calc(17px * var(--fs-scale)); color: var(--accent); }
+.li.kbd {
+  background: color-mix(in srgb, var(--accent2) 10%, transparent);
+  color: var(--fg);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent2) 55%, transparent);
+}
+.none { color: var(--fg-muted); text-align: center; padding: 14px; }
+
+/* F5/F6 destination variants under the transfer dialog input.
+   Rows must NOT shrink when the list overflows: overflow:hidden on a flex
+   item zeroes its automatic min-height, and a column of squashed 14px
+   slivers is exactly the "everything shifted, nothing readable" bug —
+   rows keep their height (flex-shrink:0) and the container scrolls. */
+.variants { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; max-height: min(220px, 40vh); overflow-y: auto; }
+.variants .li { flex-shrink: 0; }
+.variants .li i { flex-shrink: 0; }
+.variants .li .path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; }
+
+/* jump-key chip (drives FTP entry, FTP site hotkeys) */
+.jump-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: calc(20px * var(--fs-scale));
+  height: calc(20px * var(--fs-scale));
+  padding: 0 4px;
+  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+  color: var(--accent);
+  font-size: calc(11px * var(--fs-scale));
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* form dialogs (FTP site, search, user-menu item, multi-rename) */
+.ftp-form { min-width: 360px; }
+.ftp-form input {
+  width: 100%;
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--fg);
+  font-size: calc(12.5px * var(--fs-scale));
+  direction: ltr;
+}
+.ftp-row2 { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 8px; }
+.ftp-row2 .lbl { margin-bottom: 4px; }
+
+/* color-rule rows (file colors, text highlight rules) */
+.fc-hint { font-size: calc(11.5px * var(--fs-scale)); color: var(--fg-muted); margin-bottom: 10px; }
+.fc-rows { display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; }
+.fc-row { display: flex; align-items: center; gap: 8px; }
+.fc-row input[type="color"] {
+  width: 36px;
+  height: 26px;
+  padding: 1px 2px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-panel);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.fc-mask {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 10px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: calc(12px * var(--fs-scale));
+  border-radius: 7px;
+  direction: ltr;
+}
+.fc-sample {
+  flex-shrink: 0;
+  width: 110px;
+  font-size: calc(12px * var(--fs-scale));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: ltr;
+}
+.fc-bold {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: var(--fg-dim);
+}
+.fc-bold input { width: 14px; height: 14px; accent-color: var(--accent); }
+.fc-bold b { font-size: calc(12.5px * var(--fs-scale)); }
+.fc-del { flex-shrink: 0; padding: 4px 8px; border-radius: 7px; color: var(--fg-muted); font-size: calc(13px * var(--fs-scale)); }
+.fc-del:hover { color: var(--danger); background: var(--row-hover); }
+.tr-name { flex: 1; min-width: 0; font-size: calc(12.5px * var(--fs-scale)); }
+

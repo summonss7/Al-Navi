@@ -104,7 +104,7 @@ try {
   // document.title is the localized "Al-Navi — About…"; the version lives in
   // the custom title bar chip (v1.12.7 · build time)
   const ver = await evalIn(cdp, `document.querySelector(".titlebar .version")?.textContent ?? ""`);
-  check("title bar chip carries v1.12.7", ver.includes("1.12.7"), JSON.stringify(ver));
+  check("title bar chip carries v1.12.8", ver.includes("1.12.8"), JSON.stringify(ver));
   // click the panel like a user so the window has the keyboard context (a
   // window spawned in the background may have missed the startup focus dance)
   const p = await evalIn(cdp, `(() => { const el = document.querySelector(".panel"); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`);

@@ -3,6 +3,37 @@
 Формат версий: `мажор.минор.патч`. Релизы собираются в `builds/Al-Navi-<версия>-<дата>.exe`
 и `builds/Al-Navi-Setup-<версия>-<дата>.exe` (установщик, с 1.12.0).
 
+## 1.12.8 — 2026-10-05
+
+- **Рефакторинг Dialogs.svelte** (карточка alnavi-012). Монолит на 2223 строки,
+  рисовавший все 24 диалога приложения, разрезан: `Dialogs.svelte` теперь
+  компактный роутер (77 строк — какой диалог рисовать + window-capture
+  клавиатура + два эффекта курсора списков), каждый диалог живёт отдельным
+  компонентом в `src/components/dialogs/` (Confirm, Input, Pack, Unpack,
+  Attrs, Progress, Conflict, Drives, Ftp, FtpSite, Search, WindowList,
+  DirHistory, CmdHistory, ViewHistory, UserMenu, UserMenuItem, MultiRename,
+  Plugins, Menu, Help, FileColors, TextColors, Errors), а перекрёстная логика
+  вынесена в модули: `listNav.svelte.ts` (стрелки/Enter/прыжки по буквам
+  списочных диалогов + обход кнопок confirm/conflict), `drivesState` /
+  `ftpState` / `userMenuState` / `pluginsState` (state и действия,
+  используемые и клавиатурой, и шаблонами), `common.ts` (use-акции
+  autofocus/focusSelect, sampleOf). Общие стили содержимого диалогов
+  (списки, варианты, формы, цветовые правила) переехали в app.css к уже
+  жившему там каркасу .overlay/.dlg — поведение и внешний вид сохранены 1-в-1.
+  Грабли Svelte 5: экспортируемый из модуля `$state` нельзя перевыделять
+  (svelte-check это молчит, vite-сборка падает) — пере присваиваемые
+  состояния переведены на объектные (`listCursor`, `drivesState.list`,
+  `ftpSiteState.form`, `umFormState`). Мёртвый `confirmVal` удалён.
+- Проверено: svelte-check 0 ошибок (предупреждений a11y столько же — 14),
+  vitest 53/53, lint 0 ошибок (предупреждений 25 против 26 до разреза),
+  e2e-alnavi-012-exe **49/49** на релизе (открытие/закрытие Esc каждого
+  диалога, F5-копия с диалогом и файлом в приёмнике, Ctrl+M с живым превью
+  find/replace, F2-меню с Ins-формой, Alt+F1 диски с FTP-строкой и курсором
+  .drive.kbd, F8-confirm с Esc=Нет), дымовой e2e-smoke 23/23, e2e-026-exe
+  8/8 (пин версии обновлён на 1.12.8). Релиз 1.12.8:
+  builds/Al-Navi-1.12.8-20261005-2104.exe + Setup; C:/Al-Navi и Desktop-копия
+  обновлены.
+
 ## 1.12.7 — 2026-10-05
 
 - **Сдвиг границы панелей, как в FAR** (карточка alnavi-027). `Ctrl+→`

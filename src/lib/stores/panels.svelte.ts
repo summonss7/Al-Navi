@@ -25,6 +25,13 @@ const UP_ENTRY: FileEntry = { name: UP_NAME, isDir: true, size: 0, mtime: 0, att
 /** a child dir modified this recently is still being written — its size would
  *  be wrong anyway, so no walk is started (it would be invalidated at once) */
 const DIR_JUST_MODIFIED_MS = 5000;
+/** left-panel share of the panels row: bounds keep either panel usable,
+ *  one Ctrl+arrow press slides the split by STEP (auto-repeat sweeps fast) */
+const SPLIT_MIN = 0.2;
+const SPLIT_MAX = 0.8;
+const SPLIT_STEP = 0.02;
+const splitClamped = (v: number): number =>
+  Number.isFinite(v) ? Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, v)) : 0.5;
 let tabSeq = 1;
 
 function newTab(path: string, history: string[] = [], historyIndex = -1): TabState {
@@ -654,6 +661,9 @@ class PanelsStore {
   activeSide = $state<"left" | "right">("left");
   showLeft = $state(true);
   showRight = $state(true);
+  /** left panel's share of the panels row when both are visible; Ctrl+Left/
+   *  Ctrl+Right slide it (FAR-style panel resize), persisted in session.json */
+  splitRatio = $state(0.5);
   shortcuts = $state<Record<string, string>>({});
   dirHistory = $state<string[]>([]);
 
@@ -669,7 +679,7 @@ class PanelsStore {
   }
 
   async init() {
-    const session = await loadJson<{ leftPath?: string; rightPath?: string; shortcuts?: Record<string, string> }>("session.json");
+    const session = await loadJson<{ leftPath?: string; rightPath?: string; shortcuts?: Record<string, string>; splitRatio?: number }>("session.json");
     let home: string;
     try {
       home = await homePath();
@@ -679,6 +689,7 @@ class PanelsStore {
     const leftPath = session?.leftPath || home;
     const rightPath = session?.rightPath || home;
     this.shortcuts = session?.shortcuts ?? {};
+    this.splitRatio = splitClamped(session?.splitRatio ?? 0.5);
     const hist = await loadJson<string[]>("dir-history.json");
     this.dirHistory = hist ?? [];
     await dirSizeCache.init();
@@ -746,6 +757,17 @@ class PanelsStore {
     }
   }
 
+  /** Ctrl+Left/Right: slide the vertical split between the panels (FAR-style
+   *  resize — handy for long file names). Meaningful only with both panels
+   *  visible; persisted with the debounced session save. */
+  moveSplit(dir: 1 | -1) {
+    if (!this.showLeft || !this.showRight) return;
+    const next = splitClamped(this.splitRatio + dir * SPLIT_STEP);
+    if (next === this.splitRatio) return;
+    this.splitRatio = next;
+    this.scheduleSessionSave();
+  }
+
   notifyWatch() {
     if (this.watchTimer) clearTimeout(this.watchTimer);
     this.watchTimer = setTimeout(() => {
@@ -800,6 +822,7 @@ class PanelsStore {
       leftPath: real(this.left.path),
       rightPath: real(this.right.path),
       shortcuts: this.shortcuts,
+      splitRatio: this.splitRatio,
     };
   }
 

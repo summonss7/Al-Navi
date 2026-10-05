@@ -49,6 +49,10 @@ export function registerAllCommands() {
   registerCommand("panel.toggleBoth", () => panels.toggleBoth());
   registerCommand("panel.showBoth", () => panels.showBoth());
   registerCommand("panel.swap", () => panels.swap());
+  // Ctrl+Left/Right slide the split between the panels (FAR-style resize);
+  // routed in App.svelte before the keymap so the cmdline keeps word jumps
+  registerCommand("panel.splitLeft", () => panels.moveSplit(-1));
+  registerCommand("panel.splitRight", () => panels.moveSplit(1));
   registerCommand("panel.enter", () => void A().enter());
   registerCommand("panel.intoDir", () => void A().intoDir());
   registerCommand("panel.up", () => void A().up());

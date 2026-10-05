@@ -79,6 +79,17 @@
       case "Backspace":
         if (hasText) return; // delete a char in the line
         break; // empty line: go up one directory
+      // FAR-style panel resize: slide the split between the panels. With text
+      // in the line the chords fall through to the caret block below and stay
+      // the input's own word jump (they are deliberately NOT in the keymap,
+      // where the lookup above would swallow them before that block)
+      case "Ctrl+Left":
+      case "Ctrl+Right":
+        if (hasText) return;
+        e.preventDefault();
+        e.stopPropagation();
+        runCommand(chord === "Ctrl+Left" ? "panel.splitLeft" : "panel.splitRight");
+        return;
     }
 
     const cmdId = defaultKeymap.panel[chord];

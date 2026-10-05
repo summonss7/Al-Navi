@@ -11,7 +11,9 @@
   import { settings, BASE_FONT_PX } from "$lib/stores/settings.svelte";
   import VirtualList from "./VirtualList.svelte";
 
-  let { panel }: { panel: PanelState } = $props();
+  // flex-grow within the panels row: splitRatio share with both panels
+  // visible, full width alone (set by PanelsGrid)
+  let { panel, grow = 1 }: { panel: PanelState; grow?: number } = $props();
 
   // row height tracks the font-size setting so bigger text still fits its rows
   const rowHeight = $derived(Math.round((26 * settings.s.fontSize) / BASE_FONT_PX));
@@ -99,6 +101,7 @@
   class="panel"
   class:active
   class:inactive={!active}
+  style:flex-grow={grow}
   onclick={() => { if (!active) panels.activeSide = panel.side; }}
   onmousedown={(e) => {
     if (!(e.target as HTMLElement).classList.contains("vlist")) e.preventDefault();

@@ -10,10 +10,10 @@
 
 <div class="panels" class:single-left={!panels.showRight && panels.showLeft} class:single-right={!panels.showLeft && panels.showRight} class:none={!panels.showLeft && !panels.showRight}>
   {#if panels.showLeft}
-    <FilePanel panel={left} />
+    <FilePanel panel={left} grow={panels.showRight ? panels.splitRatio : 1} />
   {/if}
   {#if panels.showRight}
-    <FilePanel panel={right} />
+    <FilePanel panel={right} grow={panels.showLeft ? 1 - panels.splitRatio : 1} />
   {/if}
   {#if !panels.showLeft && !panels.showRight}
     <div class="hidden-note">

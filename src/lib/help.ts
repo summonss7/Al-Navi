@@ -84,6 +84,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       { chord: "Ctrl+.", key: "help.sel.hidden" },
       { chord: "Ctrl+O / P / U", key: "help.sel.panels" },
       { chord: "Ctrl+F1 / F2", key: "help.sel.panelOne" },
+      { chord: "Ctrl+← / →", key: "help.sel.split" },
     ],
   },
   {

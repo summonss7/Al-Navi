@@ -135,6 +135,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     F3: "viewer.open",
     F4: "editor.open",
     "Shift+F4": "editor.newFile",
+    "Ctrl+Shift+F4": "editor.newScratch",
     F5: "fs.copy",
     "Shift+F5": "fs.copyCurrent",
     F6: "fs.move",
@@ -192,6 +193,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     "Ctrl+S": "editor.save",
     F4: "editor.open",
     "Shift+F4": "editor.newFile",
+    "Ctrl+Shift+F4": "editor.newScratch",
     F7: "editor.search",
     F8: "editor.deleteLine",
     F11: "ui.plugins",
@@ -208,6 +210,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
   viewer: {
     F1: "ui.help",
     F4: "viewer.toEditor",
+    "Ctrl+Shift+F4": "editor.newScratch",
     F8: "viewer.toggleHex",
     Esc: "viewer.close",
     "Ctrl+Tab": "ui.nextTab",

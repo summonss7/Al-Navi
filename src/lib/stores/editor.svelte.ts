@@ -19,6 +19,9 @@ export interface EditorDoc {
   text: string;
   /** remembered caret/scroll — restored on tab switch and remount */
   pos?: EditorPos;
+  /** Ctrl+Shift+F4 scratchpad: lives only in RAM — no disk writes, no dirty
+   *  mark, no save prompt; Shift+F2 can still turn it into a real file */
+  scratch?: boolean;
 }
 
 export interface ViewerDoc {
@@ -203,6 +206,32 @@ class EditorStore {
     }
   }
 
+  /** Ctrl+Shift+F4: a text scratchpad in RAM only — type, copy, close:
+   *  nothing is ever written to disk (F2 refuses, the caret position is not
+   *  persisted, Esc closes with no save prompt). A second press focuses the
+   *  existing pad; Shift+F2 can still save it into a real file */
+  newScratch(): void {
+    const existing = this.docs.find((d) => d.scratch && !d.path);
+    if (existing) {
+      this.activate(existing.id);
+      return;
+    }
+    const doc: EditorDoc = {
+      id: seq++,
+      path: null,
+      name: i18n.t("editor.scratchName"),
+      dirty: false,
+      encoding: "utf-8",
+      eol: "lf",
+      truncated: false,
+      scratch: true,
+      text: "",
+    };
+    this.docs = [...this.docs, doc];
+    this.activeId = doc.id;
+    ui.setMode("editor");
+  }
+
   activate(id: number) {
     if (this.docs.some((d) => d.id === id)) {
       this.activeId = id;
@@ -237,7 +266,8 @@ class EditorStore {
 
   markDirty(id: number, dirty: boolean) {
     const d = this.docs.find((x) => x.id === id);
-    if (d) d.dirty = dirty;
+    // a scratchpad never shows as modified — there is nothing to save
+    if (d && !d.scratch) d.dirty = dirty;
   }
 
   /** replace stored text (called on CodeMirror doc change, throttled by component) */
@@ -254,6 +284,10 @@ class EditorStore {
   async save(id = this.activeId): Promise<boolean> {
     const d = this.docs.find((x) => x.id === id);
     if (!d) return false;
+    if (d.scratch && !d.path) {
+      ui.showToast(i18n.t("editor.scratchNoSave"));
+      return false;
+    }
     if (!d.path) return this.saveAs(id);
     try {
       if (isFtpPath(d.path)) {
@@ -282,13 +316,16 @@ class EditorStore {
     }
     d.path = target;
     d.name = basename(target);
+    // an explicitly saved scratchpad becomes a regular file document
+    d.scratch = false;
     return this.save(id);
   }
 
   async close(id = this.activeId) {
     const d = this.docs.find((x) => x.id === id);
     if (!d) return;
-    if (d.dirty) {
+    // a scratchpad closes silently — the text is discarded, as designed
+    if (d.dirty && !d.scratch) {
       const yes = await ui.askConfirm(i18n.t("editor.saveChanges", { name: d.name }));
       if (yes) {
         const ok = await this.save(id);

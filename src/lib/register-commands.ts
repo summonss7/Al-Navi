@@ -137,6 +137,7 @@ export function registerAllCommands() {
     const dir = isSearchPath(p.path) ? searchStore.originPath ?? p.path : p.path;
     void editor.newFile(dir);
   });
+  registerCommand("editor.newScratch", () => editor.newScratch());
 
   // ---------- file operations ----------
   registerCommand("fs.copy", () => startTransfer("copy"));

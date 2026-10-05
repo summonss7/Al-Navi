@@ -44,6 +44,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       { chord: "Alt+F11", key: "help.ops.viewHist" },
       { chord: "F4", key: "help.ops.edit" },
       { chord: "Shift+F4", key: "help.ops.new" },
+      { chord: "Ctrl+Shift+F4", key: "help.ops.scratch" },
       { chord: "F5", key: "help.ops.copy" },
       { chord: "Shift+F5", key: "help.ops.copyCur" },
       { chord: "F6", key: "help.ops.move" },

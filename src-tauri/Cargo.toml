@@ -1,6 +1,6 @@
 [package]
 name = "al-navi"
-version = "1.12.5"
+version = "1.12.6"
 description = "Al-Navi — modern dual-panel file manager"
 edition = "2021"
 

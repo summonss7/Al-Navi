@@ -10,12 +10,15 @@ export interface HelpItem {
 
 export interface HelpSection {
   title: string;
+  /** Phosphor duotone icon class shown next to the section title */
+  icon: string;
   items: HelpItem[];
 }
 
 export const HELP_SECTIONS: HelpSection[] = [
   {
     title: "help.nav",
+    icon: "ph-arrows-out",
     items: [
       { chord: "↑ ↓", key: "help.nav.cursor" },
       { chord: "← →", key: "help.nav.page" },
@@ -30,15 +33,18 @@ export const HELP_SECTIONS: HelpSection[] = [
       { chord: "Ctrl+\\", key: "help.nav.root" },
       { chord: "Tab", key: "help.nav.tab" },
       { chord: "Alt+← / →", key: "help.nav.history" },
+      { chord: "Alt+F12", key: "help.nav.dirHist" },
       { chord: "Alt+F1 / F2", key: "help.nav.drives" },
       { chord: "Ctrl+Tab", key: "help.nav.ring" },
       { chord: "Ctrl+0…9", key: "help.nav.shortcuts" },
+      { chord: "Ctrl+Shift+0…9", key: "help.nav.pin" },
       { chord: "Ctrl+T / W", key: "help.nav.tabs" },
       { chord: "F12", key: "help.nav.windows" },
     ],
   },
   {
     title: "help.ops",
+    icon: "ph-copy",
     items: [
       { chord: "F3", key: "help.ops.view" },
       { chord: "Alt+F11", key: "help.ops.viewHist" },
@@ -55,13 +61,17 @@ export const HELP_SECTIONS: HelpSection[] = [
       { chord: "F7", key: "help.ops.mkdir" },
       { chord: "Ctrl+A", key: "help.ops.attrs" },
       { chord: "F8", key: "help.ops.delete" },
+      { chord: "Shift+F8", key: "help.ops.deleteCur" },
       { chord: "Shift+Del", key: "help.ops.wipe" },
+      { chord: "Alt+F5", key: "help.ops.pack" },
+      { chord: "Alt+F6", key: "help.ops.unpack" },
       { chord: "Alt+F7", key: "help.ops.find" },
       { chord: "Ctrl+R / L", key: "help.ops.refresh" },
     ],
   },
   {
     title: "help.sel",
+    icon: "ph-check-square",
     items: [
       { chord: "Insert", key: "help.sel.toggle" },
       { chord: "+ / −", key: "help.sel.group" },
@@ -73,10 +83,12 @@ export const HELP_SECTIONS: HelpSection[] = [
       { chord: "Ctrl+F3…F7", key: "help.sel.sort" },
       { chord: "Ctrl+.", key: "help.sel.hidden" },
       { chord: "Ctrl+O / P / U", key: "help.sel.panels" },
+      { chord: "Ctrl+F1 / F2", key: "help.sel.panelOne" },
     ],
   },
   {
     title: "help.cmd",
+    icon: "ph-terminal-window",
     items: [
       { chord: "", key: "help.cmd.always" },
       { chord: "Enter", key: "help.cmd.run" },
@@ -92,6 +104,7 @@ export const HELP_SECTIONS: HelpSection[] = [
   },
   {
     title: "help.ed",
+    icon: "ph-text-aa",
     items: [
       { chord: "F2 / Ctrl+S", key: "help.ed.save" },
       { chord: "Shift+F2", key: "help.ed.saveAs" },
@@ -110,6 +123,7 @@ export const HELP_SECTIONS: HelpSection[] = [
   },
   {
     title: "help.dlg",
+    icon: "ph-dialog",
     items: [
       { chord: "↑ ↓ ← →", key: "help.dlg.nav" },
       { chord: "↑ ↓ · F5/F6", key: "help.dlg.variants" },
@@ -120,7 +134,17 @@ export const HELP_SECTIONS: HelpSection[] = [
     ],
   },
   {
+    title: "help.app",
+    icon: "ph-gear",
+    items: [
+      { chord: "F1", key: "help.app.help" },
+      { chord: "F9", key: "help.app.settings" },
+      { chord: "F10", key: "help.app.quit" },
+    ],
+  },
+  {
     title: "help.tips",
+    icon: "ph-lightbulb",
     items: [
       { chord: "", key: "help.tips.sort" },
       { chord: "", key: "help.tips.f9" },

@@ -3,7 +3,6 @@ import {
   mkdir,
   setAttributes,
   renamePath,
-  openPath,
   homePath,
   ftpMkdir,
   ftpRename,

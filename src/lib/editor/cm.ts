@@ -17,7 +17,6 @@ import {
 } from "@codemirror/search";
 import { bracketMatching, indentOnInput, syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
-import { basicSetup } from "codemirror";
 import { extOf } from "$lib/format";
 import { settings } from "$lib/stores/settings.svelte";
 import { textColors } from "$lib/stores/textColors.svelte";

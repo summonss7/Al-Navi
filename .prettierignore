@@ -1,0 +1,7 @@
+node_modules/
+dist/
+builds/
+backups/
+scripts/archive/
+src-tauri/target/
+package-lock.json

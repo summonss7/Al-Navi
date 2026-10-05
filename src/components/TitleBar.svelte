@@ -1,8 +1,8 @@
 <script lang="ts">
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { onMount } from "svelte";
-  import { settings, THEMES, type ThemeId } from "$lib/stores/settings.svelte";
-  import { i18n, LOCALES, type Locale } from "$lib/stores/i18n.svelte";
+  import { settings, THEMES } from "$lib/stores/settings.svelte";
+  import { i18n, LOCALES } from "$lib/stores/i18n.svelte";
   import { editor } from "$lib/stores/editor.svelte";
   import { ui } from "$lib/stores/ui.svelte";
   import { ops } from "$lib/stores/ops.svelte";

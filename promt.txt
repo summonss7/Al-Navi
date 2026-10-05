@@ -801,3 +801,52 @@ if-блоков нет, поэтому они от этого не страда�
 - Бэкап перед правками backups/Al-Navi-backup-2026-10-05_010159.zip. Карточка
   alnavi-009 закрыта (status: done), критерии 5/5. Коммит: см. git log («alnavi-009:
   тестовая инфраструктура …»).
+
+## alnavi-011: обновление зависимостей и линтер — eslint+prettier, vite 8 (05.10.2026, 09:10, релиз 1.12.4)
+
+- Патчи (по аудиту 03.10): npm — @tauri-apps/api и @tauri-apps/cli 2.12.0→2.12.1,
+  npm audit 0 уязвимостей; Rust cargo update (15 пакетов): tauri 2.12.0→2.12.1
+  (+build/codegen/macros/runtime/runtime-wry/utils), cc 1.5.1→1.6.0,
+  libc 0.2.189→0.2.190, uuid 1.26.1→1.27.0, tokio 1.53.1→1.53.2, mio,
+  lazy-regex — всё semver-совместимое, как аудит и предсказывал.
+- Мажорные: ОБНОВЛЕНЫ vite 7.3.6→8.3.2 + @sveltejs/vite-plugin-svelte
+  6.2.4→7.3.1 (пара: plugin 7 требует vite ^8; svelte в lock 5.57.1 >= 5.46.4,
+  Node 24.12, vitest 5 поддерживает vite 8, vite.config.ts без правок; сборщик
+  теперь rolldown — build собирает те же чанки). ОТЛОЖЕН TypeScript 7.0.2:
+  svelte-check 4.7.6 (гейт npm run check) принимает typescript только ^5||^6,
+  а TS 7 — нативная переработка компилятора (платформенные бинарники вместо
+  JS API) — апгрейд сломал бы проверку типов; остаюсь на ~5.8.0 (5.8.3 —
+  последний 5.8.x). Грабли установки: npm eresolve из-за старого
+  vite-plugin-svelte-inspector@5.0.2 (peer plugin ^6) — лечится npm rm старой
+  пары + свежая установка; и EBUSY на rollup-бинарнике — держал забытый
+  dev-сервер от 04.10 (процессы 27080/27404, порт 1420), убит.
+- Линтер: eslint 10.12.0 flat config (eslint.config.js: @eslint/js +
+  typescript-eslint + eslint-plugin-svelte + eslint-config-prettier;
+  browser-глобалы для src, node для scripts/; ignores dist/builds/backups/
+  scripts-archive/src-tauri) + prettier 3.9.9 (.prettierrc printWidth 100,
+  prettier-plugin-svelte; .prettierignore). Скрипты: npm run lint / format.
+  Первый прогон 45 ошибок → исправлены: no-useless-escape ×6 в dictionaries.ts
+  — РЕАЛЬНЫЙ БАГ ОТОБРАЖЕНИЯ: в подсказке пользовательского меню плейсхолдер
+  «!\» (каталог активной панели) во всех 6 локалях показывался как «!» —
+  escape «\ » съедал бэкслеш при парсинге строки; теперь «!\ », отображается
+  как надо. Плюс: no-useless-assignment (panels init), 5 неиспользуемых
+  импортов (OpError, DialogId, ThemeId, Locale, basicSetup, openPath),
+  no-control-regex — inline-disable (поиск управляющих символов в бинарной
+  эвристике — намеренный). Правила-решения: no-empty + allowEmptyCatch (пустые
+  catch — идиома fire-and-forget в e2e-скриптах); svelte/prefer-svelte-
+  reactivity OFF (Map/Set-кэши нереактивны намеренно, SvelteMap = смена
+  семантики); svelte/require-each-key WARN (ключи меняют гранулярность
+  DOM-обновлений списков — отдельный разбор). Итог lint: 0 ошибок,
+  24 предупреждения. Грабли: Bash-инструмент съедает бэкслеши в sed — фикс
+  словарей сделан одноразовым node-скриптом через Write (известный урок).
+- Проверки: vitest 53/53; svelte-check 0 ошибок (14 старых a11y-warn);
+  npm run build (vite 8); релиз 1.12.4 по конвенции: builds/
+  Al-Navi-1.12.4-20261005-0900.exe + Setup, C:/Al-Navi/Al-Navi.exe и
+  Desktop-копия обновлены; дымовой npm run test:e2e на новом exe — 23/23
+  (старт, версия в тайтлбаре v1.12.4, cd/навигация, F5-копия, F8-удаление,
+  F4/F2-редактор, темы/языки). CHANGELOG 1.12.4; README — lint/format в
+  разделе «Проверки»; ROADMAP не тронут (инфраструктурная задача, планы
+  не меняет). Бэкап перед правками backups/Al-Navi-backup-2026-10-05_060813.zip.
+  Попутно: закоммичена оборванная до коммита работа карточки alnavi-009
+  (8596fb2, сессия 009 упала в 01:14 до коммита). Карточка alnavi-011 закрыта
+  (5/5).

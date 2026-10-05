@@ -61,6 +61,11 @@ npm run test:e2e     # дымовой E2E: scripts/e2e-smoke.mjs запуска�
                      # Файловые операции идут во временной песочнице, реальный
                      # конфиг %APPDATA%\al-navi бэкапится и восстанавливается
 npm run check        # svelte-check (типы)
+npm run lint         # eslint (flat config, eslint.config.js): TS + Svelte + скрипты;
+                     # ошибки ломают запуск, предупреждения (unused vars, each-key)
+                     # не критичны
+npm run format       # prettier --write . (стиль: .prettierrc, printWidth 100,
+                     # prettier-plugin-svelte; исключения в .prettierignore)
 cargo check          # из src-tauri
 npm run build        # сборка фронтенда
 ```

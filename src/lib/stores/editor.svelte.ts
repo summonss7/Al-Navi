@@ -339,6 +339,7 @@ class EditorStore {
       } else {
         const c = await readTextAny(path);
         // binary heuristics: many replacement chars or NULs -> hex
+        // eslint-disable-next-line no-control-regex -- управляющие символы здесь ищем намеренно
         const bin = /[\u0000\u0001\u0002]/.test(c.text.slice(0, 4096));
         doc = {
           id: seq++,

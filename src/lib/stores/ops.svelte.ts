@@ -11,7 +11,7 @@ import {
   onOpConflict,
   resolveConflict,
 } from "$lib/api";
-import type { ConflictInfo, OpError, OpProgress } from "$lib/types";
+import type { ConflictInfo, OpProgress } from "$lib/types";
 import { panels } from "./panels.svelte";
 import { ui } from "./ui.svelte";
 import { i18n } from "./i18n.svelte";

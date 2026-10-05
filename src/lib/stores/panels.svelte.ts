@@ -670,7 +670,7 @@ class PanelsStore {
 
   async init() {
     const session = await loadJson<{ leftPath?: string; rightPath?: string; shortcuts?: Record<string, string> }>("session.json");
-    let home = "";
+    let home: string;
     try {
       home = await homePath();
     } catch {

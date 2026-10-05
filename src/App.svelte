@@ -6,7 +6,7 @@
   import { settings } from "$lib/stores/settings.svelte";
   import { panels } from "$lib/stores/panels.svelte";
   import { ops } from "$lib/stores/ops.svelte";
-  import { ui, type DialogId } from "$lib/stores/ui.svelte";
+  import { ui } from "$lib/stores/ui.svelte";
   import { editor } from "$lib/stores/editor.svelte";
   import { cmdline } from "$lib/stores/cmdline.svelte";
   import { fileColors } from "$lib/stores/fileColors.svelte";

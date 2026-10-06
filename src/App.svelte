@@ -183,6 +183,25 @@
     }
   }
 
+  // Ctrl+wheel zooms the interface font, browser-style — the same stepper as
+  // the Ctrl+± chords, routed through ui.fontInc/ui.fontDec so the toast,
+  // clamp and settings persistence are shared. Deltas accumulate to one
+  // 0.5-px step per ~100 px of travel (a mouse notch is 100–120 px, trackpad
+  // pinches arrive as many small ctrl-wheel deltas); line/page delta modes
+  // are normalized to pixels. The listener is non-passive so preventDefault()
+  // also suppresses WebView2's own ctrl+wheel page zoom.
+  let wheelZoomAcc = 0;
+  function onWheel(e: WheelEvent) {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    const unit = e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 100 : 1;
+    if (Math.sign(e.deltaY) !== Math.sign(wheelZoomAcc)) wheelZoomAcc = 0;
+    wheelZoomAcc += e.deltaY * unit;
+    if (Math.abs(wheelZoomAcc) < 100) return;
+    runCommand(wheelZoomAcc < 0 ? "ui.fontInc" : "ui.fontDec");
+    wheelZoomAcc = 0;
+  }
+
   onMount(() => {
     // focus the app shell so the webview routes keyboard events from the start;
     // the effect below hands the caret to the command line (FAR-style)
@@ -210,6 +229,7 @@
       });
 
     window.addEventListener("keydown", onKeyDown, { capture: true });
+    window.addEventListener("wheel", onWheel, { capture: true, passive: false });
     const stopWinTrack = windowState.init();
 
     const beforeUnload = () => {
@@ -237,6 +257,7 @@
 
     return () => {
       window.removeEventListener("keydown", onKeyDown, { capture: true });
+      window.removeEventListener("wheel", onWheel, { capture: true });
       window.removeEventListener("beforeunload", beforeUnload);
       stopWinTrack();
       ops.dispose();

@@ -19,11 +19,23 @@
 
   import TitleBar from "$comp/TitleBar.svelte";
   import PanelsGrid from "$comp/PanelsGrid.svelte";
-  import EditorArea from "$comp/EditorArea.svelte";
-  import ViewerArea from "$comp/ViewerArea.svelte";
   import CmdLine from "$comp/CmdLine.svelte";
   import FKeyBar from "$comp/FKeyBar.svelte";
   import Dialogs from "$comp/Dialogs.svelte";
+  import type { Component } from "svelte";
+
+  // The editor and the viewer (with the whole CodeMirror core, ~0.5 MB) live in
+  // their own chunks fetched at the first F4/F3 — the panel startup stays lean
+  // (alnavi-013). Each component is cached after its first load.
+  let EditorComp = $state<Component | null>(null);
+  let ViewerComp = $state<Component | null>(null);
+  $effect(() => {
+    if (ui.mode === "editor" && !EditorComp) {
+      void import("$comp/EditorArea.svelte").then((m) => (EditorComp = m.default));
+    } else if (ui.mode === "viewer" && !ViewerComp) {
+      void import("$comp/ViewerArea.svelte").then((m) => (ViewerComp = m.default));
+    }
+  });
 
   registerAllCommands();
 
@@ -251,9 +263,9 @@
   <TitleBar />
   <main class="main">
     {#if ui.mode === "editor"}
-      <EditorArea />
+      {#if EditorComp}<EditorComp />{/if}
     {:else if ui.mode === "viewer"}
-      <ViewerArea />
+      {#if ViewerComp}<ViewerComp />{/if}
     {:else}
       <PanelsGrid />
     {/if}

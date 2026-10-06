@@ -15,28 +15,81 @@ import {
   openSearchPanel,
   SearchQuery,
 } from "@codemirror/search";
-import { bracketMatching, indentOnInput, syntaxHighlighting, HighlightStyle } from "@codemirror/language";
+import { bracketMatching, indentOnInput, syntaxHighlighting, HighlightStyle, type LanguageSupport } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
 import { extOf } from "$lib/format";
 import { settings } from "$lib/stores/settings.svelte";
 import { textColors } from "$lib/stores/textColors.svelte";
 import { transformCase, convertLayout, type CaseMode, type LayoutMode } from "$lib/plugins";
 
-// language packs
-import { javascript } from "@codemirror/lang-javascript";
-import { python } from "@codemirror/lang-python";
-import { rust } from "@codemirror/lang-rust";
-import { cpp } from "@codemirror/lang-cpp";
-import { json } from "@codemirror/lang-json";
-import { yaml } from "@codemirror/lang-yaml";
-import { html } from "@codemirror/lang-html";
-import { css } from "@codemirror/lang-css";
-import { markdown } from "@codemirror/lang-markdown";
-import { sql } from "@codemirror/lang-sql";
-import { go } from "@codemirror/lang-go";
-import { java } from "@codemirror/lang-java";
-import { php } from "@codemirror/lang-php";
-import { xml } from "@codemirror/lang-xml";
+/* ============ language packs (lazy, alnavi-013) ============
+ * Every grammar is a dynamic import: together they outweighed the whole app
+ * (~800 KB of the former 1.3 MB single chunk), yet most are opened rarely.
+ * Each loader becomes its own small chunk fetched from the app's own assets
+ * (same origin, CSP 'self') on first open — a local read of a few ms; once
+ * loaded the LanguageSupport is cached and re-applied synchronously, so
+ * switching files of a known language never re-parses asynchronously. */
+const LANG_LOADERS: Record<string, () => Promise<LanguageSupport>> = {
+  js: () => import("@codemirror/lang-javascript").then((m) => m.javascript()),
+  jsx: () => import("@codemirror/lang-javascript").then((m) => m.javascript({ jsx: true })),
+  ts: () => import("@codemirror/lang-javascript").then((m) => m.javascript({ typescript: true })),
+  tsx: () => import("@codemirror/lang-javascript").then((m) => m.javascript({ typescript: true, jsx: true })),
+  py: () => import("@codemirror/lang-python").then((m) => m.python()),
+  rs: () => import("@codemirror/lang-rust").then((m) => m.rust()),
+  c: () => import("@codemirror/lang-cpp").then((m) => m.cpp()),
+  json: () => import("@codemirror/lang-json").then((m) => m.json()),
+  yaml: () => import("@codemirror/lang-yaml").then((m) => m.yaml()),
+  html: () => import("@codemirror/lang-html").then((m) => m.html()),
+  css: () => import("@codemirror/lang-css").then((m) => m.css()),
+  md: () => import("@codemirror/lang-markdown").then((m) => m.markdown()),
+  sql: () => import("@codemirror/lang-sql").then((m) => m.sql()),
+  go: () => import("@codemirror/lang-go").then((m) => m.go()),
+  java: () => import("@codemirror/lang-java").then((m) => m.java()),
+  php: () => import("@codemirror/lang-php").then((m) => m.php()),
+  xml: () => import("@codemirror/lang-xml").then((m) => m.xml()),
+};
+
+/** resolved grammars: a hit is applied in the same dispatch as the doc swap */
+const langCache = new Map<string, LanguageSupport>();
+/** in-flight loads, so parallel opens of the same language fetch one chunk */
+const langPromises = new Map<string, Promise<LanguageSupport>>();
+
+function loadLanguage(key: string): Promise<LanguageSupport> {
+  let p = langPromises.get(key);
+  if (!p) {
+    p = LANG_LOADERS[key]().then((lang) => {
+      langCache.set(key, lang);
+      return lang;
+    });
+    langPromises.set(key, p);
+    // a failed fetch must not poison the key — next open retries
+    p.catch(() => langPromises.delete(key));
+  }
+  return p;
+}
+
+/** the language each live view currently wants: a load resolving after the
+ *  view moved to another document must not override the newer language */
+const viewLangKeys = new WeakMap<EditorView, string>();
+
+/** Wire the document's language into the view's compartment, pulling its
+ *  chunk on first use. The compartment starts empty — the caller resets it
+ *  when swapping documents, this only installs what arrives. */
+function applyLang(v: EditorView, path: string | null, content = ""): void {
+  const key = langKeyFor(path, content);
+  viewLangKeys.set(v, key ?? "");
+  if (!key) return;
+  const cached = langCache.get(key);
+  if (cached) {
+    v.dispatch({ effects: langComp.reconfigure([cached]) });
+    return;
+  }
+  loadLanguage(key)
+    .then((lang) => {
+      if (viewLangKeys.get(v) === key) v.dispatch({ effects: langComp.reconfigure([lang]) });
+    })
+    .catch((err) => console.error(`alnavi: language chunk "${key}" failed to load`, err));
+}
 
 let view: EditorView | null = null;
 const langComp = new Compartment();
@@ -150,43 +203,46 @@ const alnaviHighlight = HighlightStyle.define([
   { tag: t.variableName, color: "var(--cm-name)" },
 ]);
 
-export function languageFor(path: string | null, content = "") {
+/** Map a file path (or content, for pathless docs) to a LANG_LOADERS key.
+ *  Extensions without a grammar — plain text, sh, … — yield null and the
+ *  editor stays on the built-in text decorations. */
+export function langKeyFor(path: string | null, content = ""): string | null {
   const ext = path ? extOf(path) : guessExtFromContent(content);
   switch (ext) {
     case "js": case "mjs": case "cjs":
-      return javascript();
+      return "js";
     case "jsx":
-      return javascript({ jsx: true });
+      return "jsx";
     case "ts": case "mts": case "cts":
-      return javascript({ typescript: true });
+      return "ts";
     case "tsx":
-      return javascript({ typescript: true, jsx: true });
+      return "tsx";
     case "py": case "pyw":
-      return python();
+      return "py";
     case "rs":
-      return rust();
+      return "rs";
     case "c": case "h": case "cpp": case "hpp": case "cc": case "hh": case "cxx":
-      return cpp();
+      return "c";
     case "json": case "jsonc":
-      return json();
+      return "json";
     case "yaml": case "yml":
-      return yaml();
+      return "yaml";
     case "html": case "htm":
-      return html();
+      return "html";
     case "css": case "scss": case "less":
-      return css();
+      return "css";
     case "md": case "markdown":
-      return markdown();
+      return "md";
     case "sql":
-      return sql();
+      return "sql";
     case "go":
-      return go();
+      return "go";
     case "java":
-      return java();
+      return "java";
     case "php":
-      return php();
+      return "php";
     case "xml": case "svg": case "xsl": case "plist":
-      return xml();
+      return "xml";
     default:
       return null;
   }
@@ -206,7 +262,6 @@ export function createView(
   path: string | null,
   opts: { readOnly?: boolean; onChange?: (text: string) => void } = {},
 ): EditorView {
-  const lang = languageFor(path, text);
   const st = EditorState.create({
     doc: text,
     extensions: [
@@ -220,7 +275,7 @@ export function createView(
       highlightSelectionMatches(),
       syntaxHighlighting(alnaviHighlight),
       decorComp.of(settings.s.editorDecor ? makeDecorPlugin() : []),
-      langComp.of(lang ? [lang] : []),
+      langComp.of([]), // the grammar lands via applyLang when its chunk arrives
       wrapComp.of(settings.s.editorWordWrap ? EditorView.lineWrapping : []),
       readOnlyComp.of(opts.readOnly ? EditorState.readOnly.of(true) : []),
       keymap.of([
@@ -278,6 +333,7 @@ export function createView(
     ],
   });
   view = new EditorView({ state: st, parent: host });
+  applyLang(view, path, text);
   return view;
 }
 
@@ -343,16 +399,18 @@ export function gotoLineCmd(line: number) {
 }
 
 export function setStateFor(v: EditorView, text: string, path: string | null, readOnly = false) {
-  const lang = languageFor(path, text);
+  // the compartment is reset here; applyLang re-fills it from cache in the
+  // same task (known language) or when the chunk lands (first open)
   v.dispatch({
     changes: { from: 0, to: v.state.doc.length, insert: text },
     effects: [
-      langComp.reconfigure(lang ? [lang] : []),
+      langComp.reconfigure([]),
       wrapComp.reconfigure(settings.s.editorWordWrap ? EditorView.lineWrapping : []),
       readOnlyComp.reconfigure(readOnly ? EditorState.readOnly.of(true) : []),
       decorComp.reconfigure(settings.s.editorDecor ? makeDecorPlugin() : []),
     ],
   });
+  applyLang(v, path, text);
 }
 
 /** remembered caret/scroll of a document (FAR-like position memory) */

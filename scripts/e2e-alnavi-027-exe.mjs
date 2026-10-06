@@ -123,7 +123,7 @@ try {
   await sleep(3500);
   await waitFor(cdp, `!!document.querySelector(".panel, .panels")`, 15000, "app UI");
   const ver = await evalIn(cdp, `document.querySelector(".titlebar .version")?.textContent ?? ""`);
-  check("title bar chip carries v1.12.10", ver.includes("1.12.10"), JSON.stringify(ver));
+  check("title bar chip carries v1.12.11", ver.includes("1.12.11"), JSON.stringify(ver));
   // click the panel like a user so the window has the keyboard context (a
   // window spawned in the background may have missed the startup focus dance)
   const p = await evalIn(cdp, `(() => { const el = document.querySelector(".panel"); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`);

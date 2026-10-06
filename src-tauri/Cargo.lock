@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "al-navi"
-version = "1.12.14"
+version = "1.12.15"
 dependencies = [
  "dirs 6.0.0",
  "encoding_rs",

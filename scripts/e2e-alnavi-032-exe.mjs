@@ -1,4 +1,4 @@
-// Exe-level E2E for alnavi-032: in the REAL released exe (1.12.14) the bottom
+// Exe-level E2E for alnavi-032: in the REAL released exe (1.12.15) the bottom
 // F-key hint bar reacts to PAIRS of held modifiers. Real key events via CDP
 // (Control/Shift/Alt keyDown held, then keyUp) against the real backend:
 //   - plain bar F1..F12; Ctrl row has no Ctrl+Shift+Ins anymore
@@ -19,7 +19,7 @@ if (!existsSync(EXE)) {
   console.error(`exe not found: ${EXE}`);
   process.exit(1);
 }
-const VERSION_PIN = "1.12.14";
+const VERSION_PIN = "1.12.15";
 const CFG = join(process.env.APPDATA, "al-navi");
 const CDP_PORT = 9266;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

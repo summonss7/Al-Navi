@@ -35,7 +35,11 @@
   $effect(() => {
     const lp = searchStore.lastParams;
     searchForm = {
-      root: lp?.root || defaultSearchRoot(),
+      // the folder always follows the current panel (FAR behavior); the last
+      // search's root is only a last-resort fallback when no panel has a
+      // local path (both FTP/search) — otherwise a stale root like C:\Windows
+      // would keep overriding the panel the user is looking at
+      root: defaultSearchRoot() || lp?.root || "",
       mask: lp?.mask ?? "*",
       useRegex: lp?.useRegex ?? false,
       text: lp?.text ?? "",

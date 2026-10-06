@@ -21,7 +21,7 @@ if (!existsSync(EXE)) {
   console.error(`exe not found: ${EXE}`);
   process.exit(1);
 }
-const VERSION_PIN = "1.12.11";
+const VERSION_PIN = "1.12.12";
 const CDP_PORT = 9263;
 const CFG = join(process.env.APPDATA, "al-navi");
 const SHOTS = join(process.cwd(), "backups");

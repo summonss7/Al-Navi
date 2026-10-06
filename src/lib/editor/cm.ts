@@ -445,17 +445,36 @@ export function restorePos(v: EditorView, pos: Partial<EditorPos>) {
   }
   if (pos.scrollTop !== undefined && pos.scrollTop > 0) {
     const top = pos.scrollTop;
+    // The retries below fight CodeMirror's delayed re-measure of a freshly
+    // mounted/swapped view — but never the user. Any caret move away from the
+    // restored position (Ctrl+PageDown and every other navigation command) or
+    // a wheel/scrollbar drag means the viewport is now theirs: stop asserting
+    // the old offset, or the first jump after opening a file gets rolled back
+    // (alnavi-030 — it "flickered" and only the second press stuck).
+    const { anchor: a0, head: h0 } = v.state.selection.main;
+    let mine = true;
+    const abandon = () => (mine = false);
     const apply = () => {
+      if (!mine) return;
+      const sel = v.state.selection.main;
+      if (sel.anchor !== a0 || sel.head !== h0) return;
       try {
         v.scrollDOM.scrollTop = top;
       } catch {
         /* view destroyed meanwhile */
       }
     };
+    v.scrollDOM.addEventListener("wheel", abandon, { passive: true });
+    v.scrollDOM.addEventListener("pointerdown", abandon, { passive: true });
+    const off = () => {
+      v.scrollDOM.removeEventListener("wheel", abandon);
+      v.scrollDOM.removeEventListener("pointerdown", abandon);
+    };
     // CodeMirror re-measures/re-resets the viewport of a freshly swapped doc
     // at various delays, so keep re-asserting the offset for a while
     requestAnimationFrame(() => requestAnimationFrame(apply));
     for (const ms of [120, 300, 600]) setTimeout(apply, ms);
+    setTimeout(off, 650); // the last retry has run — stop listening
   }
 }
 

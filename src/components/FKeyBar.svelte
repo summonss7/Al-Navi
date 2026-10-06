@@ -8,8 +8,9 @@
 
   // FAR-style: while Ctrl/Alt/Shift is held, the bottom bar swaps F1..F12 for
   // that modifier's combo hints of the current mode (keyups can be missed when
-  // a combo opens/closes windows — reset on window blur too). Ctrl has
-  // priority, as in FAR: Ctrl+Alt / Ctrl+Shift keep showing the Ctrl bar.
+  // a combo opens/closes windows — reset on window blur too). Two held
+  // modifiers get their own pair row first (Ctrl+Shift, Alt+Shift); pairs with
+  // no chords (Ctrl+Alt) fall back to the Ctrl bar, as in FAR.
   let ctrlDown = $state(false);
   let altDown = $state(false);
   let shiftDown = $state(false);
@@ -107,7 +108,6 @@
       { k: "Ctrl+\\", cmd: "panel.root", label: i18n.t("hint.root") },
       { k: "Ctrl+Ins", cmd: "panel.copyNames", label: i18n.t("hint.copyName") },
       { k: "Ctrl+Enter", cmd: "cmdline.insertCursorName", label: i18n.t("hint.insertName") },
-      { k: "Ctrl+Shift+Ins", cmd: "panel.copyPaths", label: i18n.t("hint.copyPath") },
       { k: "Ctrl+F3", cmd: "panel.sortName", label: i18n.t("hint.sortName") },
       { k: "Ctrl+F5", cmd: "panel.sortMtime", label: i18n.t("hint.sortDate") },
       { k: "Ctrl+F6", cmd: "panel.sortSize", label: i18n.t("hint.sortSize") },
@@ -176,19 +176,60 @@
     ] satisfies Key[];
   });
 
-  // which row is on screen: modifier hints (chips) or the plain F-key bar
+  // Ctrl+Shift pair row: chords that need BOTH modifiers — shown when the
+  // pair is held. The 10 folder-shortcut assigns collapse into one info-only
+  // chip (they are 10 separate commands, not one).
+  const ctrlShiftHints = $derived.by(() => {
+    void i18n.locale;
+    if (ui.mode === "editor") {
+      return [
+        { k: "Ctrl+Shift+F4", cmd: "editor.newScratch", label: i18n.t("hint.scratch") },
+        { k: "Ctrl+Shift+L", cmd: "editor.convertLayout", label: i18n.t("hint.layout") },
+        { k: "Ctrl+Shift+Tab", cmd: "ui.prevTab", label: i18n.t("hint.prevTab") },
+      ] satisfies Key[];
+    }
+    if (ui.mode === "viewer") {
+      return [
+        { k: "Ctrl+Shift+F4", cmd: "editor.newScratch", label: i18n.t("hint.scratch") },
+        { k: "Ctrl+Shift+Tab", cmd: "ui.prevTab", label: i18n.t("hint.prevTab") },
+      ] satisfies Key[];
+    }
+    return [
+      { k: "Ctrl+Shift+F4", cmd: "editor.newScratch", label: i18n.t("hint.scratch") },
+      { k: "Ctrl+Shift+Ins", cmd: "panel.copyPaths", label: i18n.t("hint.copyPath") },
+      { k: "Ctrl+Shift+Tab", cmd: "ui.prevTab", label: i18n.t("hint.prevTab") },
+      // info-only: shortcuts.assign0…9 are ten separate commands
+      { k: "Ctrl+Shift+0…9", cmd: null, label: i18n.t("hint.pin") },
+    ] satisfies Key[];
+  });
+
+  // Alt+Shift pair row: the panels-only history chords
+  const altShiftHints = $derived.by(() => {
+    void i18n.locale;
+    if (ui.mode !== "panels") return [] as Key[];
+    return [
+      { k: "Alt+Shift+←", cmd: "panel.historyBack", label: i18n.t("hint.histBack") },
+      { k: "Alt+Shift+→", cmd: "panel.historyForward", label: i18n.t("hint.histFwd") },
+    ] satisfies Key[];
+  });
+
+  // which row is on screen: pair hints first, then single-modifier hints
+  // (chips), otherwise the plain F-key bar. Rows empty for the mode fall
+  // through to the next candidate.
   const bar = $derived(
-    ctrlDown
-      ? ctrlHints
-      : altDown && altHints.length
-        ? altHints
-        : shiftDown && shiftHints.length
-          ? shiftHints
-          : keys,
+    ctrlDown && shiftDown && ctrlShiftHints.length
+      ? ctrlShiftHints
+      : altDown && shiftDown && altShiftHints.length
+        ? altShiftHints
+        : ctrlDown
+          ? ctrlHints
+          : altDown && altHints.length
+            ? altHints
+            : shiftDown && shiftHints.length
+              ? shiftHints
+              : keys,
   );
-  const chips = $derived(
-    ctrlDown || (altDown && altHints.length > 0) || (shiftDown && shiftHints.length > 0),
-  );
+  const chips = $derived(bar !== keys);
 </script>
 
 <footer class="fkeys">

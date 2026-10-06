@@ -374,7 +374,7 @@ const en: Record<string, string> = {
   "help.app.settings": "Settings: theme, language, panel view, colors",
   "help.app.font": "Zoom the interface font ±0.5 px (10–24, as in F9)",
   "help.app.quit": "Quit (with confirmation)",
-  "help.hintMods": "hold one — the bottom F-key bar lists the chords of the current mode; the chips are clickable",
+  "help.hintMods": "hold one — or a pair like Ctrl+Shift / Alt+Shift — and the bottom F-key bar lists the chords of the current mode; the chips are clickable",
 
   "hint.togglePanels": "toggle panels",
   "hint.hidePanels": "hide panels",
@@ -413,6 +413,10 @@ const en: Record<string, string> = {
   "hint.delCur": "delete current",
   "hint.delPerm": "delete permanently",
   "hint.paste": "paste to line",
+  "hint.scratch": "scratchpad",
+  "hint.layout": "layout convert",
+  "hint.prevTab": "prev tab",
+  "hint.pin": "pin folder",
 };
 
 const ru: Record<string, string> = {
@@ -780,7 +784,7 @@ const ru: Record<string, string> = {
   "help.app.settings": "Настройки: темы, язык, вид панелей, цвета",
   "help.app.font": "Масштаб шрифта интерфейса ±0,5 px (10–24, как в F9)",
   "help.app.quit": "Выход (с подтверждением)",
-  "help.hintMods": "удерживайте один — нижняя строка F-клавиш покажет аккорды текущего режима; чипы кликабельны",
+  "help.hintMods": "удерживайте один — или пару вроде Ctrl+Shift / Alt+Shift — и нижняя строка F-клавиш покажет аккорды текущего режима; чипы кликабельны",
 
   "hint.togglePanels": "панели вкл/выкл",
   "hint.hidePanels": "скрыть панели",
@@ -819,6 +823,10 @@ const ru: Record<string, string> = {
   "hint.delCur": "удалить текущий",
   "hint.delPerm": "удалить безвозвратно",
   "hint.paste": "вставить в строку",
+  "hint.scratch": "черновик",
+  "hint.layout": "раскладка",
+  "hint.prevTab": "пред. вкладка",
+  "hint.pin": "закрепить папку",
 };
 
 const uk: Record<string, string> = {
@@ -1186,7 +1194,7 @@ const uk: Record<string, string> = {
   "help.app.settings": "Налаштування: теми, мова, вигляд панелей, кольори",
   "help.app.font": "Масштаб шрифту інтерфейсу ±0,5 px (10–24, як у F9)",
   "help.app.quit": "Вихід (з підтвердженням)",
-  "help.hintMods": "утримуйте один — нижній ряд F-клавіш покаже акорди поточного режиму; чіпи клікабельні",
+  "help.hintMods": "утримуйте один — або пару на кшталт Ctrl+Shift / Alt+Shift — і нижній ряд F-клавіш покаже акорди поточного режиму; чіпи клікабельні",
 
   "hint.togglePanels": "панелі показ/прихов",
   "hint.hidePanels": "приховати панелі",
@@ -1225,6 +1233,10 @@ const uk: Record<string, string> = {
   "hint.delCur": "видалити поточний",
   "hint.delPerm": "видалити безповоротно",
   "hint.paste": "вставити в рядок",
+  "hint.scratch": "чернетка",
+  "hint.layout": "розкладка",
+  "hint.prevTab": "попер. вкладка",
+  "hint.pin": "закріпити папку",
 };
 
 const ro: Record<string, string> = {
@@ -1592,7 +1604,7 @@ const ro: Record<string, string> = {
   "help.app.settings": "Setări: temă, limbă, aspectul panourilor, culori",
   "help.app.font": "Zoom pe fontul interfeței ±0,5 px (10–24, ca în F9)",
   "help.app.quit": "Ieșire (cu confirmare)",
-  "help.hintMods": "ține apăsat unul — bara de jos arată acordurile modului curent; etichetele sunt clicabile",
+  "help.hintMods": "ține apăsat unul — sau o pereche precum Ctrl+Shift / Alt+Shift — și bara de jos arată acordurile modului curent; etichetele sunt clicabile",
 
   "hint.togglePanels": "comută panourile",
   "hint.hidePanels": "ascunde panourile",
@@ -1631,6 +1643,10 @@ const ro: Record<string, string> = {
   "hint.delCur": "șterge curent",
   "hint.delPerm": "șterge definitiv",
   "hint.paste": "lipește în rând",
+  "hint.scratch": "ciornă",
+  "hint.layout": "tastatură",
+  "hint.prevTab": "fila anterioară",
+  "hint.pin": "fixează dosarul",
 };
 
 const sk: Record<string, string> = {
@@ -1998,7 +2014,7 @@ const sk: Record<string, string> = {
   "help.app.settings": "Nastavenia: motív, jazyk, vzhľad panelov, farby",
   "help.app.font": "Lupa písma rozhrania ±0,5 px (10–24, ako v F9)",
   "help.app.quit": "Ukončiť (s potvrdením)",
-  "help.hintMods": "podržte jeden — spodný riadok F-kláves zobrazí akordy aktuálneho režimu; štítky sú klikateľné",
+  "help.hintMods": "podržte jeden — alebo pár ako Ctrl+Shift / Alt+Shift — a spodný riadok F-kláves zobrazí akordy aktuálneho režimu; štítky sú klikateľné",
 
   "hint.togglePanels": "panely zap/vyp",
   "hint.hidePanels": "skryť panely",
@@ -2037,6 +2053,10 @@ const sk: Record<string, string> = {
   "hint.delCur": "odstrániť aktuálny",
   "hint.delPerm": "odstrániť natrvalo",
   "hint.paste": "prilepiť do riadku",
+  "hint.scratch": "koncept",
+  "hint.layout": "rozloženie",
+  "hint.prevTab": "predch. karta",
+  "hint.pin": "pripnúť priečinok",
 };
 
 const ar: Record<string, string> = {
@@ -2404,7 +2424,7 @@ const ar: Record<string, string> = {
   "help.app.settings": "الإعدادات: السمة، اللغة، مظهر اللوحات، الألوان",
   "help.app.font": "تكبير أو تصغير خط الواجهة ±0.5 px ‏(10–24، كما في F9)",
   "help.app.quit": "خروج (مع تأكيد)",
-  "help.hintMods": "استمر بالضغط على أحدها — يعرض الشريط السفلي أوتار الوضع الحالي؛ الشرائح قابلة للنقر",
+  "help.hintMods": "استمر بالضغط على أحدها — أو زوج مثل Ctrl+Shift / Alt+Shift — ليعرض الشريط السفلي أوتار الوضع الحالي؛ الشرائح قابلة للنقر",
 
   "hint.togglePanels": "إظهار/إخفاء اللوحات",
   "hint.hidePanels": "إخفاء اللوحات",
@@ -2443,6 +2463,10 @@ const ar: Record<string, string> = {
   "hint.delCur": "حذف الحالي",
   "hint.delPerm": "حذف نهائي",
   "hint.paste": "لصق في السطر",
+  "hint.scratch": "مسودة",
+  "hint.layout": "التخطيط",
+  "hint.prevTab": "التبويب السابق",
+  "hint.pin": "تثبيت المجلد",
 };
 
 export const dictionaries: Record<Locale, Record<string, string>> = {

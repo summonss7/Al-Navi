@@ -1,6 +1,6 @@
 [package]
 name = "al-navi"
-version = "1.12.15"
+version = "1.13.0"
 description = "Al-Navi — modern dual-panel file manager"
 edition = "2021"
 
@@ -31,6 +31,12 @@ dirs = "6"
 sysinfo = "0.37"
 filetime = "0.2"
 suppaftp = { version = "12", default-features = false, features = ["tokio"] }
+# V2: SFTP client. russh + russh-sftp are pure Rust (no ring/openssl/C
+# build), keeping the offline cargo-cache build working on the MSYS2 GNU
+# toolchain; fetched once into the local cargo cache like zip/tar before
+russh = "0.46"
+russh-sftp = "2.4"
+async-trait = "0.1"
 # 1.13.1 is already in Cargo.lock as a transitive dep, so this resolves
 # from the local cargo cache without network access
 regex = "1.13.1"

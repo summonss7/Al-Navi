@@ -83,6 +83,20 @@ export const ftpMkdir = (path: string) => invoke<void>("ftp_mkdir", { path });
 export const ftpRename = (oldPath: string, newPath: string) =>
   invoke<void>("ftp_rename", { old: oldPath, new: newPath });
 
+// ---- SFTP (V2) — mirror of the FTP commands over SSH ----
+export const sftpConnect = (host: string, port: number, user: string, password: string) =>
+  invoke<string>("sftp_connect", { host, port, user, password });
+export const sftpList = (path: string) => invoke<DirListing>("sftp_list", { path });
+export const sftpReadText = (path: string, encoding?: string, fallback?: string) =>
+  invoke<TextContent>("sftp_read_text", { path, encoding: encoding ?? null, fallback: fallback ?? null });
+export const sftpWriteText = (path: string, content: string, encoding: string, eol: string) =>
+  invoke<void>("sftp_write_text", { path, content, encoding, eol });
+export const sftpReadHex = (path: string, offset: number, len: number) =>
+  invoke<{ data: number[]; fileSize: number }>("sftp_read_hex", { path, offset, len });
+export const sftpMkdir = (path: string) => invoke<void>("sftp_mkdir", { path });
+export const sftpRename = (oldPath: string, newPath: string) =>
+  invoke<void>("sftp_rename", { old: oldPath, new: newPath });
+
 // ---- Archives (M6) ----
 export const archiveList = (path: string) => invoke<DirListing>("archive_list", { path });
 export const archiveReadText = (path: string, encoding?: string, fallback?: string) =>

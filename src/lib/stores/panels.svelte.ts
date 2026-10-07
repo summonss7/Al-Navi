@@ -1,7 +1,7 @@
-import { listDir, ftpList, ftpConnect, watchSet, onWatchChanged, onDirSize, computeDirSizes, loadJson, saveJson, homePath, openPath, archiveList } from "$lib/api";
+import { listDir, watchSet, onWatchChanged, onDirSize, computeDirSizes, loadJson, saveJson, homePath, openPath, archiveList } from "$lib/api";
 import type { FileEntry, SortMode } from "$lib/types";
 import { extOf, joinPath, parentOf, basename, isRootPath, maskToRegExp } from "$lib/format";
-import { ftpAuthority, ftpRootOf, isFtpPath } from "$lib/ftp";
+import { remoteAuthority, ftpRootOf, isRemotePath, remoteList, remoteConnect } from "$lib/ftp";
 import { isArchivePath, isArchiveFile, archiveUrl, joinArchivePath, splitArchiveUrl } from "$lib/archive";
 import { isSearchPath, searchStore } from "./search.svelte";
 import { cyrillicOfLatin } from "$lib/keymap";
@@ -134,15 +134,15 @@ export class PanelState {
       if (isArchivePath(path)) {
         // archive VFS: listing served by the backend from the archive file
         res = await archiveList(path);
-      } else if (isFtpPath(path)) {
-        res = await ftpList(path).catch(async (e: unknown) => {
+      } else if (isRemotePath(path)) {
+        res = await remoteList(path).catch(async (e: unknown) => {
           // stale session after an app restart: reconnect from a saved site
           // with the same address, then retry the listing
-          const auth = ftpAuthority(path);
+          const auth = remoteAuthority(path);
           const site = ftpSites.sites.find((s) => ftpRootOf(s) === auth);
           if (!site) throw e;
-          await ftpConnect(site.host, site.port || 21, site.user, site.password);
-          return ftpList(path);
+          await remoteConnect(site);
+          return remoteList(path);
         });
       } else {
         res = await listDir(path);
@@ -278,8 +278,8 @@ export class PanelState {
    * land in applyDirSize().
    */
   private requestDirSizes(force: boolean) {
-    // FTP and archives: no cheap recursive sizes — skip (dirs show no size)
-    if (isFtpPath(this.path) || isArchivePath(this.path)) {
+    // remote roots and archives: no cheap recursive sizes — skip (dirs show no size)
+    if (isRemotePath(this.path) || isArchivePath(this.path)) {
       this.dirSizes = new Map();
       return;
     }
@@ -348,7 +348,7 @@ export class PanelState {
     if (cur.isDir) {
       const child = isArchivePath(this.path) ? joinArchivePath(this.path, cur.name) : joinPath(this.path, cur.name);
       await this.chdir(child);
-    } else if (isFtpPath(this.path) || isArchivePath(this.path)) {
+    } else if (isRemotePath(this.path) || isArchivePath(this.path)) {
       // remote/archive files can't go to the OS shell — open the built-in
       // viewer (a nested .zip inside an archive is not enterable, it views)
       const fp = isArchivePath(this.path) ? joinArchivePath(this.path, cur.name) : joinPath(this.path, cur.name);
@@ -379,7 +379,7 @@ export class PanelState {
   /** Shift+Enter: always hand the entry to the OS shell — folders (and "..")
    *  open in Explorer, files run/open in their own window */
   async enterExternal() {
-    if (isFtpPath(this.path) || isArchivePath(this.path)) return; // no local shell for virtual paths
+    if (isRemotePath(this.path) || isArchivePath(this.path)) return; // no local shell for virtual paths
     const cur = this.current;
     if (!cur) return;
     if (isSearchPath(this.path)) {
@@ -407,8 +407,8 @@ export class PanelState {
       await this.up();
       return;
     }
-    if (isFtpPath(path)) {
-      await this.chdir(ftpAuthority(path));
+    if (isRemotePath(path)) {
+      await this.chdir(remoteAuthority(path));
       return;
     }
     if (isArchivePath(path)) {
@@ -774,7 +774,7 @@ class PanelsStore {
       // the OS watcher is local-only — FTP, search-result and archive paths
       // are refreshed via Ctrl+R
       const paths = [this.left.path, this.right.path].filter(
-        (p) => p && !isFtpPath(p) && !isSearchPath(p) && !isArchivePath(p),
+        (p) => p && !isRemotePath(p) && !isSearchPath(p) && !isArchivePath(p),
       );
       if (paths.length) watchSet(paths).catch(() => {});
     }, 400);

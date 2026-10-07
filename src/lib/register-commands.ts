@@ -4,16 +4,20 @@ import {
   setAttributes,
   renamePath,
   homePath,
-  ftpMkdir,
-  ftpRename,
-  ftpList,
-  ftpConnect,
   pathExists,
   loadJson,
   saveJson,
 } from "$lib/api";
 import { joinPath, sortArrow, parentOf, pathKey, basename } from "$lib/format";
-import { ftpAuthority, ftpRootOf, isFtpPath } from "$lib/ftp";
+import {
+  remoteAuthority,
+  ftpRootOf,
+  isRemotePath,
+  remoteList,
+  remoteConnect,
+  remoteMkdir,
+  remoteRename,
+} from "$lib/ftp";
 import { isArchivePath, isArchiveFile, splitArchiveUrl, joinArchivePath, PACK_FORMATS } from "$lib/archive";
 import { panels } from "$lib/stores/panels.svelte";
 import { ui, type AttrState } from "$lib/stores/ui.svelte";
@@ -165,14 +169,14 @@ export function registerAllCommands() {
     if (!nn || nn === oldName) return;
     const newPath = joinPath(dir, nn);
     try {
-      if (isFtpPath(oldPath)) {
-        // RNFR/RNTO only works within one server — a hand-typed foreign
+      if (isRemotePath(oldPath)) {
+        // rename only works within one server — a hand-typed foreign
         // target is refused by the backend anyway, say it up front
-        if (ftpAuthority(newPath) !== ftpAuthority(oldPath)) {
+        if (remoteAuthority(newPath) !== remoteAuthority(oldPath)) {
           ui.showError(i18n.t("ftp.renameSameServer"));
           return;
         }
-        await ftpRename(oldPath, newPath);
+        await remoteRename(oldPath, newPath);
       } else {
         await renamePath(oldPath, newPath);
       }
@@ -194,7 +198,7 @@ export function registerAllCommands() {
     const name = await ui.askInput(i18n.t("mkdir.title"), i18n.t("mkdir.prompt"), "");
     if (!name) return;
     try {
-      if (isFtpPath(p.path)) await ftpMkdir(joinPath(p.path, name));
+      if (isRemotePath(p.path)) await remoteMkdir(joinPath(p.path, name));
       else await mkdir(joinPath(p.path, name));
       p.refresh();
       const idx = p.view.findIndex((e) => e.name === name);
@@ -205,11 +209,11 @@ export function registerAllCommands() {
   });
   registerCommand("fs.attrs", async () => {
     const p = A();
-    // search results point at real disk files, so they stay eligible; FTP
-    // rows and archive members are not paths set_attributes could touch
+    // search results point at real disk files, so they stay eligible;
+    // remote rows and archive members are not paths set_attributes could touch
     const targets = p.targetEntries
       .map((e) => ({ path: entryPath(p, e), attrs: e.attrs }))
-      .filter((t) => !isFtpPath(t.path) && !isArchivePath(t.path));
+      .filter((t) => !isRemotePath(t.path) && !isArchivePath(t.path));
     if (!targets.length) {
       ui.showToast(i18n.t("archive.readonly"));
       return;
@@ -244,12 +248,12 @@ export function registerAllCommands() {
     const p = A();
     // FAR behavior: the marked files, or the whole panel when nothing is
     // marked — the live preview shows every change before anything moves.
-    // Search rows stay eligible (each renames in its own directory); FTP
-    // rows and archive members are not local renames.
+    // Search rows stay eligible (each renames in its own directory);
+    // remote rows and archive members are not local renames.
     const entries = p.selectedEntries.length ? p.selectedEntries : p.view.filter((e) => e.name !== "..");
     const targets = entries
       .map((e) => entryPath(p, e))
-      .filter((path) => !isFtpPath(path) && !isArchivePath(path))
+      .filter((path) => !isRemotePath(path) && !isArchivePath(path))
       .map((path) => ({ path, name: basename(path) }));
     if (!targets.length) {
       ui.showToast(i18n.t("mr.localOnly"));
@@ -268,7 +272,7 @@ export function registerAllCommands() {
       ui.showError(i18n.t("search.notHere"));
       return;
     }
-    if (isFtpPath(p.path) || isArchivePath(p.path)) {
+    if (isRemotePath(p.path) || isArchivePath(p.path)) {
       ui.showToast(i18n.t("archive.packLocalOnly"));
       return;
     }
@@ -277,7 +281,7 @@ export function registerAllCommands() {
     const destDir = isSearchPath(panels.inactive.path)
       ? searchStore.originPath ?? p.path
       : panels.inactive.path;
-    if (isFtpPath(destDir) || isArchivePath(destDir)) {
+    if (isRemotePath(destDir) || isArchivePath(destDir)) {
       ui.showToast(i18n.t("archive.packLocalOnly"));
       return;
     }
@@ -306,7 +310,7 @@ export function registerAllCommands() {
     const destBase = isSearchPath(panels.inactive.path)
       ? searchStore.originPath ?? p.path
       : panels.inactive.path;
-    if (isFtpPath(destBase) || isArchivePath(destBase)) {
+    if (isRemotePath(destBase) || isArchivePath(destBase)) {
       ui.showToast(i18n.t("archive.extractLocalOnly"));
       return;
     }
@@ -527,9 +531,9 @@ async function transferVariants(activePath: string, inactivePath: string): Promi
     "C:\\temp",
     driveRoot,
   ].filter((v): v is string => !!v && pathKey(v) !== pathKey(activePath));
-  // an FTP variant is the live folder of the other panel — no local check
+  // a remote variant is the live folder of the other panel — no local check
   const exists = await Promise.all(
-    candidates.map((c) => (isFtpPath(c) ? Promise.resolve(true) : pathExists(c).catch(() => false))),
+    candidates.map((c) => (isRemotePath(c) ? Promise.resolve(true) : pathExists(c).catch(() => false))),
   );
   const seen = new Set<string>();
   const variants: string[] = [];
@@ -553,7 +557,7 @@ async function transferVariants(activePath: string, inactivePath: string): Promi
 
 // only absolute targets are meaningful history — a bare name is a rename
 function rememberTransferTarget(input: string) {
-  if (!/^[A-Za-z]:[\\/]/.test(input) && !input.startsWith("\\\\") && !input.startsWith("/") && !input.startsWith("ftp://"))
+  if (!/^[A-Za-z]:[\\/]/.test(input) && !input.startsWith("\\\\") && !input.startsWith("/") && !input.startsWith("ftp://") && !input.startsWith("sftp://"))
     return;
   const key = pathKey(input);
   const rest = (xferHistory ?? []).filter((h) => pathKey(h) !== key);
@@ -562,16 +566,16 @@ function rememberTransferTarget(input: string) {
 }
 
 // the transfer backend opens its own connection from the credentials of the
-// live session — make sure one exists for a typed FTP target (reconnect from
-// a saved site, like the panel listing does after a restart)
+// live session — make sure one exists for a typed remote target (reconnect
+// from a saved site, like the panel listing does after a restart)
 async function ensureFtpTarget(target: string): Promise<boolean> {
-  if (!isFtpPath(target)) return true;
-  const root = ftpAuthority(target);
-  if (await ftpList(root).then(() => true, () => false)) return true;
+  if (!isRemotePath(target)) return true;
+  const root = remoteAuthority(target);
+  if (await remoteList(root).then(() => true, () => false)) return true;
   const site = ftpSites.sites.find((s) => ftpRootOf(s) === root);
   if (!site) return false;
   try {
-    await ftpConnect(site.host, site.port || 21, site.user, site.password);
+    await remoteConnect(site);
     return true;
   } catch {
     return false;
@@ -596,7 +600,7 @@ async function startTransfer(kind: "copy" | "move", currentOnly = false) {
   // an archive panel on either side changes what F5/F6 mean: out of an
   // archive = extraction, into an archive = packing into that archive
   if (isArchivePath(p.path)) {
-    if (isArchivePath(destBase) || isFtpPath(destBase)) {
+    if (isArchivePath(destBase) || isRemotePath(destBase)) {
       ui.showToast(i18n.t("archive.extractLocalOnly"));
       return;
     }
@@ -606,7 +610,7 @@ async function startTransfer(kind: "copy" | "move", currentOnly = false) {
     // relative input resolves against the archive file's own directory
     const cwd = parentOf(splitArchiveUrl(p.path).file) ?? destBase;
     const target = resolveTransferTarget(answer.trim(), cwd);
-    if (!target || isArchivePath(target) || isFtpPath(target)) return;
+    if (!target || isArchivePath(target) || isRemotePath(target)) return;
     void ops.startExtract(paths.map((url) => ({ url, dest: target })));
     return;
   }
@@ -679,7 +683,7 @@ function stripTrailingSep(p: string): string {
 // "into this directory" rather than "rename to this name".
 function resolveTransferTarget(input: string, cwd: string): string | null {
   if (!input) return null;
-  if (/^[A-Za-z]:[\\/]/.test(input) || input.startsWith("\\\\") || input.startsWith("/") || input.startsWith("ftp://"))
+  if (/^[A-Za-z]:[\\/]/.test(input) || input.startsWith("\\\\") || input.startsWith("/") || input.startsWith("ftp://") || input.startsWith("sftp://"))
     return input;
   const endsWithSep = /[\\/]$/.test(input);
   const base = input.replace(/[\\/]+$/, "");
@@ -696,7 +700,7 @@ async function startDelete(permanent: boolean, currentOnly = false) {
     return;
   }
   // there is no trash on a server — remote deletes are always permanent
-  const perm = permanent || isFtpPath(p.path);
+  const perm = permanent || isRemotePath(p.path);
   const entries = currentOnly
     ? p.current && p.current.name !== ".."
       ? [p.current]

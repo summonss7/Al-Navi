@@ -4,11 +4,12 @@ mod config;
 mod drives;
 mod fs;
 mod ftp;
-mod ftp_ops;
 mod locks;
 mod meta;
 mod ops;
+mod remote_ops;
 mod search;
+mod sftp;
 mod textio;
 mod watch;
 mod winstate;
@@ -91,6 +92,7 @@ pub fn run() {
         .manage(ops::OpManager::new())
         .manage(watch::WatchState::new())
         .manage(ftp::FtpState::new())
+        .manage(sftp::SftpState::new())
         .manage(search::SearchManager::new())
         .setup(|app| {
             if let Some(win) = app.get_webview_window("main") {
@@ -133,6 +135,13 @@ pub fn run() {
             ftp::ftp_read_hex,
             ftp::ftp_mkdir,
             ftp::ftp_rename,
+            sftp::sftp_connect,
+            sftp::sftp_list,
+            sftp::sftp_read_text,
+            sftp::sftp_write_text,
+            sftp::sftp_read_hex,
+            sftp::sftp_mkdir,
+            sftp::sftp_rename,
             config::load_json,
             config::save_json,
             archive::archive_list,

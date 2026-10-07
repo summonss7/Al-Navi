@@ -1,13 +1,14 @@
-// FTP sites: the connect action (shared by the site list, the list keyboard
-// navigation and the site form) plus the add/edit/quick-connect form state.
-// The form is module state because the list dialog's buttons open the form
-// pre-filled — the FtpSiteDialog component only binds into it. Object state:
-// exported state must not be reassigned, only mutated through properties.
+// FTP/SFTP sites: the connect action (shared by the site list, the list
+// keyboard navigation and the site form) plus the add/edit/quick-connect
+// form state. The form is module state because the list dialog's buttons open
+// the form pre-filled — the FtpSiteDialog component only binds into it.
+// Object state: exported state must not be reassigned, only mutated through
+// properties.
 import { ui } from "$lib/stores/ui.svelte";
 import { i18n } from "$lib/stores/i18n.svelte";
 import { panels } from "$lib/stores/panels.svelte";
 import { ftpSites } from "$lib/stores/ftpSites.svelte";
-import { ftpConnect } from "$lib/api";
+import { remoteConnect } from "$lib/ftp";
 import { normalizeHotkeyChar } from "$lib/keymap";
 import { newFtpSite, type FtpSite } from "$lib/ftp";
 
@@ -25,7 +26,7 @@ export async function ftpConnectSite(site: FtpSite, save: boolean) {
     ftpSites.upsert({ ...site, name: site.name.trim() || site.host.trim() });
   }
   try {
-    const root = await ftpConnect(site.host, site.port || 21, site.user, site.password);
+    const root = await remoteConnect(site);
     const panel = ui.drivesFor === "left" ? panels.left : panels.right;
     panels.activeSide = ui.drivesFor;
     await panel.chdir(root);
@@ -36,14 +37,21 @@ export async function ftpConnectSite(site: FtpSite, save: boolean) {
   }
 }
 
+/** the drive menu's FTP/SFTP rows open the same list — preset which protocol
+ *  new sites get in the Add/Quick forms */
+export function presetFtpScheme(secure: boolean) {
+  if (ftpSiteState.mode === "edit") return;
+  ftpSiteState.form = newFtpSite(secure);
+}
+
 export function ftpQuick() {
-  ftpSiteState.form = newFtpSite();
+  ftpSiteState.form = newFtpSite(ftpSiteState.form.secure ?? false);
   ftpSiteState.mode = "quick";
   ui.openDialog("ftpSite");
 }
 
 export function ftpAdd() {
-  ftpSiteState.form = newFtpSite();
+  ftpSiteState.form = newFtpSite(ftpSiteState.form.secure ?? false);
   ftpSiteState.mode = "add";
   ui.openDialog("ftpSite");
 }
@@ -67,6 +75,16 @@ export function onHotkeyInput(e: Event) {
   const el = e.currentTarget as HTMLInputElement;
   el.value = normalizeHotkeyChar(el.value) ?? "";
   ftpSiteState.form.hotkey = el.value;
+}
+
+/** the protocol toggle switches the form's port default with it */
+export function onSchemeInput(secure: boolean) {
+  ftpSiteState.form.secure = secure;
+  if (secure && (ftpSiteState.form.port === 21 || !ftpSiteState.form.port)) {
+    ftpSiteState.form.port = 22;
+  } else if (!secure && (ftpSiteState.form.port === 22 || !ftpSiteState.form.port)) {
+    ftpSiteState.form.port = 21;
+  }
 }
 
 export function submitFtpForm() {

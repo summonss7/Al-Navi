@@ -3,7 +3,7 @@
   import { i18n } from "$lib/stores/i18n.svelte";
   import { panels } from "$lib/stores/panels.svelte";
   import { searchStore, isSearchPath } from "$lib/stores/search.svelte";
-  import { isFtpPath } from "$lib/ftp";
+  import { isRemotePath } from "$lib/ftp";
   import { focusSelect } from "./common";
 
   // Alt+F7 find files
@@ -26,9 +26,9 @@
 
   function defaultSearchRoot(): string {
     const a = panels.active.path;
-    if (!isFtpPath(a) && !isSearchPath(a)) return a;
+    if (!isRemotePath(a) && !isSearchPath(a)) return a;
     const b = panels.inactive.path;
-    if (!isFtpPath(b) && !isSearchPath(b)) return b;
+    if (!isRemotePath(b) && !isSearchPath(b)) return b;
     return searchStore.originPath ?? "";
   }
 

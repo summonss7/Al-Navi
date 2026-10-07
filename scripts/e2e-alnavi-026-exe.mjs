@@ -104,7 +104,7 @@ try {
   // document.title is the localized "Al-Navi — About…"; the version lives in
   // the custom title bar chip (vX.Y.Z · build time)
   const ver = await evalIn(cdp, `document.querySelector(".titlebar .version")?.textContent ?? ""`);
-  check("title bar chip carries v1.12.15", ver.includes("1.12.15"), JSON.stringify(ver));
+  check("title bar chip carries v1.13.0", ver.includes("1.13.0"), JSON.stringify(ver));
   // click the panel like a user so the window has the keyboard context (a
   // window spawned in the background may have missed the startup focus dance)
   const p = await evalIn(cdp, `(() => { const el = document.querySelector(".panel"); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`);
@@ -127,7 +127,7 @@ try {
       };
     })()
   `);
-  check("8 card sections, 92 rows, 2-column masonry", layout.sections === 8 && layout.rows === 92 && layout.columnCount === "2",
+  check("8 card sections, 93 rows, 2-column masonry", layout.sections === 8 && layout.rows === 93 && layout.columnCount === "2",
     JSON.stringify({ s: layout.sections, r: layout.rows, c: layout.columnCount }));
   check("8 section icons", layout.icons === 8, `icons=${layout.icons}`);
   check("footer modifier hint (Ctrl/Alt/Shift chips)", layout.footerKbds.join(",") === "Ctrl,Alt,Shift", JSON.stringify(layout.footerKbds));

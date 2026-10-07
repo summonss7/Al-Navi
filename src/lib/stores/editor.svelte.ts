@@ -1,6 +1,6 @@
-import { readText, writeText, ftpReadText, ftpWriteText, archiveReadText, loadJson, saveJson, pathExists } from "$lib/api";
+import { readText, writeText, archiveReadText, loadJson, saveJson, pathExists } from "$lib/api";
 import { basename, isAbsolutePath, joinPath } from "$lib/format";
-import { isFtpPath } from "$lib/ftp";
+import { isRemotePath, remoteReadText, remoteWriteText } from "$lib/ftp";
 import { isArchivePath } from "$lib/archive";
 import { ui } from "./ui.svelte";
 import { i18n } from "./i18n.svelte";
@@ -56,7 +56,7 @@ let savedPos: Record<string, SavedEntry> | null = null;
 
 /** local, FTP or archive-member read with the same auto-detect settings */
 function readTextAny(path: string) {
-  if (isFtpPath(path)) return ftpReadText(path, "auto", settings.s.fallbackEncoding);
+  if (isRemotePath(path)) return remoteReadText(path, "auto", settings.s.fallbackEncoding);
   if (isArchivePath(path)) return archiveReadText(path, "auto", settings.s.fallbackEncoding);
   return readText(path, "auto", settings.s.fallbackEncoding);
 }
@@ -179,13 +179,13 @@ class EditorStore {
     const name = await ui.askInput(i18n.t("editor.newFileTitle"), i18n.t("editor.fileNamePrompt"), "");
     const trimmed = name?.trim();
     if (!trimmed) return;
-    const target = isAbsolutePath(trimmed) || isFtpPath(trimmed) ? trimmed : joinPath(dir ?? "", trimmed);
+    const target = isAbsolutePath(trimmed) || isRemotePath(trimmed) ? trimmed : joinPath(dir ?? "", trimmed);
     try {
-      if (!isFtpPath(target) && await pathExists(target)) {
+      if (!isRemotePath(target) && await pathExists(target)) {
         await this.open(target);
         return;
       }
-      if (isFtpPath(target)) await ftpWriteText(target, "", "utf-8", "lf");
+      if (isRemotePath(target)) await remoteWriteText(target, "", "utf-8", "lf");
       else await writeText(target, "", "utf-8", "lf");
       const doc: EditorDoc = {
         id: seq++,
@@ -290,8 +290,8 @@ class EditorStore {
     }
     if (!d.path) return this.saveAs(id);
     try {
-      if (isFtpPath(d.path)) {
-        await ftpWriteText(d.path, d.text, d.encoding, d.eol);
+      if (isRemotePath(d.path)) {
+        await remoteWriteText(d.path, d.text, d.encoding, d.eol);
       } else {
         await writeText(d.path, d.text, d.encoding, d.eol);
       }
@@ -359,7 +359,7 @@ class EditorStore {
     try {
       // images render through the local asset protocol — FTP and archive
       // paths can't use it, so they fall through to the text/hex heuristics
-      const virtual = isFtpPath(path) || isArchivePath(path);
+      const virtual = isRemotePath(path) || isArchivePath(path);
       const isImage = !virtual && /\.(png|jpe?g|gif|bmp|webp|svg|ico|avif)$/i.test(path);
       let doc: ViewerDoc;
       if (isImage) {

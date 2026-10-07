@@ -14,11 +14,11 @@ import { cmdline } from "$lib/stores/cmdline.svelte";
 import { ftpSites } from "$lib/stores/ftpSites.svelte";
 import { userMenu } from "$lib/stores/userMenu.svelte";
 import { latinKeyOf, digitKeyOf } from "$lib/keymap";
-import { FTP_DRIVE_KEY } from "$lib/ftp";
+import { FTP_DRIVE_KEY, SFTP_DRIVE_KEY } from "$lib/ftp";
 import { EDITOR_PLUGINS } from "$lib/plugins";
 import { drivesState, pickDrive } from "./drivesState.svelte";
 import { pluginSel, pluginModes, applyPluginMode } from "./pluginsState.svelte";
-import { ftpConnectSite } from "./ftpState.svelte";
+import { ftpConnectSite, presetFtpScheme } from "./ftpState.svelte";
 import { umAdd, umEdit, umDelete, execUserMenuItem } from "./userMenuState.svelte";
 
 export const LIST_DIALOGS = new Set([
@@ -196,12 +196,15 @@ export function onListKey(e: KeyboardEvent) {
   }
   const n = listCount();
   if (!n) return;
-  // drives dialog: the FTP entry has the assigned digit key (2 — drive
-  // letters can't collide with digits); pressing it opens the FTP list
+  // drives dialog: the FTP/SFTP entries have the assigned digit keys
+  // (2/3 — drive letters can't collide with digits); pressing one opens the
+  // site list with that protocol preset for new sites
   if (ui.dialog === "drives" && !e.ctrlKey && !e.altKey && !e.metaKey) {
-    if (digitKeyOf(e) === FTP_DRIVE_KEY) {
+    const digit = digitKeyOf(e);
+    if (digit === FTP_DRIVE_KEY || digit === SFTP_DRIVE_KEY) {
       e.preventDefault();
       e.stopPropagation();
+      presetFtpScheme(digit === SFTP_DRIVE_KEY);
       ui.openDialog("ftp");
       return;
     }

@@ -2,7 +2,7 @@
   import { ui } from "$lib/stores/ui.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
   import { autofocus } from "./common";
-  import { ftpSiteState, onHotkeyInput, submitFtpForm } from "./ftpState.svelte";
+  import { ftpSiteState, onHotkeyInput, onSchemeInput, submitFtpForm } from "./ftpState.svelte";
 </script>
 
 <div class="overlay">
@@ -16,20 +16,31 @@
         <label class="lbl" for="ftp-f-name">{i18n.t("ftp.name")}</label>
         <input id="ftp-f-name" bind:value={ftpSiteState.form.name} spellcheck="false" />
       {/if}
-      <label class="lbl" for="ftp-f-host">{i18n.t("ftp.host")}</label>
-      <input id="ftp-f-host" bind:value={ftpSiteState.form.host} use:autofocus placeholder="ftp.gnu.org" spellcheck="false" />
       <div class="ftp-row2">
+        <div>
+          <label class="lbl" for="ftp-f-scheme">{i18n.t("ftp.scheme")}</label>
+          <div class="scheme-toggle" id="ftp-f-scheme">
+            <button type="button" class:sel={!ftpSiteState.form.secure} onclick={() => onSchemeInput(false)}>FTP</button>
+            <button type="button" class:sel={ftpSiteState.form.secure} onclick={() => onSchemeInput(true)}>SFTP</button>
+          </div>
+        </div>
         <div>
           <label class="lbl" for="ftp-f-port">{i18n.t("ftp.port")}</label>
           <input id="ftp-f-port" type="number" bind:value={ftpSiteState.form.port} min="1" max="65535" />
         </div>
+      </div>
+      <label class="lbl" for="ftp-f-host">{i18n.t("ftp.host")}</label>
+      <input id="ftp-f-host" bind:value={ftpSiteState.form.host} use:autofocus placeholder={ftpSiteState.form.secure ? "127.0.0.1" : "ftp.gnu.org"} spellcheck="false" />
+      <div class="ftp-row2">
         <div>
           <label class="lbl" for="ftp-f-user">{i18n.t("ftp.user")}</label>
           <input id="ftp-f-user" bind:value={ftpSiteState.form.user} spellcheck="false" />
         </div>
+        <div>
+          <label class="lbl" for="ftp-f-pass">{i18n.t("ftp.password")}</label>
+          <input id="ftp-f-pass" type="password" bind:value={ftpSiteState.form.password} />
+        </div>
       </div>
-      <label class="lbl" for="ftp-f-pass">{i18n.t("ftp.password")}</label>
-      <input id="ftp-f-pass" type="password" bind:value={ftpSiteState.form.password} />
       {#if ftpSiteState.mode !== "quick"}
         <div class="ftp-row2" style="margin-top:10px">
           <div>
@@ -57,3 +68,9 @@
     </div>
   </div>
 </div>
+
+<style>
+  .scheme-toggle { display: flex; gap: 4px; }
+  .scheme-toggle button { flex: 1; padding: 6px 10px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg-inset); color: var(--fg-muted); font-weight: 600; cursor: pointer; }
+  .scheme-toggle button.sel { background: var(--accent); border-color: var(--accent); color: #141619; }
+</style>

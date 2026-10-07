@@ -1,4 +1,4 @@
-import { ftpAuthority } from "$lib/ftp";
+import { isRemotePath, remoteAuthority } from "$lib/ftp";
 import { isArchivePath, splitArchiveUrl, archiveUrl } from "$lib/archive";
 
 export function formatSize(bytes: number, opts?: { binary?: boolean }): string {
@@ -55,15 +55,15 @@ export function joinPath(dir: string, name: string): string {
 }
 
 /** absolute local path: drive root (X:\ or X:/) or UNC (\\server\...);
- *  ftp:// paths are detected by isFtpPath separately */
+ *  ftp:// and sftp:// paths are detected by isRemotePath separately */
 export function isAbsolutePath(p: string): boolean {
   return /^([a-zA-Z]:[\\/]|\\\\)/.test(p);
 }
 
 export function parentOf(p: string): string | null {
-  // FTP: "ftp://user@host:port/a/b" -> "ftp://user@host:port/a", root -> null
-  if (p.startsWith("ftp://")) {
-    const auth = ftpAuthority(p);
+  // remote: "ftp://user@host:port/a/b" -> "ftp://user@host:port/a", root -> null
+  if (isRemotePath(p)) {
+    const auth = remoteAuthority(p);
     const rest = p.slice(auth.length).replace(/\/+$/, "");
     if (!rest || rest === "/") return null;
     const idx = rest.lastIndexOf("/");

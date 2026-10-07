@@ -247,7 +247,7 @@ try {
       return { found: !!hit, desc: hit?.textContent ?? "", rows: rows.length };
     })()
   `);
-  check("help row 'Ctrl+− / +' present (92 rows)", help.found && help.rows === 92 && /interface font/.test(help.desc),
+  check("help row 'Ctrl+− / +' present (93 rows", help.found && help.rows === 93 && /interface font/.test(help.desc),
     `rows=${help.rows} desc=${help.desc.slice(0, 60)}`);
   await tap(cdp, "Escape");
 

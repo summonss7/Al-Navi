@@ -5,7 +5,7 @@
   import { cyrillicOfLatin } from "$lib/keymap";
   import { i18n } from "$lib/stores/i18n.svelte";
   import { formatSize, formatCount, basename, parentOf, sortArrow } from "$lib/format";
-  import { ftpAuthority, isFtpPath } from "$lib/ftp";
+  import { remoteAuthority, isRemotePath } from "$lib/ftp";
   import { isArchivePath, splitArchiveUrl, archiveUrl } from "$lib/archive";
   import { isSearchPath, searchStore } from "$lib/stores/search.svelte";
   import { settings, BASE_FONT_PX } from "$lib/stores/settings.svelte";
@@ -57,10 +57,10 @@
         acc = acc ? `${acc}/${part}` : part;
         out.push({ label: part, path: archiveUrl(file, acc) });
       }
-    } else if (isFtpPath(p)) {
+    } else if (isRemotePath(p)) {
       // "ftp://user@host:port" crumb + one crumb per remote folder
-      const auth = ftpAuthority(p);
-      out.push({ label: auth.slice("ftp://".length), path: auth });
+      const auth = remoteAuthority(p);
+      out.push({ label: auth.slice(auth.indexOf("://") + 3), path: auth });
       let acc = auth;
       for (const part of p.slice(auth.length).split("/").filter(Boolean)) {
         acc += "/" + part;

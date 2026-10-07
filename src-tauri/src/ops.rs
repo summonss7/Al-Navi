@@ -127,16 +127,17 @@ pub fn copy_paths(
     app: AppHandle,
     state: tauri::State<'_, OpManager>,
     ftp: tauri::State<'_, crate::ftp::FtpState>,
+    sftp: tauri::State<'_, crate::sftp::SftpState>,
     paths: Vec<String>,
     dest: String,
 ) -> Result<u32, String> {
     let (id, h) = state.register();
     let mgr = (*state).clone();
     let app = app.clone();
-    if crate::ftp_ops::involves_ftp(&paths, &dest) {
-        let ftp = ftp.inner().clone();
+    if crate::remote_ops::involves_remote(&paths, &dest) {
+        let (ftp, sftp) = (ftp.inner().clone(), sftp.inner().clone());
         tauri::async_runtime::spawn(async move {
-            crate::ftp_ops::run_transfer(app, mgr, id, h, ftp, paths, dest, false).await;
+            crate::remote_ops::run_transfer(app, mgr, id, h, ftp, sftp, paths, dest, false).await;
         });
     } else {
         tauri::async_runtime::spawn_blocking(move || {
@@ -151,16 +152,17 @@ pub fn move_paths(
     app: AppHandle,
     state: tauri::State<'_, OpManager>,
     ftp: tauri::State<'_, crate::ftp::FtpState>,
+    sftp: tauri::State<'_, crate::sftp::SftpState>,
     paths: Vec<String>,
     dest: String,
 ) -> Result<u32, String> {
     let (id, h) = state.register();
     let mgr = (*state).clone();
     let app = app.clone();
-    if crate::ftp_ops::involves_ftp(&paths, &dest) {
-        let ftp = ftp.inner().clone();
+    if crate::remote_ops::involves_remote(&paths, &dest) {
+        let (ftp, sftp) = (ftp.inner().clone(), sftp.inner().clone());
         tauri::async_runtime::spawn(async move {
-            crate::ftp_ops::run_transfer(app, mgr, id, h, ftp, paths, dest, true).await;
+            crate::remote_ops::run_transfer(app, mgr, id, h, ftp, sftp, paths, dest, true).await;
         });
     } else {
         tauri::async_runtime::spawn_blocking(move || {
@@ -758,17 +760,18 @@ pub fn delete_paths(
     app: AppHandle,
     state: tauri::State<'_, OpManager>,
     ftp: tauri::State<'_, crate::ftp::FtpState>,
+    sftp: tauri::State<'_, crate::sftp::SftpState>,
     paths: Vec<String>,
     permanent: bool,
 ) -> Result<u32, String> {
     let (id, h) = state.register();
     let mgr = (*state).clone();
     let app = app.clone();
-    // there is no trash on a server — remote deletes are always DELE/RMD
-    if paths.iter().any(|p| p.starts_with("ftp://")) {
-        let ftp = ftp.inner().clone();
+    // there is no trash on a server — remote deletes are always direct
+    if paths.iter().any(|p| crate::remote_ops::is_remote_str(p)) {
+        let (ftp, sftp) = (ftp.inner().clone(), sftp.inner().clone());
         tauri::async_runtime::spawn(async move {
-            crate::ftp_ops::run_delete(app, mgr, id, h, ftp, paths).await;
+            crate::remote_ops::run_delete(app, mgr, id, h, ftp, sftp, paths).await;
         });
         return Ok(id);
     }

@@ -132,6 +132,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       { chord: "Esc", key: "help.dlg.close" },
       { chord: "C:, D: …", key: "help.dlg.drive" },
       { chord: "2", key: "help.dlg.ftpKey" },
+      { chord: "3", key: "help.dlg.sftpKey" },
     ],
   },
   {

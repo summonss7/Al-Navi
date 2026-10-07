@@ -2,7 +2,7 @@
   import { ui } from "$lib/stores/ui.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
   import { formatSize } from "$lib/format";
-  import { FTP_DRIVE_KEY } from "$lib/ftp";
+  import { FTP_DRIVE_KEY, SFTP_DRIVE_KEY } from "$lib/ftp";
   import { drivesState, loadDrives, pickDrive } from "./drivesState.svelte";
   import { listCursor } from "./listNav.svelte";
 
@@ -19,6 +19,7 @@
       case "home": return "ph-house";
       case "root": return "ph-drives";
       case "ftp": return "ph-globe-hemisphere-west";
+      case "sftp": return "ph-lock-key";
       default: return "ph-hard-drive";
     }
   }
@@ -37,6 +38,8 @@
           <span class="d-name" title={d.mountPoint}>{d.name}</span>
           {#if d.kind === "ftp"}
             <span class="jump-key mono" title={i18n.t("help.dlg.ftpKey")}>{FTP_DRIVE_KEY}</span>
+          {:else if d.kind === "sftp"}
+            <span class="jump-key mono" title={i18n.t("help.dlg.sftpKey")}>{SFTP_DRIVE_KEY}</span>
           {:else if d.totalBytes}
             <span class="d-free mono">{formatSize(d.freeBytes)} {i18n.t("panel.free")} / {formatSize(d.totalBytes)}</span>
           {/if}

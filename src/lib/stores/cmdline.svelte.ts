@@ -93,7 +93,7 @@ export async function runCommand(cmdlineText: string): Promise<void> {
     }
     return;
   }
-  if (cmd.startsWith("ftp://")) {
+  if (cmd.startsWith("ftp://") || cmd.startsWith("sftp://")) {
     await connectFtpUrl(cmd);
     return;
   }
@@ -112,24 +112,26 @@ export async function runCommand(cmdlineText: string): Promise<void> {
   }
 }
 
-/** "ftp://user@host:port/dir" typed on the command line connects the active
- * panel, FAR-style. Credentials come from a saved site with the same
- * address; without one the URL's own user (anonymous by default) connects
- * with an empty password. The panel then opens the URL's folder. */
+/** "ftp://user@host:port/dir" (or sftp://…) typed on the command line
+ * connects the active panel, FAR-style. Credentials come from a saved site
+ * with the same address; without one the URL's own user (anonymous by
+ * default) connects with an empty password. The panel then opens the URL's
+ * folder. */
 async function connectFtpUrl(url: string) {
-  const { ftpConnect } = await import("$lib/api");
-  const { ftpAuthority, ftpRootOf, isFtpPath } = await import("$lib/ftp");
+  const { remoteConnect } = await import("$lib/ftp");
+  const { remoteAuthority, ftpRootOf, isRemotePath } = await import("$lib/ftp");
   const { ftpSites } = await import("./ftpSites.svelte");
   const { ui } = await import("./ui.svelte");
-  if (!isFtpPath(url)) return;
-  const auth = ftpAuthority(url);
+  if (!isRemotePath(url)) return;
+  const auth = remoteAuthority(url);
+  const secure = url.startsWith("sftp://");
   const site = ftpSites.sites.find((s) => ftpRootOf(s) === auth);
   // parse user@host:port out of the URL when no saved site matches
   let host = "";
-  let port = 21;
+  let port = secure ? 22 : 21;
   let user = "anonymous";
   if (!site) {
-    const rest = url.slice("ftp://".length);
+    const rest = url.slice(auth.indexOf("://") + 3);
     const slash = rest.indexOf("/");
     const at = rest.lastIndexOf("@", slash < 0 ? rest.length : slash);
     const hostport = slash < 0 ? rest : rest.slice(0, slash);
@@ -149,10 +151,10 @@ async function connectFtpUrl(url: string) {
     }
   }
   try {
-    if (site) await ftpConnect(site.host, site.port || 21, site.user, site.password);
-    else await ftpConnect(host, port, user, "");
-    // parse_ftp_path applies the same anonymous/21 defaults as above, so the
-    // URL as typed addresses the session that was just opened
+    if (site) await remoteConnect(site);
+    else await remoteConnect({ host, port, user, password: "", secure });
+    // the backend path parser applies the same anonymous/21/22 defaults as
+    // above, so the URL as typed addresses the session that was just opened
     await panels.active.chdir(url);
     panels.pushDirHistory(panels.active.path);
   } catch (e) {

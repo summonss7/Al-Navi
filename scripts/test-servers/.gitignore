@@ -1,0 +1,4 @@
+*.log
+sftp-hostkey*
+sftp-root/
+ftp-root/

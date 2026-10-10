@@ -266,7 +266,7 @@ try {
       return { found: !!hit, kbd: hit?.querySelector("kbd")?.textContent ?? "", desc: hit?.textContent ?? "", rows: rows.length };
     })()
   `);
-  check("help row lists Ctrl+− / + · Ctrl+Wheel (92 rows)", help.found && help.rows === 92 && /Ctrl\+Wheel/.test(help.kbd) && /interface font/.test(help.desc),
+  check("help row lists Ctrl+− / + · Ctrl+Wheel (95 rows)", help.found && help.rows === 95 && /Ctrl\+Wheel/.test(help.kbd) && /interface font/.test(help.desc),
     `rows=${help.rows} kbd=${JSON.stringify(help.kbd)}`);
   await tap(cdp, "Escape");
 

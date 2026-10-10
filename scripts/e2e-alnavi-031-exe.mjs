@@ -1,4 +1,4 @@
-// exe-level E2E for alnavi-031: in the REAL released exe (1.13.0) Ctrl+mouse
+// exe-level E2E for alnavi-031: in the REAL released exe (1.14.0) Ctrl+mouse
 // wheel must zoom the interface font exactly like the Ctrl+± chords (0.5 px
 // steps, 10..24) — Chrome-style. Real wheel events through CDP verify: both
 // directions, accumulation of sub-threshold drabs (two −50 = one step), clamps
@@ -126,7 +126,7 @@ try {
   await sleep(3500);
   await waitFor(cdp, `!!document.querySelector(".panel, .panels")`, 15000, "app UI");
   const ver = await evalIn(cdp, `document.querySelector(".titlebar .version")?.textContent ?? ""`);
-  check("title bar chip carries v1.13.0", ver.includes("1.13.0"), JSON.stringify(ver));
+  check("title bar chip carries v1.14.0", ver.includes("1.14.0"), JSON.stringify(ver));
 
   // probe: record wheels in the BUBBLE phase (after capture listeners) —
   // defaultPrevented separates "the app cancelled it" (ctrl) from native
@@ -239,7 +239,7 @@ try {
       return { found: !!hit, kbd: hit?.querySelector("kbd")?.textContent ?? "", rows: rows.length };
     })()
   `);
-  check("help row lists Ctrl+− / + · Ctrl+Wheel (93 rows", help.found && help.rows === 93 && /Ctrl\+Wheel/.test(help.kbd), `rows=${help.rows} kbd=${JSON.stringify(help.kbd)}`);
+  check("help row lists Ctrl+− / + · Ctrl+Wheel (95 rows", help.found && help.rows === 95 && /Ctrl\+Wheel/.test(help.kbd), `rows=${help.rows} kbd=${JSON.stringify(help.kbd)}`);
   await key(cdp, "Escape");
 
   // ---- return the user's original size by wheel presses ----

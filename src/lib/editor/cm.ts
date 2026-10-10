@@ -1,5 +1,5 @@
 import { EditorView, keymap, highlightActiveLine, lineNumbers, drawSelection, highlightSpecialChars, ViewPlugin, Decoration, type DecorationSet, type ViewUpdate } from "@codemirror/view";
-import { EditorState, Compartment, RangeSetBuilder } from "@codemirror/state";
+import { EditorState, EditorSelection, Compartment, RangeSetBuilder } from "@codemirror/state";
 import {
   defaultKeymap,
   history,
@@ -8,6 +8,14 @@ import {
   deleteLine as cmDeleteLine,
   cursorDocStart,
   cursorDocEnd,
+  cursorLineUp,
+  cursorLineDown,
+  cursorCharLeft,
+  cursorCharRight,
+  cursorLineStart,
+  cursorLineEnd,
+  cursorPageUp,
+  cursorPageDown,
 } from "@codemirror/commands";
 import {
   searchKeymap,
@@ -270,6 +278,9 @@ export function createView(
       highlightSpecialChars(),
       history(),
       drawSelection(),
+      // column selection (alnavi-034) and multi-cursor need this: without
+      // the facet every selection update is reduced to its main range
+      EditorState.allowMultipleSelections.of(true),
       indentOnInput(),
       bracketMatching(),
       highlightSelectionMatches(),
@@ -283,13 +294,64 @@ export function createView(
         // end of the text (works in the editor and the read-only viewer)
         { key: "Ctrl-PageUp", run: cursorDocStart },
         { key: "Ctrl-PageDown", run: cursorDocEnd },
+        // FAR-style column (vertical block) selection, alnavi-034: must sit
+        // before defaultKeymap, whose Alt+ArrowLeft/Right carry shift
+        // variants (word-group select) that these chords replace
+        { key: "Shift-Alt-ArrowUp", run: (v) => columnSelectCmd(v, "up") },
+        { key: "Shift-Alt-ArrowDown", run: (v) => columnSelectCmd(v, "down") },
+        { key: "Shift-Alt-ArrowLeft", run: (v) => columnSelectCmd(v, "left") },
+        { key: "Shift-Alt-ArrowRight", run: (v) => columnSelectCmd(v, "right") },
+        { key: "Shift-Alt-PageUp", run: (v) => columnSelectCmd(v, "pageUp") },
+        { key: "Shift-Alt-PageDown", run: (v) => columnSelectCmd(v, "pageDown") },
+        { key: "Shift-Alt-Home", run: (v) => columnSelectCmd(v, "lineStart") },
+        { key: "Shift-Alt-End", run: (v) => columnSelectCmd(v, "lineEnd") },
+        // a plain caret move collapses the block back to its main caret (FAR:
+        // the block is a selection, not a persistent multi-cursor) and then
+        // moves as usual; with a single cursor these fall through untouched
+        { key: "ArrowUp", run: (v) => collapseColumn(v, cursorLineUp) },
+        { key: "ArrowDown", run: (v) => collapseColumn(v, cursorLineDown) },
+        { key: "ArrowLeft", run: (v) => collapseColumn(v, cursorCharLeft) },
+        { key: "ArrowRight", run: (v) => collapseColumn(v, cursorCharRight) },
+        { key: "Home", run: (v) => collapseColumn(v, cursorLineStart) },
+        { key: "End", run: (v) => collapseColumn(v, cursorLineEnd) },
+        { key: "PageUp", run: (v) => collapseColumn(v, cursorPageUp) },
+        { key: "PageDown", run: (v) => collapseColumn(v, cursorPageDown) },
+        // block delete: a row too short for the column (empty range) must
+        // delete nothing — CodeMirror's own delete would eat the newline at
+        // a line end and merge the rows
+        { key: "Delete", run: (v) => columnDelete(v, "delete.forward") },
+        { key: "Backspace", run: (v) => columnDelete(v, "delete.backward") },
         ...defaultKeymap,
         ...historyKeymap,
         ...searchKeymap,
         indentWithTab,
       ]),
       EditorView.updateListener.of((u) => {
-        if (u.docChanged) opts.onChange?.(u.state.doc.toString());
+        if (u.docChanged) {
+          columnRect = null; // an edit ends column mode (typing replaced the block)
+          opts.onChange?.(u.state.doc.toString());
+        }
+      }),
+      // extension handlers run before CodeMirror's built-in clipboard ones,
+      // so a live block copies/cuts with its empty rows in place (the block
+      // stays aligned when pasted); cut in the read-only viewer just copies
+      EditorView.domEventHandlers({
+        copy(event, v) {
+          const c = columnClipboard(v);
+          if (!c || !event.clipboardData) return false;
+          event.preventDefault();
+          event.clipboardData.setData("text/plain", c.text);
+          return true;
+        },
+        cut(event, v) {
+          const c = columnClipboard(v);
+          if (!c || !event.clipboardData) return false;
+          event.preventDefault();
+          event.clipboardData.setData("text/plain", c.text);
+          const live = c.ranges.filter((r) => r.from !== r.to);
+          if (!v.state.readOnly && live.length) v.dispatch({ changes: live, userEvent: "delete.cut", scrollIntoView: true });
+          return true;
+        },
       }),
       EditorView.theme({
         "&": { height: "100%", fontSize: "calc(13.5px * var(--fs-scale))" },
@@ -349,6 +411,139 @@ export { SearchQuery };
 
 export function deleteLineCmd() {
   if (view) cmDeleteLine(view);
+}
+
+/* ============ column (rectangular) selection, alnavi-034 ============
+ * FAR-style vertical blocks from the keyboard: Shift+Alt+arrows paint one
+ * selection range per line over the rectangle's line/column span — a plain
+ * CodeMirror multi-selection, so everything works on it for free: copy
+ * joins the rows with newlines (FAR block-copy semantics), cut/Delete
+ * remove them, typing replaces every row, the F11 plugins act per row.
+ * The intended rectangle lives in columnRect; a keystroke only continues
+ * it while the live selection still paints exactly that rectangle — any
+ * click, plain-arrow move or edit means the user is elsewhere, and the
+ * block restarts from the caret. */
+interface ColumnRect {
+  anchorLine: number;
+  anchorCol: number;
+  headLine: number;
+  headCol: number;
+}
+let columnRect: ColumnRect | null = null;
+
+/** selection ranges of the rectangle: one per spanned line, clamped into
+ *  each line (a shorter line contributes its tail, as in FAR) */
+function columnRanges(v: EditorView, r: ColumnRect): { from: number; to: number }[] {
+  const doc = v.state.doc;
+  const l1 = Math.max(1, Math.min(r.anchorLine, r.headLine));
+  const l2 = Math.min(doc.lines, Math.max(r.anchorLine, r.headLine));
+  const c1 = Math.max(0, Math.min(r.anchorCol, r.headCol));
+  const c2 = Math.max(0, Math.max(r.anchorCol, r.headCol));
+  const ranges: { from: number; to: number }[] = [];
+  for (let n = l1; n <= l2; n++) {
+    const line = doc.line(n);
+    ranges.push({ from: Math.min(line.from + c1, line.to), to: Math.min(line.from + c2, line.to) });
+  }
+  return ranges;
+}
+
+/** does the live selection still paint exactly this rectangle? */
+function selectionIsColumn(v: EditorView, r: ColumnRect): boolean {
+  const want = columnRanges(v, r);
+  const got = v.state.selection.ranges;
+  if (got.length !== want.length) return false;
+  return want.every((w, i) => got[i].from === w.from && got[i].to === w.to);
+}
+
+export type ColumnDir = "up" | "down" | "pageUp" | "pageDown" | "left" | "right" | "lineStart" | "lineEnd";
+
+/** Shift+Alt+arrows: extend (or start) the rectangular block. */
+export function columnSelectCmd(v: EditorView, dir: ColumnDir): boolean {
+  const doc = v.state.doc;
+  if (!columnRect || !selectionIsColumn(v, columnRect)) {
+    const line = doc.lineAt(v.state.selection.main.head);
+    columnRect = {
+      anchorLine: line.number,
+      anchorCol: v.state.selection.main.head - line.from,
+      headLine: line.number,
+      headCol: v.state.selection.main.head - line.from,
+    };
+  }
+  const r = columnRect;
+  const headLen = doc.line(r.headLine).to - doc.line(r.headLine).from;
+  switch (dir) {
+    case "up":
+      r.headLine = Math.max(1, r.headLine - 1);
+      break;
+    case "down":
+      r.headLine = Math.min(doc.lines, r.headLine + 1);
+      break;
+    case "pageUp":
+    case "pageDown": {
+      const page = Math.max(1, Math.floor(v.scrollDOM.clientHeight / v.defaultLineHeight) - 1);
+      r.headLine = dir === "pageUp" ? Math.max(1, r.headLine - page) : Math.min(doc.lines, r.headLine + page);
+      break;
+    }
+    case "left":
+      r.headCol = Math.max(0, r.headCol - 1);
+      break;
+    // the head cursor stays on its line, so widening stops at its end (the
+    // block never reaches into virtual space beyond the text)
+    case "right":
+      r.headCol = Math.min(headLen, r.headCol + 1);
+      break;
+    case "lineStart":
+      r.headCol = 0;
+      break;
+    case "lineEnd":
+      r.headCol = headLen;
+      break;
+  }
+  const l1 = Math.max(1, Math.min(r.anchorLine, r.headLine));
+  const ranges = columnRanges(v, r);
+  // every cursor sits on the head's edge of the block: the right one while
+  // the head is at/after the anchor column, the left one after crossing over
+  const after = r.headCol >= r.anchorCol;
+  const sel = EditorSelection.create(
+    ranges.map((x) => EditorSelection.range(after ? x.from : x.to, after ? x.to : x.from)),
+    r.headLine - l1,
+  );
+  v.dispatch({
+    selection: sel,
+    effects: EditorView.scrollIntoView(sel.main.head),
+  });
+  return true;
+}
+
+/** plain caret moves over a live block: collapse to the main caret first
+ *  (FAR semantics), then run the standard movement. Returns false with a
+ *  single cursor so defaultKeymap handles the key as before. */
+function collapseColumn(v: EditorView, cmd: (v: EditorView) => boolean): boolean {
+  const sel = v.state.selection;
+  if (sel.ranges.length < 2) return false;
+  columnRect = null;
+  v.dispatch({ selection: { anchor: sel.main.head } });
+  return cmd(v);
+}
+
+/** block delete: only the non-empty rows participate. Returns false when
+ *  there is no live block, handing the key to CodeMirror's own delete. */
+function columnDelete(v: EditorView, userEvent: string): boolean {
+  if (!columnRect || !selectionIsColumn(v, columnRect)) return false;
+  const ranges = v.state.selection.ranges.filter((r) => !r.empty);
+  if (ranges.length) v.dispatch({ changes: ranges, userEvent, scrollIntoView: true });
+  return true;
+}
+
+/** clipboard form of a live block: rows joined with newlines, empty rows
+ *  kept in place — CodeMirror's own serializer skips empty ranges, which
+ *  would shift the shorter lines out of the block. Null (defer to the
+ *  built-in linewise copy) when there is no block or it is zero-width. */
+function columnClipboard(v: EditorView): { text: string; ranges: { from: number; to: number }[] } | null {
+  if (!columnRect || !selectionIsColumn(v, columnRect)) return null;
+  const ranges = columnRanges(v, columnRect);
+  if (ranges.every((r) => r.from === r.to)) return null;
+  return { text: ranges.map((r) => v.state.sliceDoc(r.from, r.to)).join("\n"), ranges };
 }
 
 /** F11 change-case plugin: transform every non-empty selection range.

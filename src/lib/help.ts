@@ -114,6 +114,8 @@ export const HELP_SECTIONS: HelpSection[] = [
       { chord: "F7", key: "help.ed.search" },
       { chord: "F11 · editor", key: "help.ed.plugins" },
       { chord: "Ctrl+Shift+L", key: "help.ed.layout" },
+      { chord: "Shift+Alt+↑ ↓ ← → · PgUp/PgDn", key: "help.ed.column" },
+      { chord: "Shift+Alt+Home / End", key: "help.ed.columnFull" },
       { chord: "Ctrl+PgUp / Ctrl+PgDn", key: "help.ed.docHome" },
       { chord: "Ctrl+G", key: "help.ed.goto" },
       { chord: "F8 / Ctrl+Y · editor", key: "help.ed.delLine" },

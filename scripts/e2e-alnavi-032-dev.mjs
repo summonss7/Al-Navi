@@ -16,7 +16,8 @@
 //   - Alt row, then Alt+Shift pair row: exact chips, then clean release
 //   - the real Ctrl+Shift+F4 chord opens the scratchpad editor
 //   - editor Ctrl+Shift row: F4/L/Tab, no panels-only chips
-//   - editor Alt+Shift falls back to the Shift row
+//   - editor Alt+Shift row: column-selection chips (alnavi-034 — used to
+//     fall through to the Shift row before the editor got its own pair row)
 //   - locale ru translates the pair-row labels (черновик), no raw keys leak
 // Usage: node scripts/e2e-alnavi-032-dev.mjs
 import { spawn } from "node:child_process";
@@ -233,11 +234,11 @@ try {
   check("editor Ctrl+Shift row: exact chip set", JSON.stringify(bar.map((b) => b.kbd)) === JSON.stringify(["Ctrl+Shift+F4", "Ctrl+Shift+L", "Ctrl+Shift+Tab"]),
     JSON.stringify(bar.map((b) => b.kbd)));
 
-  step("editor: Alt+Shift has no pair row -> falls back to the Shift row");
+  step("editor: Alt+Shift pair row shows the column-selection chips (alnavi-034)");
   await releaseMods(cdp, ["Control"]);
   await holdMods(cdp, ["Alt"]);
   bar = await evalIn(cdp, barOf);
-  check("editor Alt+Shift falls back to the Shift row", bar.length === 2 && bar.every((b) => b.kbd.startsWith("Shift+") && !b.kbd.startsWith("Alt")),
+  check("editor Alt+Shift row: column chips, info-only", JSON.stringify(bar.map((b) => b.kbd)) === JSON.stringify(["Alt+Shift+↑↓←→", "Alt+Shift+Home/End", "Alt+Shift+PgUp/PgDn"]) && bar.every((b) => b.dim),
     JSON.stringify(bar.map((b) => b.kbd)));
   await releaseMods(cdp, ["Alt", "Shift"]);
 

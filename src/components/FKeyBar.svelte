@@ -203,9 +203,18 @@
     ] satisfies Key[];
   });
 
-  // Alt+Shift pair row: the panels-only history chords
+  // Alt+Shift pair row: the panels-only history chords; in the editor the
+  // pair drives column (vertical block) selection — info-only chips, the
+  // selection is handled inside CodeMirror, not by a runCommand
   const altShiftHints = $derived.by(() => {
     void i18n.locale;
+    if (ui.mode === "editor") {
+      return [
+        { k: "Alt+Shift+↑↓←→", cmd: null, label: i18n.t("hint.column") },
+        { k: "Alt+Shift+Home/End", cmd: null, label: i18n.t("hint.columnFull") },
+        { k: "Alt+Shift+PgUp/PgDn", cmd: null, label: i18n.t("hint.columnPage") },
+      ] satisfies Key[];
+    }
     if (ui.mode !== "panels") return [] as Key[];
     return [
       { k: "Alt+Shift+←", cmd: "panel.historyBack", label: i18n.t("hint.histBack") },

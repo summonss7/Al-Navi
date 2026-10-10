@@ -127,6 +127,8 @@ try {
 
   step("F1 opens the help dialog");
   await key(cdp, "F1");
+  // HelpDialog loads as its own lazy chunk in dev — wait, don't poll once
+  await waitFor(async () => await evalIn(cdp, `!!document.querySelector(".dlg.help-dlg")`), 10000, "help dialog");
   let dom = await evalIn(cdp, `!!document.querySelector(".dlg.help-dlg")`);
   check("help dialog is open", dom === true);
 
@@ -152,7 +154,7 @@ try {
     })()
   `);
   check("8 sections render as cards", layout.sections === 8, `sections=${layout.sections}`);
-  check("92 rows total (91 + Ctrl+−/+ font zoom, alnavi-028)", layout.rows === 92, `rows=${layout.rows}`);
+  check("95 rows total (+font zoom, +SFTP key, +column sel)", layout.rows === 95, `rows=${layout.rows}`);
   check("masonry: two balanced columns", layout.columnCount === "2", `columnCount=${layout.columnCount}`);
   check("cards have a background and rounded corners", layout.cardBg !== "rgba(0, 0, 0, 0)" && parseFloat(layout.cardRadius) > 0,
     `bg=${layout.cardBg} radius=${layout.cardRadius}`);

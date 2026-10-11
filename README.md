@@ -394,7 +394,7 @@ scripts/           make-icon.mjs (генерация бренд-иконки), b
                   archive/ (одноразовые проверки прошлых релизов)
 images/            дизайн-референсы: design.jpg (макет), logo.jpg, icon.jpg, font.jpg, color.jpg
 backup.bat/.ps1    резервные копии проекта в backups/ (ротация 8 архивов)
-CHANGELOG.md       история версий + архив всех записей из promt.txt
+CHANGELOG.md       история версий + вся отчётность по задачам (архив promt.txt заморожен)
 ```
 
 ## Добавление хоткеев / команд

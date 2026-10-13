@@ -362,7 +362,11 @@ export function createView(
         ".cm-content": { caretColor: "var(--accent2)" },
         "&.cm-focused": { outline: "none" },
         ".cm-gutters": {
-          backgroundColor: "transparent",
+          // opaque like the editor card: the gutter is sticky and floats ABOVE
+          // the horizontally scrolled text (z-index 200); with a transparent
+          // background the line beginnings slid under the numbers and mixed
+          // with them after a search jump/wrap (alnavi-035)
+          backgroundColor: "var(--bg-panel)",
           color: "var(--fg-dim)",
           border: "none",
           borderInlineEnd: "1px solid var(--border)",

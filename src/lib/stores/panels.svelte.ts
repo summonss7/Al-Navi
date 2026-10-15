@@ -211,7 +211,7 @@ export class PanelState {
         list.sort((a, b) => dir * (b.mtime - a.mtime));
         break;
       case "size":
-        list.sort((a, b) => dir * (b.size - a.size));
+        list.sort((a, b) => dir * (this.effSize(b) - this.effSize(a)));
         break;
       case "unsorted":
         break;
@@ -299,6 +299,9 @@ export class PanelState {
       }
     }
     this.dirSizes = next;
+    // cached sizes arrived after load()'s rebuild already sorted the view —
+    // a size-sorted panel must reorder by them right away
+    if (this.sortMode === "size" && next.size) this.rebuild();
     if (stale.length) computeDirSizes(stale).catch(() => {});
   }
 
@@ -309,10 +312,19 @@ export class PanelState {
     const next = new Map(this.dirSizes);
     next.set(path, size);
     this.dirSizes = next;
+    // the walk delivered a folder size — a size-sorted view falls in line
+    if (this.sortMode === "size") this.rebuild();
   }
 
   dirSizeOf(name: string): number | undefined {
     return this.dirSizes.get(joinPath(this.path, name));
+  }
+
+  /** sort key for size mode: a folder sorts by its computed "≈" size when
+   *  known, falling back to the raw (0) until the walk delivers a value */
+  private effSize(e: FileEntry): number {
+    if (!e.isDir) return e.size;
+    return this.dirSizes.get(joinPath(this.path, e.name)) ?? e.size;
   }
 
   // ---------- navigation ----------

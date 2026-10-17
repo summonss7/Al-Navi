@@ -30,6 +30,7 @@
   import HelpDialog from "$comp/dialogs/HelpDialog.svelte";
   import FileColorsDialog from "$comp/dialogs/FileColorsDialog.svelte";
   import TextColorsDialog from "$comp/dialogs/TextColorsDialog.svelte";
+  import EncodingDialog from "$comp/dialogs/EncodingDialog.svelte";
   import ErrorsDialog from "$comp/dialogs/ErrorsDialog.svelte";
 
   // capture phase: keys handled by a dialog must be stopped on the way down —
@@ -74,4 +75,5 @@
 {#if ui.dialog === "help"}<HelpDialog />{/if}
 {#if ui.dialog === "fileColors"}<FileColorsDialog />{/if}
 {#if ui.dialog === "textColors"}<TextColorsDialog />{/if}
+{#if ui.dialog === "encoding"}<EncodingDialog />{/if}
 {#if ui.dialog === "errors" && ui.errorText}<ErrorsDialog />{/if}

@@ -12,6 +12,7 @@
   import { editor } from "$lib/stores/editor.svelte";
   import { ui } from "$lib/stores/ui.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
+  import { ENCODINGS } from "$lib/encodings";
 
   let host: HTMLDivElement | undefined = $state();
   let view: EditorView | null = null;
@@ -19,6 +20,9 @@
   let stats = $state({ chars: 0, lines: 1, spaces: 0 });
   let statsTimer: ReturnType<typeof setTimeout> | undefined;
   let lastDocId = -1;
+  /** content revision of lastDocId — F8 encoding reloads bump the doc's rev
+   *  without changing its id, the swap effect reacts to it */
+  let lastRev = 0;
   /** true while a programmatic doc swap runs — its change events must not
    *  mark the target document dirty */
   let switching = false;
@@ -50,7 +54,6 @@
     else statsTimer = setTimeout(() => countStats(text), 300);
   }
 
-  const ENCODINGS = ["utf-8", "utf-16le", "utf-16be", "windows-1251", "koi8-r", "cp866", "iso-8859-5"];
   const EOLS = [
     { id: "lf", label: "LF" },
     { id: "crlf", label: "CRLF" },
@@ -74,6 +77,7 @@
     countStats(doc?.text ?? "");
     setActiveView(view);
     lastDocId = editor.activeId ?? -1;
+    lastRev = doc?.rev ?? 0;
     // returning to the editor (or a doc reopened after restart): put the
     // caret and scroll back where they were
     if (doc?.pos) restorePos(view, doc.pos);
@@ -104,14 +108,18 @@
     requestAnimationFrame(() => view?.focus());
   });
 
-  // switch content when the active document changes
+  // switch content when the active document changes — or when the same
+  // document is re-read in another encoding (F8: rev bump, id unchanged)
   $effect(() => {
     const id = editor.activeId ?? -1;
     const d = editor.active;
     if (!view || !d) return;
-    if (id === lastDocId) return;
-    if (lastDocId !== -1) editor.savePos(lastDocId, capturePos(view));
-    lastDocId = id;
+    if (id === lastDocId && d.rev === lastRev) return;
+    if (id !== lastDocId) {
+      if (lastDocId !== -1) editor.savePos(lastDocId, capturePos(view));
+      lastDocId = id;
+    }
+    lastRev = d.rev;
     switching = true;
     setStateFor(view, d.text, d.path);
     switching = false;
@@ -184,8 +192,18 @@
       </label>
       <label>
         {i18n.t("editor.encoding")}
-        <select value={doc.encoding} onchange={(e) => editor.setEncoding(doc.id, (e.currentTarget as HTMLSelectElement).value)}>
-          {#each ENCODINGS as enc (enc)}<option value={enc}>{enc}</option>{/each}
+        <select
+          value={doc.encoding}
+          onchange={(e) => {
+            const sel = e.currentTarget as HTMLSelectElement;
+            const enc = sel.value;
+            // revert the visible choice until the reload lands — a cancelled
+            // confirm (dirty doc) must not leave a stale label on screen
+            sel.value = doc.encoding;
+            void editor.reopenWithEncoding(doc.id, enc);
+          }}
+        >
+          {#each ENCODINGS as enc (enc.id)}<option value={enc.id}>{enc.label}</option>{/each}
         </select>
       </label>
     </div>

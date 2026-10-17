@@ -1,4 +1,4 @@
-// Exe-level E2E for alnavi-033: in the REAL released exe (1.14.2) the
+// Exe-level E2E for alnavi-033: in the REAL released exe (1.14.3) the
 // Alt+F7 search dialog must prefill the folder from the CURRENT panel, not
 // from the last executed search. The bug: the persisted search-history.json
 // root (e.g. a stale C:\Windows) won over whatever panel the user was
@@ -23,7 +23,7 @@ if (!existsSync(EXE)) {
   console.error(`exe not found: ${EXE}`);
   process.exit(1);
 }
-const VERSION_PIN = "1.14.2";
+const VERSION_PIN = "1.14.3";
 const CFG = join(process.env.APPDATA, "al-navi");
 const CDP_PORT = 9266;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -65,7 +65,7 @@
       { k: "F5", cmd: null, label: "" },
       { k: "F6", cmd: null, label: "" },
       { k: "F7", cmd: "editor.search", label: i18n.t("editor.fkeys.f7") },
-      { k: "F8", cmd: "editor.deleteLine", label: i18n.t("editor.fkeys.f8") },
+      { k: "F8", cmd: "editor.selectEncoding", label: i18n.t("editor.fkeys.f8") },
       { k: "F9", cmd: null, label: "" },
       { k: "F10", cmd: "app.quit", label: i18n.t("editor.fkeys.f10") },
       { k: "F11", cmd: "ui.plugins", label: i18n.t("fkeys.f11") },
@@ -162,9 +162,12 @@
       return [
         { k: "Shift+F2", cmd: "editor.saveAs", label: i18n.t("help.ed.saveAs") },
         { k: "Shift+F4", cmd: "editor.newFile", label: i18n.t("help.ed.new") },
+        { k: "Shift+F8", cmd: "editor.selectEncoding", label: i18n.t("hint.encoding") },
       ] satisfies Key[];
     }
-    if (ui.mode === "viewer") return [] as Key[];
+    if (ui.mode === "viewer") {
+      return [{ k: "Shift+F8", cmd: "viewer.selectEncoding", label: i18n.t("hint.encoding") }] satisfies Key[];
+    }
     return [
       { k: "Shift+Enter", cmd: "panel.enterExternal", label: i18n.t("hint.openExt") },
       { k: "Shift+F4", cmd: "editor.newFile", label: i18n.t("help.ed.new") },

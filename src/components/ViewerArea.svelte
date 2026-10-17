@@ -8,12 +8,16 @@
   import { ui } from "$lib/stores/ui.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
   import { formatSize } from "$lib/format";
+  import { encodingLabel } from "$lib/encodings";
   import { isRemotePath, remoteReadHex } from "$lib/ftp";
   import { isArchivePath } from "$lib/archive";
 
   let host: HTMLDivElement | undefined = $state();
   let view: EditorView | null = null;
   let lastDocId = -1;
+  /** content revision of lastDocId — Shift+F8 encoding reloads swap the text
+   *  of the same doc, the effect reacts to the bump */
+  let lastRev = 0;
   /** last known text scroll offset — the effect that saves the position runs
    *  after the DOM teardown, when a detached scroller already reads 0 */
   let lastScrollTop = 0;
@@ -102,6 +106,7 @@
         view = createView(host, d.text, d.path, { readOnly: true });
         setActiveView(view);
         lastDocId = d.id;
+        lastRev = d.rev;
         lastScrollTop = d.pos?.scrollTop ?? 0;
         if (d.pos) restorePos(view, d.pos);
         view.focus();
@@ -109,9 +114,17 @@
         if (d.id !== lastDocId) {
           if (lastDocId !== -1) editor.saveViewPos(lastDocId, { ...capturePos(view), scrollTop: lastScrollTop });
           lastDocId = d.id;
+          lastRev = d.rev;
           setStateFor(view, d.text, d.path, true);
           if (d.pos) restorePos(view, d.pos);
           view.focus();
+        } else if (d.rev !== lastRev) {
+          // same doc re-read in another encoding (Shift+F8): swap the text,
+          // keep the reading position
+          const keep = { ...capturePos(view), scrollTop: lastScrollTop };
+          setStateFor(view, d.text, d.path, true);
+          restorePos(view, keep);
+          lastRev = d.rev;
         }
       }
     } else if (view) {
@@ -145,6 +158,15 @@
       <span class="dim mono">{formatSize(hexFileSize || doc.text.length)}</span>
       <span class="grow"></span>
       {#if doc.mode !== "image"}
+        {#if doc.mode === "text"}
+          <button
+            class="btn small"
+            title={i18n.t("hint.encoding") + " (Shift+F8)"}
+            onclick={() => {
+              void import("$lib/commands").then(({ runCommand }) => runCommand("viewer.selectEncoding"));
+            }}
+          >{encodingLabel(doc.encoding)}</button>
+        {/if}
         <span class="mode-badge">{doc.mode === "hex" ? i18n.t("viewer.hex") : i18n.t("viewer.textMode")}</span>
         <button class="btn small" onclick={() => editor.toggleHexActive()}>F8 {i18n.t("viewer.hex")}</button>
       {/if}

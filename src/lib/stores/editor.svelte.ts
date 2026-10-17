@@ -17,6 +17,9 @@ export interface EditorDoc {
   truncated: boolean;
   /** CodeMirror Text state — non-reactive, lives outside Svelte */
   text: string;
+  /** bumped when the whole content is replaced in place (F8 encoding
+   *  reload): EditorArea watches it to swap the document of the same id */
+  rev: number;
   /** remembered caret/scroll — restored on tab switch and remount */
   pos?: EditorPos;
   /** Ctrl+Shift+F4 scratchpad: lives only in RAM — no disk writes, no dirty
@@ -33,6 +36,8 @@ export interface ViewerDoc {
   eol: string;
   truncated: boolean;
   text: string;
+  /** same as EditorDoc.rev — ViewerArea swaps content when it changes */
+  rev: number;
   pos?: EditorPos;
 }
 
@@ -54,11 +59,12 @@ interface SavedEntry {
 }
 let savedPos: Record<string, SavedEntry> | null = null;
 
-/** local, FTP or archive-member read with the same auto-detect settings */
-function readTextAny(path: string) {
-  if (isRemotePath(path)) return remoteReadText(path, "auto", settings.s.fallbackEncoding);
-  if (isArchivePath(path)) return archiveReadText(path, "auto", settings.s.fallbackEncoding);
-  return readText(path, "auto", settings.s.fallbackEncoding);
+/** local, FTP or archive-member read; encoding "auto" re-runs detection,
+ *  any other canonical id forces that encoding (F8 reload) */
+function readTextAny(path: string, encoding = "auto") {
+  if (isRemotePath(path)) return remoteReadText(path, encoding, settings.s.fallbackEncoding);
+  if (isArchivePath(path)) return archiveReadText(path, encoding, settings.s.fallbackEncoding);
+  return readText(path, encoding, settings.s.fallbackEncoding);
 }
 
 class EditorStore {
@@ -160,6 +166,7 @@ class EditorStore {
         eol: c.eol === "mixed" ? "keep" : c.eol,
         truncated: c.truncated,
         text: c.text,
+        rev: 0,
         pos: this.savedPosFor(path),
       };
       this.docs = [...this.docs, doc];
@@ -196,6 +203,7 @@ class EditorStore {
         eol: "lf",
         truncated: false,
         text: "",
+        rev: 0,
         pos: this.savedPosFor(target),
       };
       this.docs = [...this.docs, doc];
@@ -226,6 +234,7 @@ class EditorStore {
       truncated: false,
       scratch: true,
       text: "",
+      rev: 0,
     };
     this.docs = [...this.docs, doc];
     this.activeId = doc.id;
@@ -279,6 +288,34 @@ class EditorStore {
   setEncoding(id: number, enc: string) {
     const d = this.docs.find((x) => x.id === id);
     if (d) d.encoding = enc;
+  }
+
+  /** F8 in the editor: re-read the file from disk in the chosen encoding
+   *  ("auto" re-runs detection) and swap the document content in place.
+   *  Unsaved changes are confirmed away first — the disk copy is the truth
+   *  being re-decoded; saving under the new encoding keeps it from F2. */
+  async reopenWithEncoding(id: number, enc: string): Promise<void> {
+    const d = this.docs.find((x) => x.id === id);
+    if (!d) return;
+    if (d.scratch || !d.path) {
+      ui.showToast(i18n.t("editor.encNoFile"));
+      return;
+    }
+    if (d.dirty) {
+      const ok = await ui.askConfirm(i18n.t("editor.encReload", { name: d.name }));
+      if (!ok) return;
+    }
+    try {
+      const c = await readTextAny(d.path, enc);
+      d.encoding = c.encoding;
+      d.eol = c.eol === "mixed" ? "keep" : c.eol;
+      d.truncated = c.truncated;
+      d.text = c.text;
+      d.rev++;
+      d.dirty = false;
+    } catch (e) {
+      ui.showError(String(e));
+    }
   }
 
   async save(id = this.activeId): Promise<boolean> {
@@ -372,6 +409,7 @@ class EditorStore {
           eol: "",
           truncated: false,
           text: "",
+          rev: 0,
         };
       } else {
         const c = await readTextAny(path);
@@ -387,6 +425,7 @@ class EditorStore {
           eol: c.eol,
           truncated: c.truncated,
           text: bin ? "" : c.text,
+          rev: 0,
           pos: this.savedPosFor(path),
         };
       }
@@ -410,6 +449,25 @@ class EditorStore {
         d.text = c.text;
         d.encoding = c.encoding;
       });
+    }
+  }
+
+  /** Shift+F8 in the viewer: re-read the file in the chosen encoding and
+   *  show it as text (hex mode switches over — the codepage applies to the
+   *  text rendering) */
+  async reopenViewerWithEncoding(id: number, enc: string): Promise<void> {
+    const d = this.viewDocs.find((x) => x.id === id);
+    if (!d || d.mode === "image") return;
+    try {
+      const c = await readTextAny(d.path, enc);
+      d.mode = "text";
+      d.encoding = c.encoding;
+      d.eol = c.eol;
+      d.truncated = c.truncated;
+      d.text = c.text;
+      d.rev++;
+    } catch (e) {
+      ui.showError(String(e));
     }
   }
 

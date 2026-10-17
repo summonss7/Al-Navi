@@ -28,6 +28,7 @@ import { settings } from "$lib/stores/settings.svelte";
 import { cmdline } from "$lib/stores/cmdline.svelte";
 import { ftpSites } from "$lib/stores/ftpSites.svelte";
 import { isSearchPath, searchStore } from "$lib/stores/search.svelte";
+import { openEncodingDialog } from "$comp/dialogs/listNav.svelte";
 import type { FileEntry } from "$lib/types";
 
 /** real path of a panel entry — search results carry their own full path,
@@ -131,6 +132,7 @@ export function registerAllCommands() {
   });
   registerCommand("viewer.toEditor", () => editor.toEditorActive());
   registerCommand("viewer.toggleHex", () => editor.toggleHexActive());
+  registerCommand("viewer.selectEncoding", () => openEncodingDialog());
   registerCommand("viewer.close", () => void editor.closeViewer());
   registerCommand("viewer.history", () => ui.openDialog("viewHist"));
 
@@ -487,6 +489,9 @@ export function registerAllCommands() {
       gotoLineCmd(line);
     }
   });
+  // F8: reload the active document in the chosen encoding (delete-line
+  // stays on Ctrl+Y); the viewer gets the same dialog on Shift+F8
+  registerCommand("editor.selectEncoding", () => openEncodingDialog());
 
   // ---------- user menu (F2) ----------
   registerCommand("usermenu.open", () => ui.openDialog("userMenu"));

@@ -16,6 +16,7 @@ import { userMenu } from "$lib/stores/userMenu.svelte";
 import { latinKeyOf, digitKeyOf } from "$lib/keymap";
 import { FTP_DRIVE_KEY, SFTP_DRIVE_KEY } from "$lib/ftp";
 import { EDITOR_PLUGINS } from "$lib/plugins";
+import { ENCODING_MENU } from "$lib/encodings";
 import { drivesState, pickDrive } from "./drivesState.svelte";
 import { pluginSel, pluginModes, applyPluginMode } from "./pluginsState.svelte";
 import { ftpConnectSite, presetFtpScheme } from "./ftpState.svelte";
@@ -30,6 +31,7 @@ export const LIST_DIALOGS = new Set([
   "userMenu",
   "plugins",
   "ftp",
+  "encoding",
 ]);
 
 /** keyboard cursor of whichever list dialog is open (-1 = none yet);
@@ -55,6 +57,8 @@ export function listCount(): number {
       return pluginSel.id ? pluginModes().length : EDITOR_PLUGINS.length;
     case "ftp":
       return ftpSites.sites.length;
+    case "encoding":
+      return ENCODING_MENU.length;
     default:
       return 0;
   }
@@ -128,6 +132,19 @@ export function activateListItem(i: number) {
       if (s) void ftpConnectSite(s, false);
       break;
     }
+    case "encoding": {
+      // the dialog must be gone before the (possibly async) reload opens its
+      // own confirm for unsaved changes — closeDialog would otherwise clear it
+      const enc = ENCODING_MENU[i];
+      const editId = editor.active?.id ?? null;
+      const viewId = editor.activeViewer?.id ?? null;
+      const mode = ui.mode;
+      ui.closeDialog();
+      if (enc === undefined) break;
+      if (mode === "viewer" && viewId !== null) void editor.reopenViewerWithEncoding(viewId, enc);
+      else if (editId !== null) void editor.reopenWithEncoding(editId, enc);
+      break;
+    }
   }
 }
 
@@ -149,6 +166,15 @@ export function clampListIdx() {
   const n = listCount();
   if (n && listCursor.idx < 0) listCursor.idx = 0;
   else if (n && listCursor.idx > n - 1) listCursor.idx = n - 1;
+}
+
+/** F8 (editor) / Shift+F8 (viewer): open the encoding picker with the
+ *  keyboard cursor already on the document's current encoding */
+export function openEncodingDialog() {
+  const cur = ui.mode === "viewer" ? editor.activeViewer?.encoding : editor.active?.encoding;
+  const idx = cur ? ENCODING_MENU.indexOf(cur) : 0;
+  listCursor.idx = idx >= 0 ? idx : 1; // unknown label -> first real encoding
+  ui.openDialog("encoding");
 }
 
 /** keep the keyboard cursor row visible while walking (router's $effect) */

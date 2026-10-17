@@ -31,6 +31,29 @@ pub(crate) fn lookup_encoding(label: &str) -> Option<&'static Encoding> {
     }
 }
 
+/// Canonical lowercase id reported to the frontend (Encoding::name() would
+/// return WHATWG spellings like "UTF-8" / "IBM866"; the UI menus and the
+/// status select expect "utf-8" / "cp866").
+pub(crate) fn canon_label(e: &'static Encoding) -> &'static str {
+    if e == encoding_rs::UTF_8 {
+        "utf-8"
+    } else if e == encoding_rs::UTF_16LE {
+        "utf-16le"
+    } else if e == encoding_rs::UTF_16BE {
+        "utf-16be"
+    } else if e == encoding_rs::WINDOWS_1251 {
+        "windows-1251"
+    } else if e == encoding_rs::KOI8_R {
+        "koi8-r"
+    } else if e == encoding_rs::IBM866 {
+        "cp866"
+    } else if e == encoding_rs::ISO_8859_5 {
+        "iso-8859-5"
+    } else {
+        e.name()
+    }
+}
+
 pub(crate) fn detect_eol(s: &str) -> &'static str {
     let mut crlf = 0usize;
     let mut lf = 0usize;
@@ -66,16 +89,18 @@ pub(crate) fn detect_eol(s: &str) -> &'static str {
 /// 3. Heuristic: many NUL bytes → UTF-16 without BOM
 /// 4. Fallback single-byte encoding (default windows-1251, configurable from UI)
 pub(crate) fn decode_auto(bytes: &[u8], fallback: &str) -> (String, &'static str, bool) {
+    // BOMs are handled here explicitly, so the actual decodes must not
+    // BOM-sniff again (Encoding::decode() would override the choice)
     if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
-        let (cow, _, _) = encoding_rs::UTF_8.decode(&bytes[3..]);
+        let (cow, _) = encoding_rs::UTF_8.decode_without_bom_handling(&bytes[3..]);
         return (cow.into_owned(), "utf-8", true);
     }
     if bytes.starts_with(&[0xFF, 0xFE]) {
-        let (cow, _, _) = encoding_rs::UTF_16LE.decode(&bytes[2..]);
+        let (cow, _) = encoding_rs::UTF_16LE.decode_without_bom_handling(&bytes[2..]);
         return (cow.into_owned(), "utf-16le", true);
     }
     if bytes.starts_with(&[0xFE, 0xFF]) {
-        let (cow, _, _) = encoding_rs::UTF_16BE.decode(&bytes[2..]);
+        let (cow, _) = encoding_rs::UTF_16BE.decode_without_bom_handling(&bytes[2..]);
         return (cow.into_owned(), "utf-16be", true);
     }
     if std::str::from_utf8(bytes).is_ok() {
@@ -87,17 +112,17 @@ pub(crate) fn decode_auto(bytes: &[u8], fallback: &str) -> (String, &'static str
         let even_nul = bytes[..n].iter().skip(0).step_by(2).filter(|b| **b == 0).count();
         let odd_nul = bytes[..n].iter().skip(1).step_by(2).filter(|b| **b == 0).count();
         if even_nul > n / 3 {
-            let (cow, _, _) = encoding_rs::UTF_16BE.decode(bytes);
+            let (cow, _) = encoding_rs::UTF_16BE.decode_without_bom_handling(bytes);
             return (cow.into_owned(), "utf-16be", false);
         }
         if odd_nul > n / 3 {
-            let (cow, _, _) = encoding_rs::UTF_16LE.decode(bytes);
+            let (cow, _) = encoding_rs::UTF_16LE.decode_without_bom_handling(bytes);
             return (cow.into_owned(), "utf-16le", false);
         }
     }
     let enc = lookup_encoding(fallback).unwrap_or(encoding_rs::WINDOWS_1251);
-    let (cow, _, _) = enc.decode(bytes);
-    (cow.into_owned(), enc.name(), false)
+    let (cow, _) = enc.decode_without_bom_handling(bytes);
+    (cow.into_owned(), canon_label(enc), false)
 }
 
 #[tauri::command]
@@ -134,12 +159,24 @@ pub(crate) fn decode_content(
     let (text, enc, bom) = match encoding {
         Some(label) if !label.eq_ignore_ascii_case("auto") => {
             let e = lookup_encoding(label).ok_or_else(|| format!("unknown encoding: {}", label))?;
-            if label.eq_ignore_ascii_case("utf-8") && buf.starts_with(&[0xEF, 0xBB, 0xBF]) {
-                let (cow, _, _) = e.decode(&buf[3..]);
+            // An explicit choice must win: Encoding::decode() sniffs a UTF-8/16
+            // BOM and silently overrides the requested encoding, so a manual
+            // switch on a BOM'd file used to return the text unchanged
+            // (alnavi-037). Only a BOM of the very encoding the user picked
+            // is consumed (FAR-like: picking UTF-8 on a UTF-8-BOM file must
+            // not show the BOM as text).
+            if e == encoding_rs::UTF_8 && buf.starts_with(&[0xEF, 0xBB, 0xBF]) {
+                let (cow, _) = e.decode_without_bom_handling(&buf[3..]);
                 (cow.into_owned(), "utf-8", true)
+            } else if e == encoding_rs::UTF_16LE && buf.starts_with(&[0xFF, 0xFE]) {
+                let (cow, _) = e.decode_without_bom_handling(&buf[2..]);
+                (cow.into_owned(), "utf-16le", true)
+            } else if e == encoding_rs::UTF_16BE && buf.starts_with(&[0xFE, 0xFF]) {
+                let (cow, _) = e.decode_without_bom_handling(&buf[2..]);
+                (cow.into_owned(), "utf-16be", true)
             } else {
-                let (cow, _, _) = e.decode(buf);
-                (cow.into_owned(), e.name(), false)
+                let (cow, _) = e.decode_without_bom_handling(buf);
+                (cow.into_owned(), canon_label(e), false)
             }
         }
         _ => decode_auto(buf, fallback),

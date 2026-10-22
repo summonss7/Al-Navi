@@ -1,4 +1,4 @@
-// Exe-level E2E for alnavi-030: in the REAL released exe (1.14.3) the first
+// Exe-level E2E for alnavi-030: in the REAL released exe (1.14.4) the first
 // Ctrl+PageDown pressed right after entering the editor must stick. The bug:
 // the position-restore timers kept re-asserting the saved scrollTop
 // (120/300/600ms) over the user's scroll, so the view flickered to the end
@@ -21,7 +21,7 @@ if (!existsSync(EXE)) {
   console.error(`exe not found: ${EXE}`);
   process.exit(1);
 }
-const VERSION_PIN = "1.14.3";
+const VERSION_PIN = "1.14.4";
 const CFG = join(process.env.APPDATA, "al-navi");
 const CDP_PORT = 9264;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

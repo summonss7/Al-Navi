@@ -39,6 +39,25 @@ export const LIST_DIALOGS = new Set([
  *  mutation) — exported state must never be reassigned */
 export const listCursor = $state<{ idx: number }>({ idx: -1 });
 
+/** second step of the encoding dialog (editor only): the picked encoding
+ *  waits for the user to choose convert-vs-reload; null = the plain
+ *  encoding list is on screen. "auto" skips this step (it can only
+ *  re-detect, there is nothing to convert to). */
+export const encPick = $state<{ enc: string | null }>({ enc: null });
+
+/** Esc at the action step walks back to the encoding list instead of
+ *  closing the dialog — called from the dialog.close command, the single
+ *  funnel every Esc goes through (App's keydown runs before this dialog
+ *  router's own listener, so a stopPropagation here cannot win the race).
+ *  Returns true when the step-back happened and the close must be dropped. */
+export function encActionStepBack(): boolean {
+  if (ui.dialog !== "encoding" || encPick.enc === null) return false;
+  const back = ENCODING_MENU.indexOf(encPick.enc);
+  encPick.enc = null;
+  listCursor.idx = back >= 0 ? back : 0;
+  return true;
+}
+
 export function listCount(): number {
   switch (ui.dialog) {
     case "drives":
@@ -58,7 +77,7 @@ export function listCount(): number {
     case "ftp":
       return ftpSites.sites.length;
     case "encoding":
-      return ENCODING_MENU.length;
+      return encPick.enc ? 2 : ENCODING_MENU.length;
     default:
       return 0;
   }
@@ -133,16 +152,39 @@ export function activateListItem(i: number) {
       break;
     }
     case "encoding": {
-      // the dialog must be gone before the (possibly async) reload opens its
-      // own confirm for unsaved changes — closeDialog would otherwise clear it
+      // second step — apply the chosen action to the picked encoding
+      if (encPick.enc) {
+        const enc = encPick.enc;
+        const editId = editor.active?.id ?? null;
+        const convert = i === 0;
+        encPick.enc = null;
+        // the dialog must be gone before the (possibly async) reload opens
+        // its own confirm for unsaved changes — closeDialog would clear it
+        ui.closeDialog();
+        if (editId === null) break;
+        if (convert) editor.convertToEncoding(editId, enc);
+        else void editor.reopenWithEncoding(editId, enc);
+        break;
+      }
       const enc = ENCODING_MENU[i];
       const editId = editor.active?.id ?? null;
       const viewId = editor.activeViewer?.id ?? null;
       const mode = ui.mode;
       ui.closeDialog();
       if (enc === undefined) break;
-      if (mode === "viewer" && viewId !== null) void editor.reopenViewerWithEncoding(viewId, enc);
-      else if (editId !== null) void editor.reopenWithEncoding(editId, enc);
+      if (mode === "viewer" && viewId !== null) {
+        void editor.reopenViewerWithEncoding(viewId, enc);
+      } else if (editId !== null) {
+        // a concrete encoding in the editor asks convert-or-reload: the FAR
+        // encoding switch re-reads the file (that's the reload row), while
+        // the FAR cut→paste trick the users actually want is the convert row
+        if (enc === "auto") void editor.reopenWithEncoding(editId, enc);
+        else {
+          encPick.enc = enc;
+          listCursor.idx = 0;
+          ui.openDialog("encoding");
+        }
+      }
       break;
     }
   }
@@ -161,6 +203,10 @@ export function clampListIdx() {
   void userMenu.items.length;
   if (!LIST_DIALOGS.has(ui.dialog ?? "")) {
     if (listCursor.idx !== -1) listCursor.idx = -1;
+    // the dialog is gone — the pending action step must not leak into the
+    // next F8 (openEncodingDialog resets it too; this self-heals any other
+    // close path like the «Закрыть» button)
+    if (encPick.enc !== null) encPick.enc = null;
     return;
   }
   const n = listCount();
@@ -173,7 +219,16 @@ export function clampListIdx() {
 export function openEncodingDialog() {
   const cur = ui.mode === "viewer" ? editor.activeViewer?.encoding : editor.active?.encoding;
   const idx = cur ? ENCODING_MENU.indexOf(cur) : 0;
+  encPick.enc = null;
   listCursor.idx = idx >= 0 ? idx : 1; // unknown label -> first real encoding
+  ui.openDialog("encoding");
+}
+
+/** status-bar encoding select: the encoding is already picked, open the
+ *  dialog straight at the convert-or-reload step */
+export function openEncodingAction(enc: string) {
+  encPick.enc = enc;
+  listCursor.idx = 0;
   ui.openDialog("encoding");
 }
 

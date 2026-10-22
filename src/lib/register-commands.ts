@@ -28,7 +28,7 @@ import { settings } from "$lib/stores/settings.svelte";
 import { cmdline } from "$lib/stores/cmdline.svelte";
 import { ftpSites } from "$lib/stores/ftpSites.svelte";
 import { isSearchPath, searchStore } from "$lib/stores/search.svelte";
-import { openEncodingDialog } from "$comp/dialogs/listNav.svelte";
+import { openEncodingDialog, encActionStepBack } from "$comp/dialogs/listNav.svelte";
 import type { FileEntry } from "$lib/types";
 
 /** real path of a panel entry — search results carry their own full path,
@@ -416,6 +416,9 @@ export function registerAllCommands() {
     }
   });
   registerCommand("dialog.close", () => {
+    // Esc at the encoding action step walks back to the encoding list
+    // instead of closing the dialog (hierarchical pick)
+    if (encActionStepBack()) return;
     if (ui.confirmReq) ui.confirmReq.resolve(false);
     else if (ui.inputReq) ui.inputReq.resolve(null);
     else if (ui.packReq) ui.packReq.resolve(null);

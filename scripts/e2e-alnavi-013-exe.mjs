@@ -20,7 +20,7 @@ if (!existsSync(EXE)) {
   console.error(`exe not found: ${EXE}`);
   process.exit(1);
 }
-const EXPECT_VERSION = "1.14.3";
+const EXPECT_VERSION = "1.14.4";
 const CFG = join(process.env.APPDATA, "al-navi");
 const CDP_PORT = 9266;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

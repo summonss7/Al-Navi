@@ -13,6 +13,7 @@
   import { ui } from "$lib/stores/ui.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
   import { ENCODINGS } from "$lib/encodings";
+  import { openEncodingAction } from "./dialogs/listNav.svelte";
 
   let host: HTMLDivElement | undefined = $state();
   let view: EditorView | null = null;
@@ -197,10 +198,10 @@
           onchange={(e) => {
             const sel = e.currentTarget as HTMLSelectElement;
             const enc = sel.value;
-            // revert the visible choice until the reload lands — a cancelled
-            // confirm (dirty doc) must not leave a stale label on screen
+            // revert the visible choice until the picked action lands — a
+            // cancelled dialog must not leave a stale label on screen
             sel.value = doc.encoding;
-            void editor.reopenWithEncoding(doc.id, enc);
+            openEncodingAction(enc);
           }}
         >
           {#each ENCODINGS as enc (enc.id)}<option value={enc.id}>{enc.label}</option>{/each}

@@ -209,6 +209,28 @@ pub(crate) fn encode_text(content: String, encoding: &str, eol: &str) -> Result<
     let bytes = if enc == encoding_rs::UTF_8 {
         // no BOM by default on save (FAR-like)
         text.as_bytes().to_vec()
+    } else if enc == encoding_rs::UTF_16LE || enc == encoding_rs::UTF_16BE {
+        // WHATWG quirk: Encoding::encode() defines the UTF-16 encoder to be
+        // the UTF-8 encoder (web legacy), so UTF_16LE.encode() silently
+        // returns UTF-8 bytes — spell the real UTF-16 bytes out instead.
+        // A BOM is written (Notepad/FAR-like): without it Cyrillic UTF-16
+        // has no NUL bytes for the auto-detector's heuristic and the file
+        // would re-open as 1251 mojibake.
+        let units: Vec<u16> = text.encode_utf16().collect();
+        let mut out = Vec::with_capacity(units.len() * 2 + 2);
+        out.extend_from_slice(if enc == encoding_rs::UTF_16LE {
+            &[0xFF, 0xFE]
+        } else {
+            &[0xFE, 0xFF]
+        });
+        for u in units {
+            if enc == encoding_rs::UTF_16LE {
+                out.extend_from_slice(&u.to_le_bytes());
+            } else {
+                out.extend_from_slice(&u.to_be_bytes());
+            }
+        }
+        out
     } else {
         let (cow, _, _) = enc.encode(&text);
         cow.into_owned()

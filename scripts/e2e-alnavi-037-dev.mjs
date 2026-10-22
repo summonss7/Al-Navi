@@ -202,6 +202,14 @@ try {
   rows = await dialogRows(cdp);
   check("cursor moved to KOI8-R", rows?.[5]?.kbd === true && /KOI8-R/.test(rows[5].label), rows?.find((r) => r.kbd)?.label ?? "none");
   await key(cdp, "Enter", 13);
+  await sleep(200);
+  // alnavi-038: a concrete encoding asks convert-or-reload; the re-read is
+  // the second row (the first keeps the text and re-saves — the FAR trick)
+  rows = await dialogRows(cdp);
+  check("convert-or-reload step appeared", rows !== null && rows.length === 2, rows ? rows.map((r) => r.label).join(" | ") : "no action step");
+  await key(cdp, "ArrowDown", 40); // convert -> reload
+  await sleep(120);
+  await key(cdp, "Enter", 13);
   await waitFor(() => docFacts(cdp).then((x) => (x && x.encoding === "koi8-r" ? x : null)), 10000, "koi8-r reload");
   f = await docFacts(cdp);
   check("read_text called with encoding=koi8-r", await evalIn(cdp, `window.__e2e.readTextCalls.at(-1)?.encoding`) === "koi8-r");
@@ -223,6 +231,10 @@ try {
   await key(cdp, "ArrowUp", 38); // koi8-r -> windows-1251
   await sleep(120);
   await key(cdp, "Enter", 13);
+  await sleep(200);
+  await key(cdp, "ArrowDown", 40); // action step: convert -> reload
+  await sleep(120);
+  await key(cdp, "Enter", 13);
   await waitFor(() => evalIn(cdp, `window.__e2e.ui.dialog === "confirm" ? true : null`), 5000, "reload confirm");
   check("reload confirm appeared for the dirty doc", ((await evalIn(cdp, `document.querySelector(".dlg-body")?.textContent`)) ?? "").includes("notes.txt") === true);
   await key(cdp, "Escape", 27);
@@ -238,6 +250,10 @@ try {
   await key(cdp, "ArrowUp", 38); // -> utf-16be
   await sleep(120);
   await key(cdp, "ArrowUp", 38); // -> utf-16le
+  await sleep(120);
+  await key(cdp, "Enter", 13);
+  await sleep(200);
+  await key(cdp, "ArrowDown", 40); // action step: convert -> reload
   await sleep(120);
   await key(cdp, "Enter", 13);
   await waitFor(() => evalIn(cdp, `window.__e2e.ui.dialog === "confirm" ? true : null`), 5000, "reload confirm 2");

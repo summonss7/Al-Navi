@@ -1,5 +1,6 @@
 import { readText, writeText, archiveReadText, loadJson, saveJson, pathExists } from "$lib/api";
 import { basename, isAbsolutePath, joinPath } from "$lib/format";
+import { encodingLabel } from "$lib/encodings";
 import { isRemotePath, remoteReadText, remoteWriteText } from "$lib/ftp";
 import { isArchivePath } from "$lib/archive";
 import { ui } from "./ui.svelte";
@@ -285,12 +286,23 @@ class EditorStore {
     if (d) d.text = text;
   }
 
-  setEncoding(id: number, enc: string) {
+  /** F8 → «Перекодировать»: the FAR cut→switch-encoding→paste→save trick
+   *  without the clipboard dance. The text in memory is already Unicode, so
+   *  "converting" only switches the encoding the document is written in —
+   *  the file on disk is untouched until F2 saves it in the new encoding. */
+  convertToEncoding(id: number, enc: string) {
     const d = this.docs.find((x) => x.id === id);
-    if (d) d.encoding = enc;
+    if (!d) return;
+    if (d.scratch || !d.path) {
+      ui.showToast(i18n.t("editor.encNoFile"));
+      return;
+    }
+    d.encoding = enc;
+    d.dirty = true;
+    ui.showToast(i18n.t("enc.converted", { enc: encodingLabel(enc) }));
   }
 
-  /** F8 in the editor: re-read the file from disk in the chosen encoding
+  /** F8 → «Перечитать»: re-read the file from disk in the chosen encoding
    *  ("auto" re-runs detection) and swap the document content in place.
    *  Unsaved changes are confirmed away first — the disk copy is the truth
    *  being re-decoded; saving under the new encoding keeps it from F2. */

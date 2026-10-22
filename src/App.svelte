@@ -15,6 +15,7 @@
   import { userMenu } from "$lib/stores/userMenu.svelte";
   import { searchStore } from "$lib/stores/search.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
+  import { update } from "$lib/stores/update.svelte";
   import { windowState } from "$lib/windowState";
 
   import TitleBar from "$comp/TitleBar.svelte";
@@ -223,6 +224,9 @@
         void userMenu.init();
         void fileColors.init();
         void textColors.init();
+        // silent daily update check (alnavi-039); runs on its own — an
+        // available update opens the dialog, anything else stays quiet
+        void update.init();
       })
       .catch(() => {
         // outside Tauri (browser preview) panels can't load — chrome still renders

@@ -126,6 +126,27 @@ export interface AppInfo {
 }
 export const appInfo = () => invoke<AppInfo>("app_info");
 
+// ---- Updates (alnavi-039: Aila update center, manifest v2) ----
+export interface UpdateAsset {
+  name: string;
+  url: string;
+  size: number | null;
+  sha256: string | null;
+}
+export interface UpdateCheck {
+  status: "latest" | "available" | "network-error" | "bad-manifest";
+  current: string;
+  latest: string | null;
+  notes: string | null;
+  publishedAt: string | null;
+  asset: UpdateAsset | null;
+  error: string | null;
+}
+export const updaterCheck = () => invoke<UpdateCheck>("updater_check");
+export const updaterDownload = (url: string, sha256: string, size: number) =>
+  invoke<string>("updater_download", { url, sha256, size });
+export const updaterApply = (path: string) => invoke<void>("updater_apply", { path });
+
 // ---- Events ----
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
@@ -141,3 +162,5 @@ export const onSearchHit = (cb: (e: SearchHitsEvent) => void): Promise<UnlistenF
   listen<SearchHitsEvent>("search:hit", (e) => cb(e.payload));
 export const onSearchDone = (cb: (e: SearchDoneEvent) => void): Promise<UnlistenFn> =>
   listen<SearchDoneEvent>("search:done", (e) => cb(e.payload));
+export const onUpdaterProgress = (cb: (p: { downloaded: number; total: number }) => void): Promise<UnlistenFn> =>
+  listen<{ downloaded: number; total: number }>("updater:progress", (e) => cb(e.payload));

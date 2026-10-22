@@ -27,6 +27,7 @@ export type DialogId =
   | "unpack"
   | "attrs"
   | "encoding"
+  | "update"
   | "errors"
   | null;
 

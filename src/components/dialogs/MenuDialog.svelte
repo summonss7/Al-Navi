@@ -5,6 +5,7 @@
   import { settings, THEMES, type ThemeId } from "$lib/stores/settings.svelte";
   import { LOCALES, type Locale } from "$lib/stores/i18n.svelte";
   import { appInfo, type AppInfo } from "$lib/api";
+  import { update } from "$lib/stores/update.svelte";
 
   let appVer = $state<AppInfo | null>(null);
   $effect(() => {
@@ -147,6 +148,11 @@
           </button>
         {/each}
       </div>
+
+      <div class="grp">{i18n.t("upd.section")}</div>
+      <button class="btn fc-open" onclick={() => void update.check(true)}>
+        <i class="ph-duotone ph-arrows-clockwise"></i>{i18n.t("upd.check")}
+      </button>
 
       {#if appVer}
         <div class="about mono">

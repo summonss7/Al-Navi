@@ -1,4 +1,4 @@
-// exe-level E2E for alnavi-031: in the REAL released exe (1.14.4) Ctrl+mouse
+// exe-level E2E for alnavi-031: in the REAL released exe (1.14.5) Ctrl+mouse
 // wheel must zoom the interface font exactly like the Ctrl+± chords (0.5 px
 // steps, 10..24) — Chrome-style. Real wheel events through CDP verify: both
 // directions, accumulation of sub-threshold drabs (two −50 = one step), clamps
@@ -126,7 +126,7 @@ try {
   await sleep(3500);
   await waitFor(cdp, `!!document.querySelector(".panel, .panels")`, 15000, "app UI");
   const ver = await evalIn(cdp, `document.querySelector(".titlebar .version")?.textContent ?? ""`);
-  check("title bar chip carries v1.14.4", ver.includes("1.14.4"), JSON.stringify(ver));
+  check("title bar chip carries v1.14.5", ver.includes("1.14.5"), JSON.stringify(ver));
 
   // probe: record wheels in the BUBBLE phase (after capture listeners) —
   // defaultPrevented separates "the app cancelled it" (ctrl) from native

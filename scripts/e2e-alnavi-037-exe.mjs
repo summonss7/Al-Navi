@@ -1,4 +1,4 @@
-// Exe-level E2E for alnavi-037: in the REAL released exe (1.14.4) F8 in the
+// Exe-level E2E for alnavi-037: in the REAL released exe (1.14.5) F8 in the
 // editor / Shift+F8 in the viewer re-reads the file in the chosen encoding,
 // auto-detection picks Unicode by BOM and falls back to windows-1251 for
 // single-byte Cyrillic. Verified against the real Rust backend:
@@ -20,7 +20,7 @@ if (!existsSync(EXE)) {
   console.error(`exe not found: ${EXE}`);
   process.exit(1);
 }
-const VERSION_PIN = "1.14.4";
+const VERSION_PIN = "1.14.5";
 const CFG = join(process.env.APPDATA, "al-navi");
 const CDP_PORT = 9267;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

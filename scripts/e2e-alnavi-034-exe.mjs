@@ -1,4 +1,4 @@
-// Exe-level E2E for alnavi-034: in the REAL released exe (1.14.4) the editor
+// Exe-level E2E for alnavi-034: in the REAL released exe (1.14.5) the editor
 // supports column (rectangular) selection on Shift+Alt+arrows. Against the
 // real backend with a sandbox of two files:
 //   - F4 opens block.txt; real Shift+Alt+Down/Right presses paint one cursor
@@ -23,7 +23,7 @@ if (!existsSync(EXE)) {
   console.error(`exe not found: ${EXE}`);
   process.exit(1);
 }
-const VERSION_PIN = "1.14.4";
+const VERSION_PIN = "1.14.5";
 const CFG = join(process.env.APPDATA, "al-navi");
 const CDP_PORT = 9271;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -3,6 +3,8 @@
 #   1. builds the frontend (dist/)
 #   2. builds the release exe (GNU toolchain, MSYS2 in PATH — see README)
 #   3. copies it to builds/Al-Navi-<version>-<timestamp>.exe
+#   3b. publishes the exe to the Aila update center (manifest v2 + sha256,
+#       aila-163/alnavi-039) — skipped with a warning when Aila is offline
 #   4. updates the installed working copy in C:\Al-Navi (created on demand)
 # Version comes from Cargo.toml ([package] version) and is also embedded
 # in the binary together with the build timestamp (shown in the title bar).
@@ -30,6 +32,24 @@ OUT="$ROOT/builds/Al-Navi-${VERSION}-${STAMP}.exe"
 cp -f src-tauri/target/release/al-navi.exe "$OUT"
 
 echo "==> Done: $OUT"
+
+# 3b) publish the release to the Aila update center (alnavi-039, aila-163):
+#     the server writes manifest v2 with sha256 + history.jsonl and notifies
+#     the «Хаб ИИ»; notes come from the last CHANGELOG.md entry. Publishes
+#     the portable exe only (the client skips Setup assets anyway). An
+#     offline Aila or a missing agent token must not block the local release.
+#     ALNAVI_SKIP_PUBLISH=1 skips the step (e.g. when the CHANGELOG entry —
+#     the notes source — is only committed after the build).
+if [ "${ALNAVI_SKIP_PUBLISH:-0}" != "1" ] && [ -f /d/Scheduler/tools/publish-update.cjs ]; then
+  echo "==> Publishing to the update center..."
+  if node /d/Scheduler/tools/publish-update.cjs alnavi --notes-file "$ROOT/CHANGELOG.md" --files "$(basename "$OUT")"; then
+    echo "    published"
+  else
+    echo "    WARNING: publish failed (Aila offline / no token) — the local release continues"
+  fi
+else
+  echo "==> Skipping publish: D:\\Scheduler\\tools\\publish-update.cjs not found"
+fi
 
 # 4) update the installed working copy. The exe is a single self-contained
 #    file — no DLLs to ship: the GNU build links its runtime statically and

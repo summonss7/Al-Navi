@@ -28,6 +28,7 @@ import { settings } from "$lib/stores/settings.svelte";
 import { cmdline } from "$lib/stores/cmdline.svelte";
 import { ftpSites } from "$lib/stores/ftpSites.svelte";
 import { isSearchPath, searchStore } from "$lib/stores/search.svelte";
+import { update } from "$lib/stores/update.svelte";
 import { openEncodingDialog, encActionStepBack } from "$comp/dialogs/listNav.svelte";
 import type { FileEntry } from "$lib/types";
 
@@ -415,6 +416,9 @@ export function registerAllCommands() {
       void getCurrentWindow().close();
     }
   });
+  // F9 menu «Проверить обновления»: opens the update dialog with a fresh
+  // manifest check against the Aila update center (alnavi-039)
+  registerCommand("app.checkUpdates", () => void update.check(true));
   registerCommand("dialog.close", () => {
     // Esc at the encoding action step walks back to the encoding list
     // instead of closing the dialog (hierarchical pick)

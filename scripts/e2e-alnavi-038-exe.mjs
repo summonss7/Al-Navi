@@ -1,5 +1,5 @@
 // Exe-level E2E for alnavi-038: the FAR encoding-conversion workflow works
-// in the REAL released exe (1.14.4) — «выделить → вырезать → сменить
+// in the REAL released exe (1.14.5) — «выделить → вырезать → сменить
 // кодировку → вставить → сохранить» becomes a direct convert action:
 //   - cp1251.txt (readable) → F8 → KOI8-R → «Перекодировать» (Enter on the
 //     default row): the text stays readable, the doc goes dirty, F2 writes
@@ -19,7 +19,7 @@ if (!existsSync(EXE)) {
   console.error(`exe not found: ${EXE}`);
   process.exit(1);
 }
-const VERSION_PIN = "1.14.4";
+const VERSION_PIN = "1.14.5";
 const CFG = join(process.env.APPDATA, "al-navi");
 const CDP_PORT = 9269;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -1,6 +1,6 @@
 [package]
 name = "al-navi"
-version = "1.14.4"
+version = "1.14.5"
 description = "Al-Navi — modern dual-panel file manager"
 edition = "2021"
 
@@ -47,6 +47,13 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 tar = "0.4"
 flate2 = "1"
 sevenz-rust = "0.6"
+# alnavi-039: in-app updates from the Aila center. reqwest was already in the
+# lock (0.13.x, no TLS); native-tls resolves to schannel on Windows — pure
+# Rust over the OS TLS, no openssl/C build on the GNU toolchain. sha2 and
+# futures-util were in the lock as transitive deps too.
+reqwest = { version = "0.13", default-features = false, features = ["native-tls", "stream"] }
+sha2 = "0.10"
+futures-util = "0.3"
 
 [profile.release]
 codegen-units = 1

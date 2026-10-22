@@ -11,6 +11,7 @@ mod remote_ops;
 mod search;
 mod sftp;
 mod textio;
+mod updater;
 mod watch;
 mod winstate;
 
@@ -95,6 +96,9 @@ pub fn run() {
         .manage(sftp::SftpState::new())
         .manage(search::SearchManager::new())
         .setup(|app| {
+            // leftover <app>.exe.old from an update cycle is deletable now —
+            // the binary it was is no longer running
+            updater::cleanup_old();
             if let Some(win) = app.get_webview_window("main") {
                 // the window starts hidden (tauri.conf.json) — restore the
                 // remembered size/position/maximized first, then reveal it
@@ -153,6 +157,9 @@ pub fn run() {
             search::search_start,
             search::search_cancel,
             meta::app_info,
+            updater::updater_check,
+            updater::updater_download,
+            updater::updater_apply,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Al-Navi");

@@ -212,7 +212,7 @@ const killAll = () => {
   try { execSync("taskkill /IM Al-Navi.exe /F", { stdio: "ignore" }); } catch { /* none running */ }
 };
 
-let cdp = null;
+let cdp;
 const child = spawn(appExe, [], {
   env: {
     ...process.env,

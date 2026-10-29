@@ -98,6 +98,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       { chord: "Ctrl+Shift+← / →", key: "help.cmd.selWord" },
       { chord: "Shift+Home / End", key: "help.cmd.selLine" },
       { chord: "Ctrl+E", key: "help.cmd.hist" },
+      { chord: "Ctrl+X", key: "help.cmd.histNext" },
       { chord: "Alt+F8", key: "help.cmd.histDlg" },
       { chord: "Ctrl+Enter", key: "help.cmd.insName" },
       { chord: "cd <path>", key: "help.cmd.cd" },

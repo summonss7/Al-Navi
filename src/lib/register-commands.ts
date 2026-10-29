@@ -435,8 +435,14 @@ export function registerAllCommands() {
 
   // ---------- cmdline ----------
   registerCommand("cmdline.history", () => ui.openDialog("cmdHistory"));
+  // FAR history pair: Ctrl+E walks to older commands, Ctrl+X back to newer
+  // (past the newest it returns the half-typed draft); the recalled command
+  // lands in the line selected — typing replaces it, Enter runs it
   registerCommand("cmdline.prevHistory", () => {
     cmdline.stepHistory(-1);
+  });
+  registerCommand("cmdline.nextHistory", () => {
+    cmdline.stepHistory(1);
   });
   // FAR-style Ctrl+Enter: append the name under the panel cursor to the
   // command line; each further press appends the next entry's name

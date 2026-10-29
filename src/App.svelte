@@ -85,7 +85,7 @@
       case "Esc":
         if (hasText) {
           e.preventDefault();
-          cmdline.setText("");
+          cmdline.clear();
           return;
         }
         break;

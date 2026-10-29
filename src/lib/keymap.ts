@@ -201,6 +201,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     "Alt+F8": "cmdline.history",
     "Alt+F11": "viewer.history",
     "Ctrl+E": "cmdline.prevHistory",
+    "Ctrl+X": "cmdline.nextHistory",
     Esc: "panel.escape",
     ...FONT_ZOOM,
   },

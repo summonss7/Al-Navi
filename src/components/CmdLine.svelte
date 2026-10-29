@@ -12,6 +12,13 @@
     if (ui.cmdLineFocused) input?.focus();
   });
 
+  // a history recall (Ctrl+E / Ctrl+X) selects the recalled command, FAR
+  // style: typing replaces it, Enter runs it as-is. Runs as an effect so the
+  // selection lands AFTER bind:value has written the new text into the input.
+  $effect(() => {
+    if (cmdline.histIndex >= 0) input?.select();
+  });
+
   onMount(() => {
     cmdline.el = input ?? null;
     return () => {

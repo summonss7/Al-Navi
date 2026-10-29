@@ -28,13 +28,24 @@ class CmdlineStore {
     this.text = t;
   }
 
+  /** Esc: wipe the line — the next Ctrl+E restarts from the newest command */
+  clear() {
+    this.text = "";
+    this.histIndex = -1;
+  }
+
   stepHistory(dir: -1 | 1) {
     if (!this.history.length) return;
+    // history[0] is the NEWEST command (submit() prepends), so walking back
+    // in time (Ctrl+E, dir = -1) ADVANCES the index toward the oldest entry
+    // (clamped there), while walking forward (Ctrl+X, dir = +1) decrements it
+    // back; past the newest the walk returns the unfinished draft (-1),
+    // FAR-style.
     if (this.histIndex === -1) {
       this.draft = this.text;
-      this.histIndex = this.history.length - 1;
+      this.histIndex = 0;
     } else {
-      this.histIndex += dir;
+      this.histIndex -= dir;
       if (this.histIndex < 0) {
         this.histIndex = -1;
         this.text = this.draft;

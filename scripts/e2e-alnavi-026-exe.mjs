@@ -127,7 +127,7 @@ try {
       };
     })()
   `);
-  check("8 card sections, 96 rows, 2-column masonry", layout.sections === 8 && layout.rows === 96 && layout.columnCount === "2",
+  check("8 card sections, 97 rows, 2-column masonry", layout.sections === 8 && layout.rows === 97 && layout.columnCount === "2",
     JSON.stringify({ s: layout.sections, r: layout.rows, c: layout.columnCount }));
   check("8 section icons", layout.icons === 8, `icons=${layout.icons}`);
   check("footer modifier hint (Ctrl/Alt/Shift chips)", layout.footerKbds.join(",") === "Ctrl,Alt,Shift", JSON.stringify(layout.footerKbds));

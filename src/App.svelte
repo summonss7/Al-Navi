@@ -105,6 +105,17 @@
         return;
     }
 
+    // FAR group select (+/-/*, gray or main row) is a panel action only over
+    // VISIBLE panels with an EMPTY line. Mid-command (typing `ping -t 8.8.8.8`)
+    // and on the Ctrl+O screen (both panels hidden — the line is the whole UI)
+    // the characters must type into the line instead of opening the mask
+    // dialog (alnavi-041)
+    const groupSelect =
+      chord === "+" || chord === "-" || chord === "*" ||
+      chord === "Gray+" || chord === "Gray-" || chord === "Gray*";
+    const panelsHidden = !panels.showLeft && !panels.showRight;
+    if (groupSelect && (hasText || panelsHidden)) return;
+
     const cmdId = defaultKeymap.panel[chord];
     if (cmdId) {
       e.preventDefault();

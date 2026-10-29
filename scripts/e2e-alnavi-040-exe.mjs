@@ -139,7 +139,7 @@ try {
   await ctrlX(cdp); await sleep(250);
   f = await facts();
   check("7. Ctrl+X walks one newer", f.v === "mid-040", f.v);
-  await ctrlX(cdp); await sleep(250);
+  // two more presses: mid -> newest -> past the newest back to the draft
   await ctrlX(cdp); await sleep(250);
   await ctrlX(cdp); await sleep(250);
   f = await facts();

@@ -13,7 +13,7 @@ if (!existsSync(EXE)) {
   console.error(`exe not found: ${EXE}`);
   process.exit(1);
 }
-const VERSION_PIN = "1.14.5";
+const VERSION_PIN = "1.14.6";
 const CDP_PORT = 9272;
 
 const results = [];

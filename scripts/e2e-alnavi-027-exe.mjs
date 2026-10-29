@@ -123,7 +123,7 @@ try {
   await sleep(3500);
   await waitFor(cdp, `!!document.querySelector(".panel, .panels")`, 15000, "app UI");
   const ver = await evalIn(cdp, `document.querySelector(".titlebar .version")?.textContent ?? ""`);
-  check("title bar chip carries v1.14.5", ver.includes("1.14.5"), JSON.stringify(ver));
+  check("title bar chip carries v1.14.6", ver.includes("1.14.6"), JSON.stringify(ver));
   // click the panel like a user so the window has the keyboard context (a
   // window spawned in the background may have missed the startup focus dance)
   const p = await evalIn(cdp, `(() => { const el = document.querySelector(".panel"); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`);
@@ -184,7 +184,7 @@ try {
       return { found: !!hit, desc: hit?.textContent ?? "", rows: rows.length };
     })()
   `);
-  check("help row 'Ctrl+← / →' present (96 rows, +font zoom)", help.found && help.rows === 96, `rows=${help.rows}`);
+  check("help row 'Ctrl+← / →' present (97 rows, +font zoom)", help.found && help.rows === 97, `rows=${help.rows}`);
   check("help row localized (no raw key leak)", !/help\.sel/.test(help.desc), help.desc.slice(0, 60));
   await key(cdp, "Escape");
   const closed = await evalIn(cdp, `!document.querySelector(".dlg.help-dlg")`);

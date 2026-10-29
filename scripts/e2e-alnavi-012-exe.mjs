@@ -165,7 +165,7 @@ try {
   await sleep(3500);
   await waitFor(cdp, `!!document.querySelector(".panel, .panels")`, 15000, "app UI");
   const ver = await evalIn(cdp, `document.querySelector(".titlebar .version")?.textContent ?? ""`);
-  check("title bar chip carries v1.14.5", ver.includes("1.14.5"), JSON.stringify(ver));
+  check("title bar chip carries v1.14.6", ver.includes("1.14.6"), JSON.stringify(ver));
   // click the panel like a user so the window has the keyboard context
   const p = await evalIn(
     cdp,

@@ -1,4 +1,4 @@
-// Exe-level E2E for alnavi-034: in the REAL released exe (1.14.5) the editor
+// Exe-level E2E for alnavi-034: in the REAL released exe (1.14.6) the editor
 // supports column (rectangular) selection on Shift+Alt+arrows. Against the
 // real backend with a sandbox of two files:
 //   - F4 opens block.txt; real Shift+Alt+Down/Right presses paint one cursor
@@ -23,7 +23,7 @@ if (!existsSync(EXE)) {
   console.error(`exe not found: ${EXE}`);
   process.exit(1);
 }
-const VERSION_PIN = "1.14.5";
+const VERSION_PIN = "1.14.6";
 const CFG = join(process.env.APPDATA, "al-navi");
 const CDP_PORT = 9271;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -229,7 +229,7 @@ try {
     const hit = rows.find((x) => (x.querySelector("kbd")?.textContent ?? "").includes("Shift+Alt+"));
     return { found: !!hit, kbd: hit?.querySelector("kbd")?.textContent ?? "", rows: rows.length };
   })()`);
-  check("14. help carries the Shift+Alt column rows (96 rows)", help.found && help.rows === 96 && /Shift\+Alt/.test(help.kbd), `rows=${help.rows} kbd=${JSON.stringify(help.kbd)}`);
+  check("14. help carries the Shift+Alt column rows (97 rows)", help.found && help.rows === 97 && /Shift\+Alt/.test(help.kbd), `rows=${help.rows} kbd=${JSON.stringify(help.kbd)}`);
   await key(cdp, "Escape");
 
   const failed = results.filter(r => !r.ok);

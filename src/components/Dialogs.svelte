@@ -15,6 +15,7 @@
   import ProgressDialog from "$comp/dialogs/ProgressDialog.svelte";
   import ConflictDialog from "$comp/dialogs/ConflictDialog.svelte";
   import DrivesDialog from "$comp/dialogs/DrivesDialog.svelte";
+  import DriveInfoDialog from "$comp/dialogs/DriveInfoDialog.svelte";
   import FtpDialog from "$comp/dialogs/FtpDialog.svelte";
   import FtpSiteDialog from "$comp/dialogs/FtpSiteDialog.svelte";
   import SearchDialog from "$comp/dialogs/SearchDialog.svelte";
@@ -61,6 +62,7 @@
 {#if ui.dialog === "progress" && ops.op}<ProgressDialog />{/if}
 {#if ui.dialog === "conflict" && ops.conflict}<ConflictDialog />{/if}
 {#if ui.dialog === "drives"}<DrivesDialog />{/if}
+{#if ui.dialog === "driveInfo"}<DriveInfoDialog />{/if}
 {#if ui.dialog === "ftp"}<FtpDialog />{/if}
 {#if ui.dialog === "ftpSite"}<FtpSiteDialog />{/if}
 {#if ui.dialog === "search"}<SearchDialog />{/if}

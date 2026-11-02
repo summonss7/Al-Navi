@@ -8,6 +8,7 @@ import type {
   SearchHitsEvent,
   SearchParams,
   TextContent,
+  VolumeInfo,
 } from "./types";
 
 // ---- FS ----
@@ -67,6 +68,7 @@ export const resolveConflict = (id: number, action: string) =>
 
 // ---- System ----
 export const drivesList = () => invoke<DriveInfo[]>("drives_list");
+export const driveInfo = (path: string) => invoke<VolumeInfo>("drive_info", { path });
 export const watchSet = (paths: string[]) => invoke<void>("watch_set", { paths });
 
 // ---- FTP ----

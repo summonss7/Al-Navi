@@ -8,6 +8,7 @@ export type DialogId =
   | "progress"
   | "conflict"
   | "drives"
+  | "driveInfo"
   | "windowList"
   | "dirHistory"
   | "cmdHistory"

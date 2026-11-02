@@ -131,6 +131,7 @@ pub fn run() {
             ops::op_control,
             ops::resolve_conflict,
             drives::drives_list,
+            drives::drive_info,
             watch::watch_set,
             ftp::ftp_connect,
             ftp::ftp_list,

@@ -64,6 +64,8 @@ export function registerAllCommands() {
   registerCommand("panel.up", () => void A().up());
   registerCommand("panel.root", () => void A().root());
   registerCommand("panel.refresh", () => A().refresh());
+  // Ctrl+L: FAR-style info about the volume under the panel cursor
+  registerCommand("panel.driveInfo", () => ui.openDialog("driveInfo"));
   registerCommand("panel.toggleHidden", () => {
     // global setting: both panels rebuild and it persists
     settings.set({ showHidden: !settings.s.showHidden });

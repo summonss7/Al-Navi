@@ -26,6 +26,28 @@ export interface DriveInfo {
   freeBytes: number;
 }
 
+/** machine-wide RAM/swap figures for the Ctrl+L drive info dialog */
+export interface MemoryInfo {
+  totalBytes: number;
+  usedBytes: number;
+  freeBytes: number;
+  swapTotalBytes: number;
+  swapUsedBytes: number;
+}
+
+/** Ctrl+L: the volume holding the panel path; label/mountPoint empty when
+ *  the panel is remote (ftp/sftp) — the memory half is still shown */
+export interface VolumeInfo {
+  label: string;
+  mountPoint: string;
+  kind: string; // fixed | removable | unknown
+  fileSystem: string;
+  totalBytes: number;
+  freeBytes: number;
+  usedBytes: number;
+  memory: MemoryInfo;
+}
+
 export interface OpProgress {
   id: number;
   phase: string; // scan | transfer | delete | trash | done

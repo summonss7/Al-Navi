@@ -3,6 +3,11 @@
 Современный двухпанельный файловый менеджер с управлением в духе FAR Manager.
 Кроссплатформенный: Windows + Linux. Стек: **Tauri 2 (Rust) + Svelte 5 + TypeScript + CodeMirror 6**.
 
+> **English:** Al-Navi is a cross-platform (Windows/Linux) dual-panel file manager in
+> the spirit of FAR Manager, built on Tauri 2 (Rust) + Svelte 5 + TypeScript +
+> CodeMirror 6. A portfolio project of the human + AI freelance duo —
+> [duet.barter.pp.ua](https://duet.barter.pp.ua).
+
 Репозиторий: <https://github.com/summonss7/Al-Navi>
 
 Бренд (по `images/design.jpg`, `images/logo.jpg`, `images/icon.jpg`): лайм `#8EE53F` (идентичность),

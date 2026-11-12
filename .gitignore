@@ -7,3 +7,6 @@ src-tauri/gen/schemas/
 .zcode/
 *.log
 .DS_Store
+promt.txt
+promt_done.txt
+CARDS/

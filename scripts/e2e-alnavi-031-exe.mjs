@@ -126,7 +126,7 @@ try {
   await sleep(3500);
   await waitFor(cdp, `!!document.querySelector(".panel, .panels")`, 15000, "app UI");
   const ver = await evalIn(cdp, `document.querySelector(".titlebar .version")?.textContent ?? ""`);
-  check("title bar chip carries v1.14.7", ver.includes("1.14.7"), JSON.stringify(ver));
+  check("title bar chip carries v1.14.9", ver.includes("1.14.9"), JSON.stringify(ver));
 
   // probe: record wheels in the BUBBLE phase (after capture listeners) —
   // defaultPrevented separates "the app cancelled it" (ctrl) from native
@@ -239,7 +239,7 @@ try {
       return { found: !!hit, kbd: hit?.querySelector("kbd")?.textContent ?? "", rows: rows.length };
     })()
   `);
-  check("help row lists Ctrl+− / + · Ctrl+Wheel (97 rows", help.found && help.rows === 97 && /Ctrl\+Wheel/.test(help.kbd), `rows=${help.rows} kbd=${JSON.stringify(help.kbd)}`);
+  check("help row lists Ctrl+− / + · Ctrl+Wheel (99 rows", help.found && help.rows === 99 && /Ctrl\+Wheel/.test(help.kbd), `rows=${help.rows} kbd=${JSON.stringify(help.kbd)}`);
   await key(cdp, "Escape");
 
   // ---- return the user's original size by wheel presses ----

@@ -486,6 +486,8 @@ export function registerAllCommands() {
     const { openSearchPanelCmd } = await import("$lib/editor/cm");
     openSearchPanelCmd();
   });
+  // Ctrl+F7: FAR-style modal replace over the active editor document
+  registerCommand("editor.replace", () => ui.openDialog("replace"));
   registerCommand("editor.deleteLine", async () => {
     const { deleteLineCmd } = await import("$lib/editor/cm");
     deleteLineCmd();

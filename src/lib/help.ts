@@ -114,6 +114,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       { chord: "F4", key: "help.ed.open" },
       { chord: "Shift+F4", key: "help.ed.new" },
       { chord: "F7", key: "help.ed.search" },
+      { chord: "Ctrl+F7", key: "help.ed.replace" },
       { chord: "F11 · editor", key: "help.ed.plugins" },
       { chord: "Ctrl+Shift+L", key: "help.ed.layout" },
       { chord: "Shift+Alt+↑ ↓ ← → · PgUp/PgDn", key: "help.ed.column" },

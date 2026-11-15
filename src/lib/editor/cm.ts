@@ -1,5 +1,5 @@
 import { EditorView, keymap, highlightActiveLine, lineNumbers, drawSelection, highlightSpecialChars, ViewPlugin, Decoration, type DecorationSet, type ViewUpdate } from "@codemirror/view";
-import { EditorState, EditorSelection, Compartment, RangeSetBuilder } from "@codemirror/state";
+import { EditorState, EditorSelection, Compartment, RangeSetBuilder, type Text } from "@codemirror/state";
 import {
   defaultKeymap,
   history,
@@ -416,6 +416,156 @@ export { SearchQuery };
 export function deleteLineCmd() {
   if (view) cmDeleteLine(view);
 }
+
+/* ============ Ctrl+F7 replace dialog (alnavi-043) ============
+ * FAR-style in-editor replace driven by the modal ReplaceDialog. The dialog
+ * stays open over the translucent overlay and calls these on the active
+ * view: «Заменить» replaces the next match and selects the following one
+ * (первое, потом следующее и так далее), «Пропустить» only advances,
+ * «Заменить всё» rewrites everything in one change set. */
+
+export interface ReplaceParams {
+  search: string;
+  replace: string;
+  caseSensitive: boolean;
+  wholeWord: boolean;
+  regexp: boolean;
+}
+
+/** outcome of a single dialog action, mapped to toasts by the dialog */
+export type ReplaceResult = "empty" | "invalid" | "noMatch" | "replaced" | "advanced";
+
+function replaceQuery(p: ReplaceParams): SearchQuery | null {
+  if (!p.search) return null;
+  // validity is checked by the callers: an invalid regexp must reach the
+  // user as an error, not as "no matches"
+  return new SearchQuery({
+    search: p.search,
+    replace: p.replace,
+    caseSensitive: p.caseSensitive,
+    regexp: p.regexp,
+    wholeWord: p.wholeWord,
+  });
+}
+
+/** the next match at/after `from`, wrapping once back to the top (FAR wrap) */
+function nextMatch(v: EditorView, q: SearchQuery, from: number): { from: number; to: number } | null {
+  const len = v.state.doc.length;
+  let it = q.getCursor(v.state, Math.max(0, Math.min(from, len)));
+  let m = it.next();
+  if (m.done) {
+    it = q.getCursor(v.state, 0);
+    m = it.next();
+  }
+  return m.done ? null : m.value;
+}
+
+/** select a match and center it — the user watches the editor through the
+ *  translucent dialog overlay while stepping */
+function selectMatch(v: EditorView, m: { from: number; to: number }) {
+  v.dispatch({
+    selection: { anchor: m.from, head: m.to },
+    effects: EditorView.scrollIntoView(m.from, { y: "center" }),
+  });
+}
+
+/** is the live selection exactly a match of the query (i.e. painted by the
+ *  previous step of this same dialog)? Reuses the query cursor so whole-word
+ *  and case rules match the ones used for finding. */
+function selectionIsMatch(v: EditorView, q: SearchQuery): boolean {
+  const sel = v.state.selection.main;
+  if (sel.empty) return false;
+  const it = q.getCursor(v.state, sel.from, sel.to);
+  const m = it.next();
+  return !m.done && m.value.from === sel.from && m.value.to === sel.to;
+}
+
+/** \n \r \t escapes in the fields behave like in CM's own search panel */
+function unescapeField(s: string): string {
+  return s.replace(/\\([nrt\\])/g, (_, ch) => (ch === "n" ? "\n" : ch === "r" ? "\r" : ch === "t" ? "\t" : "\\"));
+}
+
+/** replacement text for one match: $&, $1… expand in regex mode (the same
+ *  pattern applied to the already-matched text expands its own groups) */
+function replacementFor(p: ReplaceParams, m: { from: number; to: number }, doc: Text): string {
+  const repl = unescapeField(p.replace);
+  if (!p.regexp) return repl;
+  const matched = doc.sliceString(m.from, m.to);
+  try {
+    return matched.replace(new RegExp(p.search, p.caseSensitive ? "" : "i"), repl);
+  } catch {
+    return repl;
+  }
+}
+
+/** «Заменить»: replace the match selected by the previous step (or the next
+ *  one from the caret), then select the following match. */
+export function replaceNextCmd(p: ReplaceParams): ReplaceResult {
+  const v = view;
+  if (!v || !p.search) return "empty";
+  const q = replaceQuery(p);
+  if (!q || !q.valid) return "invalid";
+  try {
+    const sel = v.state.selection.main;
+    let from = sel.to;
+    let result: ReplaceResult = "advanced";
+    if (selectionIsMatch(v, q)) {
+      const insert = replacementFor(p, sel, v.state.doc);
+      v.dispatch({
+        changes: { from: sel.from, to: sel.to, insert },
+        selection: { anchor: sel.from + insert.length },
+        userEvent: "input.replace",
+      });
+      from = sel.from + insert.length;
+      result = "replaced";
+    }
+    const m = nextMatch(v, q, from);
+    if (!m) return result;
+    selectMatch(v, m);
+    return result;
+  } catch {
+    return "invalid"; // a regexp matching the empty string etc.
+  }
+}
+
+/** «Пропустить»: leave the selected match alone, select the next one */
+export function replaceSkipCmd(p: ReplaceParams): ReplaceResult {
+  const v = view;
+  if (!v || !p.search) return "empty";
+  const q = replaceQuery(p);
+  if (!q || !q.valid) return "invalid";
+  try {
+    const sel = v.state.selection.main;
+    const m = nextMatch(v, q, sel.empty ? sel.head : sel.to);
+    if (!m) return "noMatch";
+    selectMatch(v, m);
+    return "advanced";
+  } catch {
+    return "invalid";
+  }
+}
+
+/** «Заменить всё»: rewrite every match in one change set; the count of
+ *  replacements (0 = nothing found) */
+export function replaceAllCmd(p: ReplaceParams): number | "empty" | "invalid" {
+  const v = view;
+  if (!v || !p.search) return "empty";
+  const q = replaceQuery(p);
+  if (!q || !q.valid) return "invalid";
+  const changes: { from: number; to: number; insert: string }[] = [];
+  try {
+    const it = q.getCursor(v.state, 0);
+    for (let m = it.next(); !m.done; m = it.next()) {
+      changes.push({ from: m.value.from, to: m.value.to, insert: replacementFor(p, m.value, v.state.doc) });
+    }
+  } catch {
+    return "invalid";
+  }
+  if (!changes.length) return 0;
+  v.dispatch({ changes, userEvent: "input.replace.all" });
+  return changes.length;
+}
+
 
 /* ============ column (rectangular) selection, alnavi-034 ============
  * FAR-style vertical blocks from the keyboard: Shift+Alt+arrows paint one

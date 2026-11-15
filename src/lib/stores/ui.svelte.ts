@@ -24,6 +24,7 @@ export type DialogId =
   | "ftp"
   | "ftpSite"
   | "search"
+  | "replace"
   | "pack"
   | "unpack"
   | "attrs"

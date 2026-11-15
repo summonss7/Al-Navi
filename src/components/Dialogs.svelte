@@ -19,6 +19,7 @@
   import FtpDialog from "$comp/dialogs/FtpDialog.svelte";
   import FtpSiteDialog from "$comp/dialogs/FtpSiteDialog.svelte";
   import SearchDialog from "$comp/dialogs/SearchDialog.svelte";
+import ReplaceDialog from "$comp/dialogs/ReplaceDialog.svelte";
   import WindowListDialog from "$comp/dialogs/WindowListDialog.svelte";
   import DirHistoryDialog from "$comp/dialogs/DirHistoryDialog.svelte";
   import CmdHistoryDialog from "$comp/dialogs/CmdHistoryDialog.svelte";
@@ -66,6 +67,7 @@
 {#if ui.dialog === "ftp"}<FtpDialog />{/if}
 {#if ui.dialog === "ftpSite"}<FtpSiteDialog />{/if}
 {#if ui.dialog === "search"}<SearchDialog />{/if}
+{#if ui.dialog === "replace"}<ReplaceDialog />{/if}
 {#if ui.dialog === "windowList"}<WindowListDialog />{/if}
 {#if ui.dialog === "dirHistory"}<DirHistoryDialog />{/if}
 {#if ui.dialog === "cmdHistory"}<CmdHistoryDialog />{/if}

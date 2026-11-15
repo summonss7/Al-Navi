@@ -213,6 +213,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     "Shift+F4": "editor.newFile",
     "Ctrl+Shift+F4": "editor.newScratch",
     F7: "editor.search",
+    "Ctrl+F7": "editor.replace",
     F8: "editor.selectEncoding",
     "Shift+F8": "editor.selectEncoding",
     F11: "ui.plugins",

@@ -126,7 +126,7 @@ try {
   await sleep(3500);
   await waitFor(cdp, `!!document.querySelector(".panel, .panels")`, 15000, "app UI");
   const ver = await evalIn(cdp, `document.querySelector(".titlebar .version")?.textContent ?? ""`);
-  check("title bar chip carries v1.14.9", ver.includes("1.14.9"), JSON.stringify(ver));
+  check("title bar chip carries v1.14.10", ver.includes("1.14.10"), JSON.stringify(ver));
 
   // probe: record wheels in the BUBBLE phase (after capture listeners) —
   // defaultPrevented separates "the app cancelled it" (ctrl) from native

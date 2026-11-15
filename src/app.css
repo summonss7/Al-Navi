@@ -496,9 +496,12 @@ kbd {
   line-height: 1;
 }
 
-/* form dialogs (FTP site, search, user-menu item, multi-rename) */
+/* form dialogs (FTP site, search, user-menu item, multi-rename, replace).
+   :not([type=checkbox]) — width:100% must not hit checkbox inputs: it
+   stretched them across the row (the box glyph landed mid-dialog) and the
+   label text after it overflowed/clipped (alnavi-044) */
 .ftp-form { min-width: 360px; }
-.ftp-form input {
+.ftp-form input:not([type="checkbox"]) {
   width: 100%;
   padding: 5px 10px;
   border-radius: 7px;

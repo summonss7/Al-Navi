@@ -450,21 +450,31 @@ export function registerAllCommands() {
   // command line; each further press appends the next entry's name
   registerCommand("cmdline.insertCursorName", () => {
     const p = A();
-    let e = p.current;
-    if (!e || e.name === "..") {
-      e = p.view.find((x) => x.name !== "..") ?? null;
+    const cur = p.current;
+    // ".." is not a real entry: insert the panel's own directory path so the
+    // command line addresses the folder being viewed (Enter opens it), not
+    // whichever entry happens to sort first
+    let name: string | null = null;
+    if (cur && cur.name === "..") {
+      name = p.path;
+    } else {
+      const e = cur ?? p.view.find((x) => x.name !== "..") ?? null;
+      if (e) name = e.name;
     }
-    if (!e) return;
-    // quote names a shell would split (spaces, quotes, cmd metacharacters)
-    const name = /[\s"&^]/.test(e.name) ? `"${e.name}"` : e.name;
+    if (!name) return;
+    // quote names/paths a shell would split (spaces, quotes, cmd metacharacters)
+    const token = /[\s"&^]/.test(name) ? `"${name}"` : name;
     const base = cmdline.text;
-    cmdline.setText((base && !/\s$/.test(base) ? base + " " : base) + name);
+    cmdline.setText((base && !/\s$/.test(base) ? base + " " : base) + token);
     cmdline.histIndex = -1;
-    // advance the panel cursor so repeated presses build a list of names
-    for (let i = p.cursor + 1; i < p.view.length; i++) {
-      if (p.view[i].name !== "..") {
-        p.cursor = i;
-        break;
+    // advance the panel cursor so repeated presses build a list of names;
+    // on ".." (own folder inserted) the cursor stays where it is
+    if (!cur || cur.name !== "..") {
+      for (let i = p.cursor + 1; i < p.view.length; i++) {
+        if (p.view[i].name !== "..") {
+          p.cursor = i;
+          break;
+        }
       }
     }
   });

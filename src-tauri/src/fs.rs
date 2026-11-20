@@ -1,7 +1,9 @@
 use serde::Serialize;
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 use tauri::Emitter;
 
 #[derive(Serialize, Clone)]
@@ -193,33 +195,105 @@ pub async fn list_dir(path: String) -> Result<DirListing, String> {
         .map_err(|e| e.to_string())?
 }
 
-/// Generation for dir_sizes workers: a new call invalidates the previous one,
-/// so fast navigation never piles up zombie walks.
-static DIR_SIZE_GEN: AtomicU64 = AtomicU64::new(0);
+/// Generation counters for dir_sizes workers, one per requesting panel: a new
+/// call for the same panel invalidates that panel's previous walk (fast
+/// navigation never piles up zombie walks) while the other panel's walk runs on.
+static DIR_SIZE_GENS: OnceLock<Mutex<HashMap<String, u64>>> = OnceLock::new();
 
-/// Recursively size each folder and emit a `dirsize` event ({ path, size }) per
-/// result. Runs detached; the command returns immediately.
+fn dir_size_gens() -> &'static Mutex<HashMap<String, u64>> {
+    DIR_SIZE_GENS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn bump_dir_size_gen(tag: &str) -> u64 {
+    let mut gens = dir_size_gens().lock().unwrap();
+    let g = gens.entry(tag.to_string()).or_insert(0);
+    *g += 1;
+    *g
+}
+
+fn dir_size_superseded(tag: &str, gen: u64) -> bool {
+    dir_size_gens().lock().unwrap().get(tag).copied().unwrap_or(0) != gen
+}
+
+/// A single walk visiting more entries than this is a monster tree (a system
+/// store like WinSxS or a whole drive): the minutes of disk churn are not worth
+/// an "≈" size, the folder keeps showing <DIR>. Normal folders are 3-4 orders
+/// of magnitude smaller, so this only fires as a safety valve.
+const MAX_WALK_ENTRIES: u64 = 1_000_000;
+/// Walk results are coalesced into one event per window: a huge directory
+/// (WinSxS has ~12k tiny subfolders) used to fire dirsize events by the
+/// hundred per second, flooding the webview and freezing the UI (alnavi-047).
+const EMIT_EVERY: Duration = Duration::from_millis(100);
+
+fn flush_dir_sizes(app: &tauri::AppHandle, batch: &mut Vec<(String, u64)>) {
+    if batch.is_empty() {
+        return;
+    }
+    let items: Vec<_> = batch
+        .drain(..)
+        .map(|(path, size)| serde_json::json!({ "path": path, "size": size }))
+        .collect();
+    let _ = app.emit("dirsize", serde_json::json!({ "items": items }));
+}
+
+/// Recursively size each folder and emit batched `dirsize` events
+/// ({ items: [{ path, size }] }). Runs detached; the command returns
+/// immediately. `tag` names the requesting panel: a newer call with the same
+/// tag aborts this walk (checked between paths and mid-walk), other tags'
+/// walks are unaffected.
 #[tauri::command]
-pub fn dir_sizes(app: tauri::AppHandle, paths: Vec<String>) {
-    let gen = DIR_SIZE_GEN.fetch_add(1, Ordering::Relaxed) + 1;
+pub fn dir_sizes(app: tauri::AppHandle, paths: Vec<String>, tag: Option<String>) {
+    let tag = tag.unwrap_or_default();
+    let gen = bump_dir_size_gen(&tag);
     tauri::async_runtime::spawn_blocking(move || {
+        let mut batch: Vec<(String, u64)> = Vec::new();
+        let mut last_emit = Instant::now();
         for p in paths {
-            if DIR_SIZE_GEN.load(Ordering::Relaxed) != gen {
-                break; // superseded by a newer request
+            if dir_size_superseded(&tag, gen) {
+                break;
             }
             let pb = PathBuf::from(&p);
             if !pb.is_dir() {
                 continue;
             }
             // sum of plain files, symlinks not followed — an "≈" size, like FAR
-            let size: u64 = walkdir::WalkDir::new(&pb)
-                .into_iter()
-                .filter_map(|e| e.ok())
-                .filter(|e| e.file_type().is_file())
-                .map(|e| e.metadata().map(|m| m.len()).unwrap_or(0))
-                .sum();
-            let _ = app.emit("dirsize", serde_json::json!({ "path": p, "size": size }));
+            let mut size: u64 = 0;
+            let mut visited: u64 = 0;
+            let mut superseded = false;
+            let mut oversized = false;
+            for e in walkdir::WalkDir::new(&pb) {
+                // mid-walk check: without it one monster child (WinSxS itself
+                // listed from C:\Windows) kept walking for minutes after the
+                // user had already navigated away
+                if visited % 4096 == 0 && dir_size_superseded(&tag, gen) {
+                    superseded = true;
+                    break;
+                }
+                let Ok(e) = e else { continue };
+                visited += 1;
+                if visited > MAX_WALK_ENTRIES {
+                    oversized = true;
+                    break;
+                }
+                if e.file_type().is_file() {
+                    size += e.metadata().map(|m| m.len()).unwrap_or(0);
+                }
+            }
+            if superseded {
+                // results so far are still valid — hand them over, then stop
+                flush_dir_sizes(&app, &mut batch);
+                break;
+            }
+            if oversized {
+                continue; // keep <DIR>, other paths go on
+            }
+            batch.push((p, size));
+            if last_emit.elapsed() >= EMIT_EVERY {
+                flush_dir_sizes(&app, &mut batch);
+                last_emit = Instant::now();
+            }
         }
+        flush_dir_sizes(&app, &mut batch);
     });
 }
 

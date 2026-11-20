@@ -1,10 +1,24 @@
-import { describe, expect, it, afterEach } from "vitest";
+import { describe, expect, it, afterEach, vi } from "vitest";
 import { PanelState } from "$lib/stores/panels.svelte";
 import { settings } from "$lib/stores/settings.svelte";
 import type { FileEntry } from "$lib/types";
 
+// capture dir_sizes backend calls: requestDirSizes must cap the auto-walked
+// children (alnavi-047: WinSxS-like dirs with ~12k subfolders froze the app)
+const sizeRequests: { paths: string[]; tag: string }[] = [];
+vi.mock("$lib/api", async (importOriginal) => {
+  const orig = await importOriginal<typeof import("$lib/api")>();
+  return {
+    ...orig,
+    computeDirSizes: (paths: string[], tag: string) => {
+      sizeRequests.push({ paths, tag });
+      return Promise.resolve();
+    },
+  };
+});
+
 // PanelState.raw is private on purpose (fed by load()); tests inject the
-// backend listing directly — rebuild()/applyDirSize() stay fully real
+// backend listing directly — rebuild()/applyDirSizes() stay fully real
 function feed(p: PanelState, entries: FileEntry[]) {
   (p as unknown as { raw: FileEntry[] }).raw = entries;
 }
@@ -66,19 +80,20 @@ describe("size sort uses computed folder sizes (Ctrl+Shift+F6)", () => {
     expect(names(p)).toEqual(["..", "b", "d", "a"]);
   });
 
-  it("applyDirSize re-sorts a size-sorted panel as a walk delivers a value", () => {
+  it("applyDirSizes re-sorts a size-sorted panel as walks deliver values", () => {
     const p = new PanelState("left", "C:\\t");
     feed(p, [entry("f.dat", 50), entry("X", 0, true), entry("Y", 0, true)]);
     p.sortMode = "size";
     p.rebuild(); // dirsFirst keeps folders on top; without sizes X/Y keep listing order
     expect(names(p)).toEqual(["..", "X", "Y", "f.dat"]);
 
-    p.applyDirSize("C:\\t\\Y", 999);
+    // one batched event: both values land with a single map swap
+    p.applyDirSizes([{ path: "C:\\t\\Y", size: 999 }, { path: "C:\\t\\X", size: 5 }]);
     expect(p.dirSizeOf("Y")).toBe(999);
     expect(names(p)).toEqual(["..", "Y", "X", "f.dat"]);
 
     // and ignores sizes of unrelated directories
-    p.applyDirSize("C:\\other\\Z", 12345);
+    p.applyDirSizes([{ path: "C:\\other\\Z", size: 12345 }]);
     expect(names(p)).toEqual(["..", "Y", "X", "f.dat"]);
   });
 
@@ -92,5 +107,17 @@ describe("size sort uses computed folder sizes (Ctrl+Shift+F6)", () => {
     ]);
     p.rebuild();
     expect(names(p)).toEqual(["..", "a", "z"]);
+  });
+});
+
+describe("auto dir-size walks are capped (alnavi-047)", () => {
+  it("a WinSxS-like dir with 300 subfolders requests at most 200 walks, tagged by panel side", () => {
+    const p = new PanelState("right", "C:\\WinSxS-like");
+    feed(p, Array.from({ length: 300 }, (_, i) => entry("d" + String(i).padStart(3, "0"), 0, true)));
+    sizeRequests.length = 0;
+    (p as unknown as { requestDirSizes: (force: boolean) => void }).requestDirSizes(false);
+    expect(sizeRequests.length).toBe(1);
+    expect(sizeRequests[0].paths.length).toBe(200);
+    expect(sizeRequests[0].tag).toBe("right");
   });
 });

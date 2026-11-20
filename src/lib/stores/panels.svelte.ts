@@ -1,4 +1,5 @@
-import { listDir, watchSet, onWatchChanged, onDirSize, computeDirSizes, loadJson, saveJson, homePath, openPath, archiveList } from "$lib/api";
+import { listDir, watchSet, onWatchChanged, onDirSizes, computeDirSizes, loadJson, saveJson, homePath, openPath, archiveList } from "$lib/api";
+import type { DirSizeItem } from "$lib/api";
 import type { FileEntry, SortMode } from "$lib/types";
 import { extOf, joinPath, parentOf, basename, isRootPath, maskToRegExp } from "$lib/format";
 import { remoteAuthority, ftpRootOf, isRemotePath, remoteList, remoteConnect } from "$lib/ftp";
@@ -25,6 +26,11 @@ const UP_ENTRY: FileEntry = { name: UP_NAME, isDir: true, size: 0, mtime: 0, att
 /** a child dir modified this recently is still being written — its size would
  *  be wrong anyway, so no walk is started (it would be invalidated at once) */
 const DIR_JUST_MODIFIED_MS = 5000;
+/** cap on automatically walked child sizes per loaded dir: a WinSxS-like
+ *  directory has ~12k subfolders — walking them all hammers the disk for
+ *  minutes and floods the panel with size updates (alnavi-047); like FAR,
+ *  everything past the cap just keeps showing <DIR> */
+const MAX_AUTO_DIR_SIZES = 200;
 /** left-panel share of the panels row: bounds keep either panel usable,
  *  one Ctrl+arrow press slides the split by STEP (auto-repeat sweeps fast) */
 const SPLIT_MIN = 0.2;
@@ -274,8 +280,8 @@ export class PanelState {
    * Show cached folder sizes instantly, then recompute stale ones in background.
    * A child dir whose own mtime is newer than its cached entry (direct content
    * changed) is recomputed too — unless it was modified moments ago, which
-   * means it is still being written. Results arrive via `dirsize` events and
-   * land in applyDirSize().
+   * means it is still being written. Results arrive via batched `dirsize`
+   * events and land in applyDirSizes().
    */
   private requestDirSizes(force: boolean) {
     // remote roots and archives: no cheap recursive sizes — skip (dirs show no size)
@@ -302,17 +308,23 @@ export class PanelState {
     // cached sizes arrived after load()'s rebuild already sorted the view —
     // a size-sorted panel must reorder by them right away
     if (this.sortMode === "size" && next.size) this.rebuild();
-    if (stale.length) computeDirSizes(stale).catch(() => {});
+    if (stale.length) computeDirSizes(stale.slice(0, MAX_AUTO_DIR_SIZES), this.side).catch(() => {});
   }
 
-  /** apply a background-computed size if it belongs to a child of the current dir */
-  applyDirSize(path: string, size: number) {
-    const parent = parentOf(path);
-    if (!parent || parent.toLowerCase() !== this.path.toLowerCase()) return;
+  /** apply one event batch of background-computed sizes: one map swap and at
+   *  most one re-sort per batch, never per value (event bursts used to
+   *  saturate the UI in huge directories, alnavi-047) */
+  applyDirSizes(items: DirSizeItem[]) {
+    const here = this.path.toLowerCase();
+    const mine = items.filter((it) => {
+      const parent = parentOf(it.path);
+      return !!parent && parent.toLowerCase() === here;
+    });
+    if (!mine.length) return;
     const next = new Map(this.dirSizes);
-    next.set(path, size);
+    for (const it of mine) next.set(it.path, it.size);
     this.dirSizes = next;
-    // the walk delivered a folder size — a size-sorted view falls in line
+    // the walks delivered folder sizes — a size-sorted view falls in line
     if (this.sortMode === "size") this.rebuild();
   }
 
@@ -714,10 +726,10 @@ class PanelsStore {
         if (norm.startsWith(pp)) p.scheduleReload();
       }
     }).catch(console.error);
-    onDirSize(({ path, size }) => {
-      dirSizeCache.put(path, size);
-      this.left.applyDirSize(path, size);
-      this.right.applyDirSize(path, size);
+    onDirSizes((items) => {
+      for (const it of items) dirSizeCache.put(it.path, it.size);
+      this.left.applyDirSizes(items);
+      this.right.applyDirSizes(items);
     }).catch(console.error);
   }
 

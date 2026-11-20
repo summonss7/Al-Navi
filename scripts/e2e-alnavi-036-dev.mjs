@@ -125,7 +125,7 @@ async function bootstrap(cdp) {
       window.__emitDirSize = (path, size) => {
         const id = window.__listeners["dirsize"];
         if (!id || !window.__cbs[id]) throw new Error("no dirsize listener registered");
-        window.__cbs[id]({ event: "dirsize", id, payload: { path, size } });
+        window.__cbs[id]({ event: "dirsize", id, payload: { items: [{ path, size }] } });
       };
       const imp = new Function("u", "return import(u)");
       const { panels } = await imp("${ORIGIN}/src/lib/stores/panels.svelte.ts");

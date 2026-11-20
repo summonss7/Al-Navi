@@ -13,7 +13,7 @@ import type {
 
 // ---- FS ----
 export const listDir = (path: string) => invoke<DirListing>("list_dir", { path });
-export const computeDirSizes = (paths: string[]) => invoke<void>("dir_sizes", { paths });
+export const computeDirSizes = (paths: string[], tag: string) => invoke<void>("dir_sizes", { paths, tag });
 export const freeSpace = (path: string) => invoke<[number, number]>("free_space", { path });
 export const mkdir = (path: string) => invoke<void>("mkdir", { path });
 /** Ctrl+A: `null` bit = leave unchanged (FAR's tri-state checkboxes) */
@@ -158,8 +158,9 @@ export const onOpConflict = (cb: (c: ConflictInfo) => void): Promise<UnlistenFn>
   listen<ConflictInfo>("op:conflict", (e) => cb(e.payload));
 export const onWatchChanged = (cb: (path: string) => void): Promise<UnlistenFn> =>
   listen<{ path: string }>("watch:changed", (e) => cb(e.payload.path));
-export const onDirSize = (cb: (p: { path: string; size: number }) => void): Promise<UnlistenFn> =>
-  listen<{ path: string; size: number }>("dirsize", (e) => cb(e.payload));
+export interface DirSizeItem { path: string; size: number }
+export const onDirSizes = (cb: (items: DirSizeItem[]) => void): Promise<UnlistenFn> =>
+  listen<{ items: DirSizeItem[] }>("dirsize", (e) => cb(e.payload.items));
 export const onSearchHit = (cb: (e: SearchHitsEvent) => void): Promise<UnlistenFn> =>
   listen<SearchHitsEvent>("search:hit", (e) => cb(e.payload));
 export const onSearchDone = (cb: (e: SearchDoneEvent) => void): Promise<UnlistenFn> =>

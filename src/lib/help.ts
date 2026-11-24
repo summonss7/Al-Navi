@@ -67,6 +67,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       { chord: "Alt+F6", key: "help.ops.unpack" },
       { chord: "Alt+F7", key: "help.ops.find" },
       { chord: "Ctrl+R", key: "help.ops.refresh" },
+      { chord: "Alt+F3", key: "help.ops.rescanSize" },
       { chord: "Ctrl+L", key: "help.ops.driveInfo" },
     ],
   },

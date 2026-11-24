@@ -64,6 +64,13 @@ export function registerAllCommands() {
   registerCommand("panel.up", () => void A().up());
   registerCommand("panel.root", () => void A().root());
   registerCommand("panel.refresh", () => A().refresh());
+  // Alt+F3: re-read the occupied size of the folder under the cursor (".." —
+  // of the folder being viewed); unlike Ctrl+R the listing is not reloaded
+  registerCommand("panel.rescanSize", () => {
+    const target = A().rescanCurrentSize();
+    if (target) ui.showToast(`${i18n.t("panel.rescanSize")} ${basename(target)}`);
+    else ui.showToast(i18n.t("panel.rescanSizeLocal"));
+  });
   // Ctrl+L: FAR-style info about the volume under the panel cursor
   registerCommand("panel.driveInfo", () => ui.openDialog("driveInfo"));
   registerCommand("panel.toggleHidden", () => {

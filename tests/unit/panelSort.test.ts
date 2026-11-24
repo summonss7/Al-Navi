@@ -121,3 +121,35 @@ describe("auto dir-size walks are capped (alnavi-047)", () => {
     expect(sizeRequests[0].tag).toBe("right");
   });
 });
+
+describe("manual size rescan under the cursor (Alt+F3, alnavi-048)", () => {
+  it("re-walks only the cursor folder, with a :manual tag that leaves the panel's auto walks alone", () => {
+    const p = new PanelState("left", "C:\\t");
+    feed(p, [entry("A", 0, true), entry("file.txt", 5)]);
+    p.rebuild();
+    p.cursor = p.view.findIndex((e) => e.name === "A");
+    sizeRequests.length = 0;
+    expect(p.rescanCurrentSize()).toBe("C:\\t\\A");
+    expect(sizeRequests).toEqual([{ paths: ["C:\\t\\A"], tag: "left:manual" }]);
+  });
+
+  it("on \"..\" the target is the folder being viewed itself", () => {
+    const p = new PanelState("right", "C:\\viewed");
+    feed(p, [entry("A", 0, true)]);
+    p.rebuild();
+    p.cursor = 0; // the synthetic ".." row
+    sizeRequests.length = 0;
+    expect(p.rescanCurrentSize()).toBe("C:\\viewed");
+    expect(sizeRequests).toEqual([{ paths: ["C:\\viewed"], tag: "right:manual" }]);
+  });
+
+  it("a file under the cursor is not walked — its size is already exact", () => {
+    const p = new PanelState("left", "C:\\t");
+    feed(p, [entry("file.txt", 5)]);
+    p.rebuild();
+    p.cursor = p.view.findIndex((e) => e.name === "file.txt");
+    sizeRequests.length = 0;
+    expect(p.rescanCurrentSize()).toBeNull();
+    expect(sizeRequests).toEqual([]);
+  });
+});

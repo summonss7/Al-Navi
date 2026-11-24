@@ -130,6 +130,7 @@ export const defaultKeymap: Record<KeyContext, Record<string, string>> = {
     Backspace: "panel.up",
     "Ctrl+\\": "panel.root",
     "Ctrl+R": "panel.refresh",
+    "Alt+F3": "panel.rescanSize",
     "Ctrl+L": "panel.driveInfo",
     "Ctrl+.": "panel.toggleHidden",
     Insert: "panel.selectCursor",

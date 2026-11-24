@@ -154,7 +154,7 @@ try {
     })()
   `);
   check("8 sections render as cards", layout.sections === 8, `sections=${layout.sections}`);
-  check("99 rows total (+font zoom, +SFTP key, +column sel, +encoding F8, +Ctrl+X history, +Ctrl+F7 replace)", layout.rows === 99, `rows=${layout.rows}`);
+  check("100 rows total (+font zoom, +SFTP key, +column sel, +encoding F8, +Ctrl+X history, +Ctrl+F7 replace, +Alt+F3 rescan)", layout.rows === 100, `rows=${layout.rows}`);
   check("masonry: two balanced columns", layout.columnCount === "2", `columnCount=${layout.columnCount}`);
   check("cards have a background and rounded corners", layout.cardBg !== "rgba(0, 0, 0, 0)" && parseFloat(layout.cardRadius) > 0,
     `bg=${layout.cardBg} radius=${layout.cardRadius}`);

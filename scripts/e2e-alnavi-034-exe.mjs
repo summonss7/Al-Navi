@@ -23,7 +23,7 @@ if (!existsSync(EXE)) {
   console.error(`exe not found: ${EXE}`);
   process.exit(1);
 }
-const VERSION_PIN = "1.14.12";
+const VERSION_PIN = "1.14.13";
 const CFG = join(process.env.APPDATA, "al-navi");
 const CDP_PORT = 9271;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -229,7 +229,7 @@ try {
     const hit = rows.find((x) => (x.querySelector("kbd")?.textContent ?? "").includes("Shift+Alt+"));
     return { found: !!hit, kbd: hit?.querySelector("kbd")?.textContent ?? "", rows: rows.length };
   })()`);
-  check("14. help carries the Shift+Alt column rows (99 rows)", help.found && help.rows === 99 && /Shift\+Alt/.test(help.kbd), `rows=${help.rows} kbd=${JSON.stringify(help.kbd)}`);
+  check("14. help carries the Shift+Alt column rows (100 rows)", help.found && help.rows === 100 && /Shift\+Alt/.test(help.kbd), `rows=${help.rows} kbd=${JSON.stringify(help.kbd)}`);
   await key(cdp, "Escape");
 
   const failed = results.filter(r => !r.ok);

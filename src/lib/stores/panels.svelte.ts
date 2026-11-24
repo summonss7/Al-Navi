@@ -339,6 +339,22 @@ export class PanelState {
     return this.dirSizes.get(joinPath(this.path, e.name)) ?? e.size;
   }
 
+  /** Alt+F3: re-walk the folder under the cursor and refresh its "≈" size,
+   *  regardless of cache freshness (Ctrl+R only reloads the listing). On ".."
+   *  the target is the folder being viewed itself. A ":manual" tag keeps the
+   *  panel's background auto-walks alive: only a newer manual walk supersedes
+   *  an older one. Returns the target path, or null when the cursor is not
+   *  on a local folder (a file's size is already exact; archives/FTP have
+   *  no recursive sizes). */
+  rescanCurrentSize(): string | null {
+    if (isRemotePath(this.path) || isArchivePath(this.path)) return null;
+    const cur = this.current;
+    if (!cur || !cur.isDir) return null;
+    const target = cur.name === UP_NAME ? this.path : (cur.fullPath ?? joinPath(this.path, cur.name));
+    computeDirSizes([target], `${this.side}:manual`).catch(() => {});
+    return target;
+  }
+
   // ---------- navigation ----------
 
   async chdir(path: string) {

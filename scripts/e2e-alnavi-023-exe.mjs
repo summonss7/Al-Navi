@@ -5,7 +5,7 @@
 // backed up and restored.
 // Usage: node scripts/e2e-alnavi-023-exe.mjs [path-to-Al-Navi.exe]
 import { spawn } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, readdirSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -101,6 +101,7 @@ const snap = `(() => {
   };
 })()`;
 
+let work = null; // seeded dir — cleaned in finally
 try {
   const profile = mkdtempSync(join(tmpdir(), "alnavi-023-exe-"));
   const child = spawn(EXE, [], {
@@ -131,7 +132,20 @@ try {
   // the cmdline input owning the caret is BY DESIGN (FAR model) — panel keys
   // still route through the global capture handler
 
-  // the restored cursor may sit on ".." (targetEntries empty → F8 no-ops):
+  // seed a known directory: the suite must not depend on whatever dir the
+  // restored real session points at (it can be empty — then ".." is the
+  // only row and the cursor/F8 checks below misfire)
+  work = mkdtempSync(join(tmpdir(), "alnavi-023-seed-"));
+  const { writeFileSync } = await import("node:fs");
+  writeFileSync(join(work, "a-023.txt"), "x");
+  writeFileSync(join(work, "b-023.txt"), "y");
+  await evalIn(cdp, `document.querySelector(".cmdline input").focus(); true`);
+  await cdp.send("Input.insertText", { text: `cd "${work}"` });
+  await cdp.send("Input.dispatchKeyEvent", { key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r", type: "keyDown" });
+  await cdp.send("Input.dispatchKeyEvent", { key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, type: "keyUp" });
+  await waitFor(cdp, `[...document.querySelectorAll(".panel .row, .panel .li")].some((r) => r.textContent.includes("a-023.txt")) ? true : null`, 8000, "seeded dir listed");
+
+  // the cursor may sit on ".." (targetEntries empty → F8 no-ops):
   // step one row down onto a real entry, like a user would
   await key(cdp, "ArrowDown");
   const cur = await evalIn(cdp, `(() => { const rows = document.querySelectorAll(".panel .row, .panel .li"); const idx = [...rows].findIndex((r) => r.classList.contains("cursor") || r.getAttribute("aria-selected") === "true"); return { idx, total: rows.length, label: rows[idx]?.textContent?.slice(0, 40) ?? null }; })()`);
@@ -181,5 +195,6 @@ try {
   try { spawn("taskkill", ["/IM", "Al-Navi.exe", "/F"], { stdio: "ignore" }); } catch {}
   await sleep(1200);
   restoreCfg();
+  try { rmSync(work, { recursive: true, force: true }); } catch { /* best effort */ }
   process.exit(fails ? 1 : 0);
 }

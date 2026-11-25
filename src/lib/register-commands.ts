@@ -30,6 +30,7 @@ import { ftpSites } from "$lib/stores/ftpSites.svelte";
 import { isSearchPath, searchStore } from "$lib/stores/search.svelte";
 import { update } from "$lib/stores/update.svelte";
 import { openEncodingDialog, encActionStepBack } from "$comp/dialogs/listNav.svelte";
+import { applyRenameTemplate } from "$lib/rename-template";
 import type { FileEntry } from "$lib/types";
 
 /** real path of a panel entry — search results carry their own full path,
@@ -178,8 +179,12 @@ export function registerAllCommands() {
     const oldName = basename(oldPath);
     const dir = parentOf(oldPath) ?? p.path;
     const nn = await ui.askInput(i18n.t("rename.title"), i18n.t("rename.prompt"), oldName);
-    if (!nn || nn === oldName) return;
-    const newPath = joinPath(dir, nn);
+    if (!nn) return;
+    // FAR rename template: "*" and "?" in the typed name borrow characters
+    // from the current name — "*.bak" keeps the stem, "new.*" keeps the ext
+    const newName = applyRenameTemplate(oldName, nn);
+    if (!newName || newName === oldName) return;
+    const newPath = joinPath(dir, newName);
     try {
       if (isRemotePath(oldPath)) {
         // rename only works within one server — a hand-typed foreign
@@ -695,8 +700,16 @@ async function startTransfer(kind: "copy" | "move", currentOnly = false) {
   if (!answer) return;
   // a bare name typed on the find list renames in the file's own directory
   const resolveCwd = isSearchPath(p.path) ? parentOf(paths[0]) ?? destBase : p.path;
-  const target = resolveTransferTarget(answer.trim(), resolveCwd);
+  let target = resolveTransferTarget(answer.trim(), resolveCwd);
   if (!target) return;
+  // FAR rename template: for one file the typed target name may borrow
+  // "*" and "?" characters from the source name ("new.*", "*.bak", "?2.*")
+  if (entries.length === 1 && !entries[0].isDir && !/[\\/]$/.test(target)) {
+    const sep = Math.max(target.lastIndexOf("\\"), target.lastIndexOf("/"));
+    const typedName = target.slice(sep + 1);
+    const name = applyRenameTemplate(firstRealName, typedName);
+    if (name !== typedName) target = target.slice(0, sep + 1) + name;
+  }
   // unchanged Shift+Enter target = the item itself: a no-op for files, and
   // for dirs an existing-dir target would mean "into itself" (recursion)
   if (resetTo && stripTrailingSep(target) === stripTrailingSep(paths[0])) return;
@@ -706,7 +719,9 @@ async function startTransfer(kind: "copy" | "move", currentOnly = false) {
     ui.showError(i18n.t("ftp.notConnected"));
     return;
   }
-  rememberTransferTarget(answer.trim());
+  // a wildcard target stays a template, not a history path — ↑/↓ variants
+  // are concrete destinations
+  if (!/[*?]/.test(answer)) rememberTransferTarget(answer.trim());
   if (kind === "copy") void ops.startCopy(paths, target);
   else void ops.startMove(paths, target);
 }

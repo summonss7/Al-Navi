@@ -7,7 +7,7 @@
 // The app's real config (%APPDATA%\al-navi) is backed up and restored.
 // Usage: node scripts/e2e-alnavi-024-exe.mjs [path-to-Al-Navi.exe]
 import { spawn } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, readdirSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -115,6 +115,7 @@ const setSel = (s, e) => evalIn(cdp0, `
   (() => { const i = document.querySelector(".cmdline input"); i.setSelectionRange(${s}, ${e}); return true; })()
 `);
 let cdp0 = null;
+let work = null; // seeded dir — cleaned in finally
 
 try {
   const profile = mkdtempSync(join(tmpdir(), "alnavi-024-exe-"));
@@ -140,6 +141,22 @@ try {
   // window spawned in the background may have missed the startup focus dance)
   const p = await evalIn(cdp, `(() => { const el = document.querySelector(".panel"); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`);
   if (p) await clickAt(cdp, p.x, p.y);
+
+  // seed a known directory first: the ArrowDown-with-text check below needs
+  // ≥2 rows, and the restored real-session dir may be empty (suite must not
+  // depend on whatever dir the real config points at). The cd itself is the
+  // only executed command — the typed test text is never run.
+  work = mkdtempSync(join(tmpdir(), "alnavi-024-seed-"));
+  const { writeFileSync } = await import("node:fs");
+  writeFileSync(join(work, "a-024.txt"), "x");
+  writeFileSync(join(work, "b-024.txt"), "y");
+  await cdp.send("Input.insertText", { text: `cd "${work}"` });
+  await cdp.send("Input.dispatchKeyEvent", { key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r", type: "keyDown" });
+  await cdp.send("Input.dispatchKeyEvent", { key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, type: "keyUp" });
+  await waitFor(cdp, `[...document.querySelectorAll(".panel .row, .panel .li")].some((r) => r.textContent.includes("a-024.txt")) ? true : null`, 8000, "seeded dir listed");
+  await cdp.send("Input.dispatchKeyEvent", { key: "Home", code: "Home", windowsVirtualKeyCode: 36, type: "keyDown" });
+  await cdp.send("Input.dispatchKeyEvent", { key: "Home", code: "Home", windowsVirtualKeyCode: 36, type: "keyUp" });
+  await sleep(300);
 
   // the cmdline owns the caret by design — focus it and type like a user
   await evalIn(cdp, `document.querySelector(".cmdline input").focus(); true`);
@@ -220,5 +237,6 @@ try {
   try { spawn("taskkill", ["/IM", "Al-Navi.exe", "/F"], { stdio: "ignore" }); } catch {}
   await sleep(1200);
   restoreCfg();
+  try { rmSync(work, { recursive: true, force: true }); } catch { /* best effort */ }
   process.exit(fails ? 1 : 0);
 }

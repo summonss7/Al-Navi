@@ -80,6 +80,7 @@ const CASES = [
   { id: "ar", label: "العربية", view: "عرض", fc: "الأقنعة: الرمزان", mr: "إعادة تسمية متعددة", dir: "rtl" },
 ];
 
+let work = null; // seeded dir — cleaned in finally
 try {
   const profile = mkdtempSync(join(tmpdir(), "alnavi-i18n-exe-"));
   const child = spawn(EXE, [], {
@@ -98,6 +99,23 @@ try {
   const cdp = connect(wsUrl);
   await cdp.ready;
   await sleep(2000);
+
+  // seed a known directory: the Ctrl+M check below needs a real file under
+  // the cursor — the restored real-session dir may be empty, and the suite
+  // must not depend on whatever dir the real config points at
+  work = mkdtempSync(join(tmpdir(), "alnavi-i18n-seed-"));
+  const { writeFileSync } = await import("node:fs");
+  writeFileSync(join(work, "seed-i18n.txt"), "x");
+  await evalIn(cdp, `document.querySelector(".cmdline input").focus(); true`);
+  await cdp.send("Input.insertText", { text: `cd "${work}"` });
+  await cdp.send("Input.dispatchKeyEvent", { key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r", type: "keyDown" });
+  await cdp.send("Input.dispatchKeyEvent", { key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, type: "keyUp" });
+  await waitFor(cdp, `[...document.querySelectorAll(".panel .row, .panel .li")].some((r) => r.textContent.includes("seed-i18n.txt")) ? true : null`, 8000, "seeded dir listed");
+  await cdp.send("Input.dispatchKeyEvent", { key: "Home", code: "Home", windowsVirtualKeyCode: 36, type: "keyDown" });
+  await cdp.send("Input.dispatchKeyEvent", { key: "Home", code: "Home", windowsVirtualKeyCode: 36, type: "keyUp" });
+  await cdp.send("Input.dispatchKeyEvent", { key: "ArrowDown", code: "ArrowDown", windowsVirtualKeyCode: 40, type: "keyDown" });
+  await cdp.send("Input.dispatchKeyEvent", { key: "ArrowDown", code: "ArrowDown", windowsVirtualKeyCode: 40, type: "keyUp" });
+  await sleep(400);
 
   for (const C of CASES) {
     // F9 menu -> click the language button (real user path)
@@ -177,6 +195,7 @@ try {
   try { rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 }); } catch { /* temp dir, OS cleans it */ }
 } finally {
   restoreCfg();
+  try { rmSync(work, { recursive: true, force: true }); } catch { /* best effort */ }
 }
 
 const failed = results.filter((r) => !r.ok).length;

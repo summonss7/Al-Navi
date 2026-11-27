@@ -266,7 +266,7 @@ impl Ctx {
         if self.skip_all {
             return "skip".into();
         }
-        let (tx, rx) = oneshot::channel::<String>();
+        let (tx, mut rx) = oneshot::channel::<String>();
         *self.h.conflict_tx.lock().unwrap() = Some(tx);
         let _ = self.app.emit(
             "op:conflict",
@@ -277,19 +277,32 @@ impl Ctx {
                 is_dir,
             },
         );
-        match rx.blocking_recv() {
-            Ok(a) => match a.as_str() {
-                "overwrite_all" => {
-                    self.overwrite_all = true;
-                    "overwrite".into()
+        // the answer may never come (a lost event must not wedge the op
+        // forever), so poll the cancel flag while waiting: "Отмена" in the
+        // progress dialog unblocks a stuck transfer (alnavi-050)
+        loop {
+            if self.h.cancel.load(Ordering::Relaxed) {
+                self.cancelled = true;
+                return "skip".into();
+            }
+            match rx.try_recv() {
+                Ok(a) => {
+                    return match a.as_str() {
+                        "overwrite_all" => {
+                            self.overwrite_all = true;
+                            "overwrite".into()
+                        }
+                        "skip_all" => {
+                            self.skip_all = true;
+                            "skip".into()
+                        }
+                        other => other.to_string(),
+                    }
                 }
-                "skip_all" => {
-                    self.skip_all = true;
-                    "skip".into()
-                }
-                other => other.to_string(),
-            },
-            Err(_) => "skip".into(),
+                Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {}
+                Err(_) => return "skip".into(),
+            }
+            std::thread::sleep(Duration::from_millis(50));
         }
     }
 }
@@ -565,7 +578,11 @@ fn transfer_one(src: &Path, dst: &Path, ctx: &mut Ctx, move_mode: bool) -> std::
             }
         }
     } else {
-        copy_one_file(src, &dst, ctx)?;
+        // the conflict for this (src, dst) was already asked and answered at
+        // the top of transfer_one — honor it directly. copy_one_file would
+        // ask a SECOND time (dst still exists), reopening the dialog right
+        // after the user answered it (alnavi-050)
+        copy_one_file_no_conflict(src, &dst, ctx)?;
     }
     Ok(())
 }

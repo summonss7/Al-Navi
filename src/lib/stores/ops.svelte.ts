@@ -67,7 +67,14 @@ class OpsStore {
   conflict = $state<ConflictInfo | null>(null);
 
   private onConflict(c: ConflictInfo) {
-    if (!this.op || this.op.id !== c.id) return;
+    // the conflict event can beat the invoke that returns the op id — a
+    // copy onto an existing name asks almost instantly, so the dialog
+    // request arrives while this.op still holds the -1 placeholder. Accept
+    // it (like onProgress) and adopt the real id from the event, otherwise
+    // the request is dropped and the Rust side blocks on its answer forever
+    // (alnavi-050: copy/move onto an existing name froze the app).
+    if (!this.op || (this.op.id !== c.id && this.op.id !== -1)) return;
+    if (this.op.id === -1) this.op.id = c.id;
     this.conflict = c;
     ui.openDialog("conflict");
   }

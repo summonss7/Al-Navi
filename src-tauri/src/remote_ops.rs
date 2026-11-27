@@ -44,6 +44,7 @@ use suppaftp::FtpError;
 use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::oneshot;
+use tokio::sync::oneshot::error::TryRecvError;
 use walkdir::WalkDir;
 
 const CHUNK: usize = 64 * 1024;
@@ -161,7 +162,7 @@ impl ACtx {
         if self.inner.skip_all {
             return "skip".into();
         }
-        let (tx, rx) = oneshot::channel::<String>();
+        let (tx, mut rx) = oneshot::channel::<String>();
         *self.inner.h.conflict_tx.lock().unwrap() = Some(tx);
         let _ = self.inner.app.emit(
             "op:conflict",
@@ -172,19 +173,31 @@ impl ACtx {
                 is_dir,
             },
         );
-        match rx.await {
-            Ok(a) => match a.as_str() {
-                "overwrite_all" => {
-                    self.inner.overwrite_all = true;
-                    "overwrite".into()
+        // same guard as the sync engine: poll cancel while waiting so a lost
+        // dialog request cannot wedge the transfer forever (alnavi-050)
+        loop {
+            if self.inner.h.cancel.load(Ordering::Relaxed) {
+                self.inner.cancelled = true;
+                return "skip".into();
+            }
+            match rx.try_recv() {
+                Ok(a) => {
+                    return match a.as_str() {
+                        "overwrite_all" => {
+                            self.inner.overwrite_all = true;
+                            "overwrite".into()
+                        }
+                        "skip_all" => {
+                            self.inner.skip_all = true;
+                            "skip".into()
+                        }
+                        other => other.to_string(),
+                    }
                 }
-                "skip_all" => {
-                    self.inner.skip_all = true;
-                    "skip".into()
-                }
-                other => other.to_string(),
-            },
-            Err(_) => "skip".into(),
+                Err(TryRecvError::Empty) => {}
+                Err(_) => return "skip".into(),
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
         }
     }
 }
